@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16181c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="運行情報">
+<title>運行情報 | Service Information</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="bar-left">
+    <h1 class="title" data-i18n="title"></h1>
+    <nav class="tabs" id="companyTabs" aria-label="鉄道会社"></nav>
+    <button class="btn-search" id="btnSearch">
+      <span class="material-symbols-outlined">search</span><span class="lbl" data-i18n="search"></span>
+    </button>
+  </div>
+  <div class="bar-right">
+    <span class="demo-chip" id="demoChip" hidden>DEMO</span>
+    <span class="lamp" id="lamp" title="稼働中"></span>
+    <time class="clock" id="clock">--:--:--</time>
+    <button class="icon-btn" id="btnRefresh" aria-label="更新"><span class="material-symbols-outlined">refresh</span></button>
+    <button class="icon-btn" id="btnSettings" aria-label="設定"><span class="material-symbols-outlined">settings</span></button>
+  </div>
+</header>
+
+<main class="stage" id="stage">
+  <div class="map" id="map"></div>
+  <div class="legend" id="legend"></div>
+  <div class="zoom">
+    <button class="icon-btn" id="zoomIn" aria-label="拡大"><span class="material-symbols-outlined">add</span></button>
+    <button class="icon-btn" id="zoomOut" aria-label="縮小"><span class="material-symbols-outlined">remove</span></button>
+    <button class="icon-btn" id="zoomReset" aria-label="リセット"><span class="material-symbols-outlined">center_focus_strong</span></button>
+  </div>
+</main>
+
+<!-- 設定モーダル -->
+<div class="modal" id="modalSettings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2 data-i18n="settings"></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <label class="row"><span data-i18n="bilingual"></span>
+      <input type="checkbox" class="switch" id="optBilingual"></label>
+    <label class="row"><span data-i18n="demo"></span>
+      <input type="checkbox" class="switch" id="optDemo"></label>
+  </div>
+</div>
+
+<!-- 路線検索モーダル -->
+<div class="modal" id="modalSearch" hidden>
+  <div class="sheet sheet-search" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2 data-i18n="search"></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="searchbar">
+      <span class="material-symbols-outlined">search</span>
+      <input type="text" id="searchInput" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      <button class="clear" id="searchClear" aria-label="クリア" hidden><span class="material-symbols-outlined">cancel</span></button>
+    </div>
+    <div class="search-meta" id="searchMeta"></div>
+    <div class="list" id="searchList"></div>
+  </div>
+</div>
+
+<!-- E235系 異常時案内風 詳細ポップアップ -->
+<div class="modal" id="modalDetail" hidden>
+  <div class="bezel" role="dialog" aria-modal="true">
+    <button class="bezel-close" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

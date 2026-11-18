@@ -1,0 +1,15 @@
+{
+  "name": "関東鉄道運行情報 LCD",
+  "short_name": "運行情報",
+  "description": "JR東日本E235系の車内LCD風・関東鉄道運行情報",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16181c",
+  "theme_color": "#16181c",
+  "lang": "ja",
+  "icons": [
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

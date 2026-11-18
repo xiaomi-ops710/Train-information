@@ -1,0 +1,163 @@
+:root{
+  --delay:#ffd23a; --suspend:#ff3030; --ok:#2fbf5b; --orange:#f08300;
+  --paper:#f4f5f8; --ink:#eef1fa; --line-blue:#2f6df0;
+  --metal:linear-gradient(180deg,#2c3036 0%,#16181c 55%,#0c0d10 100%);
+  --bar-h:72px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:#0c0d10;color:var(--ink);
+  font-family:'Noto Sans JP','Roboto',sans-serif;-webkit-user-select:none;user-select:none}
+/* 上端の余白はヘッダー側で確保（ステータスバーの裏までヘッダーのメタリック背景を伸ばす） */
+body{display:flex;flex-direction:column;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+small.en{font-family:Roboto,sans-serif;font-weight:500}
+
+/* すべて塗りつぶし(Filled)アイコン */
+.material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;font-size:28px;line-height:1}
+
+/* ---------- ヘッダー（ダークメタリック） ---------- */
+.bar{position:relative;height:calc(var(--bar-h) + env(safe-area-inset-top));flex:none;display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding:env(safe-area-inset-top) 20px 0;background:var(--metal);z-index:5;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.8),0 3px 12px rgba(0,0,0,.55)}
+.bar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:linear-gradient(90deg,#0f3d91,#5b93ff 50%,#0f3d91);box-shadow:0 0 12px rgba(91,147,255,.65)}
+.bar-left,.bar-right{display:flex;align-items:center;gap:14px;min-width:0}
+.title{margin:0;font-size:22px;font-weight:900;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 0 #000}
+.title .en{font:500 15px Roboto,sans-serif;opacity:.7;margin-left:.5em}
+.tabs{display:flex;gap:6px}
+.tab{border:1px solid #4a4f58;border-radius:6px;color:var(--ink);padding:7px 13px;cursor:pointer;
+  background:linear-gradient(180deg,#3a3e46,#1d2025);font:700 15px/1.1 'Noto Sans JP',sans-serif;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}
+.tab small{font-size:10px;line-height:1;opacity:.65}
+.tab[aria-pressed="true"]{background:linear-gradient(180deg,#fff,#d9dde6);color:#0c0d10;border-color:#fff}
+.btn-search{display:flex;align-items:center;gap:6px;border:2px solid #fff;border-radius:999px;background:transparent;color:#fff;
+  padding:6px 16px 6px 10px;font:700 15px 'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap}
+.btn-search .lbl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.1}
+.btn-search small{font-size:10px;opacity:.7}
+
+.clock{font:500 34px/1 Roboto,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em;min-width:5.3em;text-align:right;text-shadow:0 0 8px rgba(255,255,255,.25)}
+.lamp{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#b6ffcf,var(--ok) 55%,#0d6a2c);
+  box-shadow:0 0 6px var(--ok),0 0 14px var(--ok);animation:lamp 2.4s ease-in-out infinite;flex:none}
+.lamp.err{background:radial-gradient(circle at 35% 30%,#ffc0c0,var(--suspend) 55%,#7a0c0c);box-shadow:0 0 6px var(--suspend),0 0 14px var(--suspend)}
+@keyframes lamp{50%{opacity:.55}}
+.demo-chip{font:700 11px Roboto,sans-serif;letter-spacing:.12em;color:#111;background:var(--delay);padding:3px 7px;border-radius:4px}
+.demo-chip[hidden]{display:none}
+
+.icon-btn{width:48px;height:48px;border:1px solid #4a4f58;border-radius:50%;color:#fff;display:grid;place-items:center;cursor:pointer;
+  background:linear-gradient(180deg,#3a3e46,#1d2025);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+.icon-btn:active{background:#4a5160}
+.icon-btn.spin .material-symbols-outlined{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-offset:2px}
+
+/* ---------- 路線図 ---------- */
+.stage{position:relative;flex:1;overflow:hidden;background:var(--paper);touch-action:none}
+.map{position:absolute;inset:0;transform-origin:0 0;will-change:transform;display:grid;place-items:center}
+.map svg{width:100%;height:100%;display:block}
+.map svg *{pointer-events:none}
+.map svg .hit{pointer-events:stroke}
+.map svg text{font-family:'Noto Sans JP','Roboto',sans-serif!important;font-weight:700}
+.map svg [data-line]{transition:opacity .3s}
+.map svg [data-line].dim{opacity:.13}
+.map svg .fx{display:none}
+.zoom{position:absolute;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:3}
+.zoom .icon-btn{width:56px;height:56px;box-shadow:0 3px 10px #0008}
+.legend{position:absolute;left:16px;bottom:16px;display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
+  background:var(--metal);color:#fff;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0008,inset 0 1px 0 rgba(255,255,255,.18)}
+.legend i{display:inline-block;width:24px;height:6px;border-radius:3px;margin-right:7px;vertical-align:middle;box-shadow:0 0 8px currentColor}
+.legend small{margin-left:5px;font-size:10px;opacity:.7}
+
+/* 異常路線：多重ネオングロー＋明滅（SVG内は複数レイヤーの重ね描きでグローを再現） */
+.map svg [data-line].status-delay{color:var(--delay)}
+.map svg [data-line].status-suspend{color:var(--suspend)}
+.map svg [data-line].status-delay .rail,.map svg [data-line].status-suspend .rail{stroke:currentColor!important}
+.map svg [data-line].status-delay .fx,.map svg [data-line].status-suspend .fx{display:inline}
+.map svg [data-line].status-delay .fx{animation:neon 1.6s ease-in-out infinite}
+.map svg [data-line].status-suspend .fx{animation:neon 0.9s ease-in-out infinite}
+.map svg [data-line].status-delay .rail{animation:rail 1.6s ease-in-out infinite}
+.map svg [data-line].status-suspend .rail{animation:rail 0.9s ease-in-out infinite}
+@keyframes neon{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes rail{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.map svg .fx,.map svg .rail,.lamp{animation:none!important}}
+
+/* ---------- 共通モーダル ---------- */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.66);display:grid;place-items:center;z-index:20;padding:16px}
+.modal[hidden]{display:none}
+.sheet{width:min(560px,94vw);background:#fff;color:#111;border-radius:12px;overflow:hidden;box-shadow:0 14px 48px #000a}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 10px 22px;background:var(--metal);color:#fff}
+.sheet-head h2{margin:0;font-size:20px}
+.sheet-head h2 .en{margin-left:.5em;font-size:13px;opacity:.7}
+.row{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;font-size:18px;font-weight:700;border-bottom:1px solid #e3e6ef}
+.row .en{display:block;font-size:12px;font-weight:400;color:#666}
+.switch{appearance:none;-webkit-appearance:none;width:62px;height:36px;border-radius:18px;background:#b9bfd1;position:relative;cursor:pointer;transition:background .2s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0005;transition:transform .2s}
+.switch:checked{background:var(--line-blue)}
+.switch:checked::after{transform:translateX(26px)}
+
+/* ---------- 路線検索 ---------- */
+.sheet-search{width:min(720px,94vw);height:min(82vh,780px);display:flex;flex-direction:column;background:#eef0f4}
+.searchbar{display:flex;align-items:center;gap:8px;margin:14px 16px 6px;padding:0 8px 0 14px;height:54px;border-radius:27px;background:#fff;border:2px solid #c9ced8;color:#555}
+.searchbar:focus-within{border-color:var(--line-blue)}
+.searchbar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 18px 'Noto Sans JP',sans-serif;color:#111;-webkit-user-select:text;user-select:text}
+.searchbar .clear{border:0;background:transparent;color:#8a909c;cursor:pointer;display:grid;place-items:center;padding:4px}
+.searchbar .clear[hidden]{display:none}
+.search-meta{padding:2px 22px 8px;font-size:13px;color:#555;font-weight:500}
+.list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 12px 14px;display:flex;flex-direction:column;gap:6px}
+.empty{padding:36px 10px;text-align:center;color:#666}
+.line-row{display:flex;align-items:center;gap:14px;width:100%;padding:10px 14px;border:0;border-radius:8px;background:#fff;text-align:left;cursor:pointer;
+  border-left:6px solid transparent;font-family:inherit;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.line-row:active{background:#e4e8f2}
+.line-row.s-suspend{border-left-color:var(--suspend);background:#fff2f2}
+.line-row.s-delay,.line-row.s-partial{border-left-color:var(--orange);background:#fff8ea}
+.badge{flex:none;width:48px;height:48px;border-radius:8px;background:#fff;border:5px solid var(--lc);display:grid;place-items:center;
+  font:900 17px/1 Roboto,sans-serif;color:#000;letter-spacing:-.02em}
+.lr-name{flex:1;min-width:0;display:flex;flex-direction:column}
+.lr-name b{font-size:19px;font-weight:700;line-height:1.25}
+.lr-name small{font-size:12px;color:#666}
+.co-tag{flex:none;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:#e1e5ee;color:#333;white-space:nowrap}
+.st{flex:none;min-width:96px;text-align:center;font-size:14px;font-weight:700;padding:6px 10px;border-radius:6px;color:#fff;line-height:1.2}
+.st small{display:block;font-size:10px;opacity:.85;font-weight:500}
+.st.normal{background:var(--ok)}
+.st.delay,.st.partial{background:var(--orange)}
+.st.suspend{background:#e0201f}
+
+/* ---------- E235系 異常時案内ポップアップ ---------- */
+.bezel{position:relative;width:min(860px,96vw);padding:12px;border-radius:6px;
+  background:linear-gradient(145deg,#4a4e55,#23262b 45%,#15171a);
+  box-shadow:0 30px 80px rgba(0,0,0,.85),0 8px 18px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.18),inset 0 0 0 2px #0b0c0e}
+.bezel-close{position:absolute;top:-16px;right:-16px;z-index:2;width:46px;height:46px;border-radius:50%;border:2px solid #555a63;cursor:pointer;
+  background:linear-gradient(180deg,#3a3e46,#1d2025);color:#fff;display:grid;place-items:center;box-shadow:0 4px 12px #000a}
+.lcd{border-radius:2px;overflow:hidden;background:#fff;box-shadow:0 0 0 2px #05060a,inset 0 0 12px rgba(0,0,0,.4)}
+.lcd-head{display:flex;align-items:center;gap:clamp(10px,2vw,20px);height:104px;padding:0 18px 0 16px;color:#fff;
+  background:linear-gradient(180deg,#32363d 0%,#181a1f 50%,#0d0e12 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.lcd-head .co{flex:none;min-width:74px;max-width:96px;font:700 14px/1.25 'Noto Sans JP',sans-serif;color:#fff}
+.lcd-head .co small{display:block;font-size:11px;opacity:.75;margin-top:2px}
+.cbar{flex:none;width:14px;height:80%;background:var(--lc);border-radius:1px;box-shadow:0 0 8px color-mix(in srgb,var(--lc) 60%,transparent)}
+.sym{flex:none;width:56px;height:56px;display:grid;place-items:center;background:#fff;border:5px solid var(--lc);border-radius:8px;
+  font:900 22px/1 Roboto,sans-serif;color:#000;letter-spacing:-.02em}
+.lname{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.lname b{font-size:clamp(1.7rem,4.2vw,2.5rem);font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lname small{font-size:.95rem;opacity:.8;margin-top:3px}
+.rside{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.rside time{font:500 20px/1 Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.car{min-width:132px;padding:6px 14px;border-radius:8px;border:2px solid rgba(255,255,255,.85);text-align:center;color:#fff;
+  font:900 20px/1.15 'Noto Sans JP',sans-serif;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.car small{display:block;font-size:10px;font-weight:500;opacity:.9}
+.car.normal{background:#1f9d4a}
+.car.delay,.car.partial{background:var(--orange)}
+.car.suspend{background:#d91a1a}
+.lcd-sub{height:38px;display:grid;place-items:center;background:#fff;color:#111;font-weight:700;font-size:1.05rem;
+  border-top:1px solid #b0b5bd;border-bottom:1px solid #b0b5bd;letter-spacing:.04em}
+.lcd-body{min-height:220px;padding:28px 36px;background:linear-gradient(180deg,#e6e9ef 0%,#cfd5de 100%);color:#111;font-weight:700;
+  font-size:clamp(1.3rem,2.6vw,1.7rem);line-height:1.6;box-shadow:inset 0 2px 8px rgba(255,255,255,.6)}
+.lcd-body p{margin:0}
+.lcd-body .h{margin-bottom:.35em}
+
+@media (max-width:1000px){
+  .title .en,.tab small,.btn-search small{display:none}
+  .clock{font-size:26px}
+  .co-tag{display:none}
+}
+@media (max-width:640px){
+  .lcd-head{height:auto;min-height:104px;flex-wrap:wrap;padding:10px 12px;gap:8px 12px}
+  .lcd-head .co{display:none}.lcd-body{padding:20px}
+}
