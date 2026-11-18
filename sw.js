@@ -4,7 +4,7 @@
  * ・Google Fonts：Stale-While-Revalidate（オフラインでも文字を崩さないため別キャッシュ）
  * ・Yahoo!路線情報／CORSプロキシなど上記以外の外部通信：Service Workerは介入せず常にネットワーク（キャッシュ一切なし）
  * 更新時は CACHE_NAME のバージョンを上げる（古いキャッシュは activate で自動削除） */
-const CACHE_NAME = 'train-info-lcd-v2';
+const CACHE_NAME = 'train-info-lcd-v3';
 const FONT_CACHE = 'train-info-lcd-fonts-v1';
 const KEEP = [CACHE_NAME, FONT_CACHE];
 
@@ -21,7 +21,7 @@ const APP_SHELL = [
 ];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 // 絶対にキャッシュしない通信（念のための明示。ここに無い外部ホストも同様に素通しする）
-const NETWORK_ONLY_HOSTS = ['transit.yahoo.co.jp', 'api.allorigins.win', 'api.codetabs.com', 'corsproxy.io'];
+const NETWORK_ONLY_HOSTS = ['transit.yahoo.co.jp', 'train-info-proxy.xiongdayiteng4.workers.dev'];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {

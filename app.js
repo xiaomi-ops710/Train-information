@@ -146,7 +146,7 @@ const DemoProvider = {
 };
 
 /* ---------- Yahoo!路線情報（関東エリア）の取得・解析 ----------
- * ・fetchWithFallback：3つのCORSプロキシを順に試し、最初に成功したHTMLを返す
+ * ・fetchViaProxy：自作Cloudflare Workersプロキシ経由で生のHTMLを取得（外部の無料CORSプロキシは使用しない）
  * ・parse：<table>の<tr>のうち /diainfo/ へのリンクを含む行を路線データとして抽出（クラス名に依存しない）
  * ・平常運転以外の路線は個別詳細ページ(#mdServiceStatus)を並列取得して詳細メッセージに反映
  * ・Yahoo側の表記ゆれ(canon + ALIAS + 会社名プレフィックス)を吸収してマスター路線に照合
@@ -155,31 +155,24 @@ const YAHOO_ORIGIN = 'https://transit.yahoo.co.jp';
 const YAHOO_URL = YAHOO_ORIGIN + '/diainfo/area/4';
 const AUTO_REFRESH_MS = 180000;   // 自動更新間隔：3分
 const FETCH_TIMEOUT_MS = 12000;
-const PROXIES = [
-  { name: 'allorigins', build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
-  { name: 'codetabs',   build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
-  { name: 'corsproxy',  build: u => `https://corsproxy.io/?${encodeURIComponent(u)}` }
-];
+const PROXY_BASE = 'https://train-info-proxy.xiongdayiteng4.workers.dev/';
+const proxyUrl = targetUrl => `${PROXY_BASE}?url=${encodeURIComponent(targetUrl)}`;
 const clean = t => String(t || '').replace(/\s+/g, ' ').trim();
 
-/* プロキシを順番に試し、最初に成功したHTMLを返す。全滅したら原因を並べたErrorを投げる */
-async function fetchWithFallback(targetUrl, validate = html => /diainfo|運行情報/.test(html)) {
-  const errors = [];
-  for (const p of PROXIES) {
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const res = await fetch(p.build(targetUrl), { signal: ctl.signal, cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const html = await res.text();
-      if (html.length < 500 || !validate(html)) throw new Error('不正な応答');
-      return { html, proxy: p.name };
-    } catch (e) {
-      const why = e.name === 'AbortError' ? 'タイムアウト' : (e.message === 'Failed to fetch' ? '通信失敗(ブロック/接続不可)' : e.message);
-      errors.push(`${p.name}: ${why}`);
-      console.warn('[Yahoo] proxy failed →', p.name, why);
-    } finally { clearTimeout(timer); }
-  }
-  throw new Error('全プロキシ失敗（' + errors.join(' / ') + '）');
+/* 自作Workersプロキシ経由で targetUrl のHTML文字列を取得。失敗時は原因入りのErrorを投げる */
+async function fetchViaProxy(targetUrl, validate = html => /diainfo|運行情報/.test(html)) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(proxyUrl(targetUrl), { signal: ctl.signal, cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const html = await res.text();
+    if (html.length < 500 || !validate(html)) throw new Error('不正な応答（HTMLが短い/想定外の内容）');
+    return { html, proxy: 'Cloudflare Workers' };
+  } catch (e) {
+    const why = e.name === 'AbortError' ? 'タイムアウト' : (e.message === 'Failed to fetch' ? '通信失敗(接続不可/CORS)' : e.message);
+    console.warn('[Yahoo] proxy failed →', why);
+    throw new Error('プロキシ取得失敗：' + why);
+  } finally { clearTimeout(timer); }
 }
 
 const Yahoo = {
@@ -215,14 +208,21 @@ const Yahoo = {
   PREFIXES: [['JR東日本', 'JR'], ['JR', 'JR'], ['東京メトロ', 'Metro'], ['東京地下鉄', 'Metro'], ['地下鉄', 'Metro'], ['都営地下鉄', 'Toei'], ['都営', 'Toei']],
   lookup: null,
 
-  /* 正規化：全半角統一・区間表記の括弧を除去・「各停」→「各駅停車」・残りの括弧/中黒(・/･)/空白を除去 */
+  /* 正規化：全半角統一 → [..]の区間表記を削除 → 区間表記を含む(..)を削除 → 「各停」を「各駅停車」に
+   *        → 「本線」を「線」に → 残りの括弧(種別:快速など)は中身を残して記号だけ除去 → 中黒(・/･)・空白を除去 */
   canon(s) {
     return String(s).normalize('NFKC')
+      .replace(/\[[^\]]*\]/g, '')
       .replace(/\([^)]*[~〜\-－間方面][^)]*\)/g, '')
       .replace(/各停/g, '各駅停車')
+      .replace(/本線/g, '線')
       .replace(/[()\[\]【】「」]/g, '')
       .replace(/[\s・･·]/g, '')
       .toLowerCase();
+  },
+  /* 予備の正規化：種別を含む括弧の中身も全部削除（例：「山手線(内回り)」→「山手線」） */
+  canonLoose(s) {
+    return this.canon(String(s).normalize('NFKC').replace(/\([^)]*\)/g, ''));
   },
   buildLookup() {
     this.lookup = new Map();
@@ -240,15 +240,16 @@ const Yahoo = {
   /* Yahoo側の路線名 → マスター路線名の配列（該当なしは空配列） */
   match(name) {
     if (!this.lookup) this.buildLookup();
-    const c = this.canon(name);
-    if (this.lookup.has(c)) return this.lookup.get(c);
-    const hit = this.PREFIX.find(([p]) => c.startsWith(this.canon(p)));
-    if (hit) return hit[1];
-    for (const [p, co] of this.PREFIXES) { // 会社名プレフィックスを外して、同じ会社区分の路線だけに絞って照合
-      const cp = this.canon(p);
-      if (!c.startsWith(cp)) continue;
-      const names = (this.lookup.get(c.slice(cp.length)) || []).filter(n => lineByName(n).co === co);
-      if (names.length) return names;
+    for (const c of [this.canon(name), this.canonLoose(name)]) {
+      if (this.lookup.has(c)) return this.lookup.get(c);
+      const hit = this.PREFIX.find(([p]) => c.startsWith(this.canon(p)));
+      if (hit) return hit[1];
+      for (const [p, co] of this.PREFIXES) { // 会社名プレフィックスを外し、同じ会社区分の路線だけに絞って照合
+        const cp = this.canon(p);
+        if (!c.startsWith(cp)) continue;
+        const names = (this.lookup.get(c.slice(cp.length)) || []).filter(n => lineByName(n).co === co);
+        if (names.length) return names;
+      }
     }
     return [];
   },
@@ -266,13 +267,12 @@ const Yahoo = {
   toUrl(h) { try { return new URL(h, YAHOO_ORIGIN).href; } catch (_) { return YAHOO_ORIGIN + h; } },
   /* 主：すべての<table>の<tr>から、/diainfo/ のリンクを含む行を拾う */
   rowsFromTables(doc) {
-    const out = [], seen = new Set();
+    const out = [];
     doc.querySelectorAll('table tr').forEach(tr => {
       const a = [...tr.querySelectorAll('a[href]')].find(x => this.isLineHref(x.getAttribute('href')));
       if (!a) return;
       const name = clean(a.textContent), url = this.toUrl(a.getAttribute('href'));
-      if (!name || seen.has(url)) return;
-      seen.add(url); out.push({ name, url, row: tr });
+      if (name) out.push({ name, url, row: tr });
     });
     return out;
   },
@@ -308,11 +308,21 @@ const Yahoo = {
       detail = clean(detail.replace(/^(平常運転|遅延|運転見合わせ|見合わせ|運転状況|交通障害情報?|運転再開|一部運休|運休|その他)\s*/, ''));
       out.push({ name, url, status, detail });
     });
-    return out;
+    return this.merge(out);
+  },
+  /* 上部「現在運行情報のある路線」と下部の会社別一覧で重複した路線を1件に統合（異常状態・詳細が長い方を優先） */
+  merge(list) {
+    const score = x => (x.status !== 'normal' ? 1000 : 0) + x.detail.length;
+    const m = new Map();
+    list.forEach(e => {
+      const key = e.url.split(/[?#]/)[0], cur = m.get(key);
+      if (!cur || score(e) > score(cur)) m.set(key, e);
+    });
+    return [...m.values()];
   },
   /* 個別詳細ページ → 運行情報本文（#mdServiceStatus 内の<p>） */
   parseDetail(html) {
-    const box = new DOMParser().parseFromString(html, 'text/html').querySelector('#mdServiceStatus');
+    const box = new DOMParser().parseFromString(html, 'text/html').querySelector('#mdServiceStatus, [id*="ServiceStatus" i]');
     if (!box) return '';
     const ps = [...box.querySelectorAll('p')].map(p => clean(p.textContent)).filter(Boolean);
     const text = ps.length ? ps.join('　') : clean(box.textContent);
@@ -339,7 +349,7 @@ const Yahoo = {
   },
 
   async fetchStatus() {
-    const { html, proxy } = await fetchWithFallback(YAHOO_URL);
+    const { html, proxy } = await fetchViaProxy(YAHOO_URL);
     const entries = this.parse(html);
     if (!entries.length && !/情報はありません|平常/.test(html))
       throw new Error('解析エラー：路線の行が見つかりません（Yahoo!のページ構造が変わった可能性）');
@@ -350,7 +360,7 @@ const Yahoo = {
     let detailOk = 0, detailFail = 0;
     await Promise.all(Object.values(result).map(async r => {
       try {
-        const { html: dh } = await fetchWithFallback(r.url, h => h.length > 500);
+        const { html: dh } = await fetchViaProxy(r.url, h => h.length > 500);
         const t = this.parseDetail(dh);
         if (t) { r.detail = t; detailOk++; } else detailFail++;
       } catch (e) { detailFail++; console.warn('[Yahoo] detail failed:', r.url, e.message); }
