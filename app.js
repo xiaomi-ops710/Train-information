@@ -35,7 +35,13 @@ const STRINGS = {
   none:      { ja: '該当する路線がありません。', en: 'No matching lines.' },
   normalTxt: { ja: '現在、平常通り運転しています。', en: '' },
   syncTime:  { ja: '最終同期時刻', en: 'Last sync' },
-  syncState: { ja: '取得ステータス', en: 'Sync status' }
+  syncState: { ja: '取得ステータス', en: 'Sync status' },
+  focus:     { ja: '異常のみ強調', en: 'Alerts Only' },
+  autoLocate:{ ja: '起動時に現在地へ自動移動', en: 'Auto-locate on launch' },
+  ticker:    { ja: '下部ニュースティッカー', en: 'News ticker' },
+  chime:     { ja: '新規遅延発生時のチャイム通知', en: 'Chime on new delays' },
+  official:  { ja: '公式詳細ページを開く', en: 'Open official page' },
+  myLines:   { ja: 'マイ路線', en: 'My Lines' }
 };
 
 /* ---------- 路線マスターデータ（41路線） ----------
@@ -94,7 +100,7 @@ const lineByName = name => LINES.find(l => l.ja === name);
 /* ---------- 設定（localStorage） ---------- */
 const Settings = {
   KEY: 'tokyo-lcd:settings',
-  data: { bilingual: true, demo: false }, // 保存値があればそちらを優先（load）
+  data: { bilingual: true, demo: false, autoLocate: false, ticker: true, chime: false, focus: false }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -365,7 +371,6 @@ const Yahoo = {
         if (t) { r.detail = t; detailOk++; } else detailFail++;
       } catch (e) { detailFail++; console.warn('[Yahoo] detail failed:', r.url, e.message); }
     }));
-    Object.values(result).forEach(r => delete r.url);
     this.report = { rows: entries.length, matched, abnormal: Object.keys(result).length, proxy, detailOk, detailFail };
     return result;
   },
@@ -439,6 +444,7 @@ const MapView = {
     g.appendChild(hit);
   },
   setHitWidth(w) { if (this.svg) this.svg.style.setProperty('--hitw', w.toFixed(1) + 'px'); },
+  setHitWidth(w) { if (this.svg) this.svg.style.setProperty('--hitw', w.toFixed(1) + 'px'); },
   lines() { return this.svg ? [...this.svg.querySelectorAll('[data-line]')] : []; },
   applyStatuses() {
     this.lines().forEach(g => {
@@ -453,15 +459,16 @@ const MapView = {
   }
 };
 
-/* ---------- ズーム・パン（SVGのviewBoxを直接書き換え → 常にベクターで再描画） ----------
- * 状態：x,y = viewBox左上(SVG座標) / k = 1SVG単位あたりの画面px
- * viewBoxの幅・高さは常に 画面サイズ ÷ k（画面と同じ縦横比なので余白が出ない） */
+/* ---------- ズーム・パン（ハイブリッド描画） ----------
+ * 操作中：ラッパー(.map)に translate3d + scale のCSS transformだけを当てて軽量に動かす
+ * 確定後：目標の表示範囲から viewBox を1回だけ計算して適用し、transformを外す → 常に最高画質のベクター描画
+ * 目標状態 x,y,k（viewBox左上・1SVG単位あたりのpx）と、確定済み状態 cx,cy,ck を別々に持つ */
 const Zoom = {
-  x: 0, y: 0, k: 1, W: 1, H: 1, VW: 7300, VH: 5400,
+  x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400,
   MAX_K: 2.6, HOME_RATIO: 2.4, HOME_PT: [0.507, 0.472],
-  stage: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0,
-  init(stage) {
-    this.stage = stage; this.svg = MapView.svg;
+  stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0,
+  init(stage, mapEl) {
+    this.stage = stage; this.mapEl = mapEl; this.svg = MapView.svg;
     const vb = this.svg && this.svg.viewBox.baseVal;
     if (vb && vb.width) { this.VW = vb.width; this.VH = vb.height; }
     if (this.svg) this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -470,12 +477,13 @@ const Zoom = {
     stage.addEventListener('pointermove', e => this.move(e));
     ['pointerup', 'pointercancel'].forEach(t => stage.addEventListener(t, e => this.up(e)));
     stage.addEventListener('wheel', e => {
-      e.preventDefault();
+      e.preventDefault(); this.stopAnim();
       this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
+      this.commitLater(150);
     }, { passive: false });
     const c = () => { const r = stage.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-    document.getElementById('zoomIn').onclick = () => this.zoomAt(...c(), 1.4);
-    document.getElementById('zoomOut').onclick = () => this.zoomAt(...c(), 1 / 1.4);
+    document.getElementById('zoomIn').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1.4); this.commitLater(150); };
+    document.getElementById('zoomOut').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1 / 1.4); this.commitLater(150); };
     document.getElementById('zoomReset').onclick = () => this.home();
     if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
@@ -485,47 +493,77 @@ const Zoom = {
   clampK(k) { return Math.min(this.MAX_K, Math.max(this.fitK() * 0.9, k)); },
   /* 画面の中心が地図の外へ出ないように制限 */
   clampPos() {
-    const cx = this.x + this.W / this.k / 2, cy = this.y + this.H / this.k / 2;
-    this.x += Math.min(this.VW, Math.max(0, cx)) - cx;
-    this.y += Math.min(this.VH, Math.max(0, cy)) - cy;
+    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
+    this.x += Math.min(this.VW, Math.max(0, mx)) - mx;
+    this.y += Math.min(this.VH, Math.max(0, my)) - my;
   },
-  apply() {
-    this.clampPos();
+  /* 確定済みviewBox → 目標状態 への変換をCSS transformで表現（GPU合成のみ・SVGの再描画なし） */
+  schedule() {
     if (this.raf) return;
-    this.raf = requestAnimationFrame(() => { this.raf = 0; this.write(); }); // 描画は1フレームに1回
+    this.raf = requestAnimationFrame(() => { this.raf = 0; this.tf(); });
   },
-  write() {
+  tf() {
+    this.clampPos();
+    const sc = this.k / this.ck, tx = (this.cx - this.x) * this.k, ty = (this.cy - this.y) * this.k;
+    this.mapEl.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${sc})`;
+  },
+  /* viewBoxを書き換えて確定 → transformを外す（ここでだけSVGが再描画される） */
+  commit() {
+    clearTimeout(this.timer);
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
     if (!this.svg) return;
+    this.clampPos();
     this.svg.setAttribute('viewBox', `${this.x} ${this.y} ${this.W / this.k} ${this.H / this.k}`);
+    this.cx = this.x; this.cy = this.y; this.ck = this.k;
+    this.mapEl.style.transform = 'none';
     MapView.setHitWidth(Math.min(80, Math.max(12, 28 / this.k))); // タップ判定の太さは画面上でほぼ一定に
+    Locate.rescale();
   },
+  commitLater(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.commit(), ms); },
+  stopAnim() { if (this.anim) { cancelAnimationFrame(this.anim); this.anim = 0; } },
   /* 初期表示：都心部を画面中央に拡大して表示 */
   home() {
-    this.measure();
+    this.stopAnim(); this.measure();
     this.k = this.clampK(this.fitK() * this.HOME_RATIO);
     this.x = this.HOME_PT[0] * this.VW - this.W / this.k / 2;
     this.y = this.HOME_PT[1] * this.VH - this.H / this.k / 2;
-    this.apply();
+    this.commit();
   },
+  /* 指定のSVG座標を画面中央に滑らかに移動・拡大（アニメ中はtransformのみ → 終了時にviewBox確定） */
+  animateTo(px, py, k, ms = 700) {
+    this.stopAnim();
+    const sx = this.x + this.W / this.k / 2, sy = this.y + this.H / this.k / 2, sk = this.k, ek = this.clampK(k);
+    const t0 = performance.now(), ease = t => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    const step = now => {
+      const t = Math.min(1, (now - t0) / ms), e = ease(t);
+      this.k = Math.exp(Math.log(sk) + (Math.log(ek) - Math.log(sk)) * e);
+      const mx = sx + (px - sx) * e, my = sy + (py - sy) * e;
+      this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
+      this.tf();
+      if (t < 1) this.anim = requestAnimationFrame(step); else { this.anim = 0; this.commit(); }
+    };
+    this.anim = requestAnimationFrame(step);
+  },
+  focusOn(px, py) { this.animateTo(px, py, Math.min(this.MAX_K, this.fitK() * 6)); },
   /* ウインドウサイズ変更：画面中心を保ったままviewBoxを再計算 */
   onResize() {
-    const cx = this.x + this.W / this.k / 2, cy = this.y + this.H / this.k / 2;
-    this.measure();
-    this.k = this.clampK(this.k);
-    this.x = cx - this.W / this.k / 2; this.y = cy - this.H / this.k / 2;
-    this.apply();
+    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
+    this.measure(); this.k = this.clampK(this.k);
+    this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
+    this.commit();
   },
   zoomAt(cx, cy, f) {
     const r = this.stage.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
     const sx = this.x + px / this.k, sy = this.y + py / this.k; // カーソル下のSVG座標を固定
     const nk = this.clampK(this.k * f);
     this.x = sx - px / nk; this.y = sy - py / nk; this.k = nk;
-    this.apply();
+    this.schedule();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
   down(e) {
-    if (e.target.closest('.zoom,.legend')) return;
+    if (e.target.closest('.zoom,.legend,.loc-chip')) return;
+    this.stopAnim(); clearTimeout(this.timer);
     this.stage.setPointerCapture(e.pointerId);
     this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pts.size === 1) this.moved = 0;
@@ -536,7 +574,7 @@ const Zoom = {
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     this.moved += Math.abs(dx) + Math.abs(dy);
     if (this.pts.size === 1) {
-      if (this.moved >= 8) { this.x -= dx / this.k; this.y -= dy / this.k; this.apply(); }
+      if (this.moved >= 8) { this.x -= dx / this.k; this.y -= dy / this.k; this.schedule(); }
       p.x = e.clientX; p.y = e.clientY;
     } else if (this.pts.size === 2) {
       p.x = e.clientX; p.y = e.clientY;
@@ -554,6 +592,175 @@ const Zoom = {
     }
     this.pts.delete(e.pointerId); this.last = null;
     if (this.pts.size === 1) this.moved = 99; // ピンチ後の誤タップ防止
+    if (this.pts.size === 0) this.commit();   // 指を離した瞬間にviewBoxを確定
+  }
+};
+
+/* ---------- マイ路線（お気に入り） ---------- */
+const Favs = {
+  KEY: 'tokyo-lcd:favs', list: [],
+  load() {
+    try { const a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); if (Array.isArray(a)) this.list = a.filter(n => lineByName(n)); } catch (_) {}
+  },
+  has(n) { return this.list.includes(n); },
+  toggle(n) {
+    this.list = this.has(n) ? this.list.filter(x => x !== n) : [...this.list, n];
+    try { localStorage.setItem(this.KEY, JSON.stringify(this.list)); } catch (_) {}
+    document.dispatchEvent(new CustomEvent('favs:change'));
+  }
+};
+
+/* ---------- 現在地：関東の主要50駅（駅名・緯度・経度）と、最寄り駅の路線図座標へのマッピング ---------- */
+const STATIONS = [
+  ['東京', 35.6812, 139.7671], ['新宿', 35.6896, 139.7006], ['渋谷', 35.6580, 139.7016], ['池袋', 35.7295, 139.7109],
+  ['上野', 35.7141, 139.7774], ['品川', 35.6285, 139.7387], ['秋葉原', 35.6984, 139.7731], ['横浜', 35.4658, 139.6226],
+  ['川崎', 35.5308, 139.6970], ['武蔵小杉', 35.5763, 139.6596], ['大宮', 35.9065, 139.6240], ['浦和', 35.8589, 139.6573],
+  ['赤羽', 35.7779, 139.7209], ['北千住', 35.7497, 139.8049], ['日暮里', 35.7278, 139.7708], ['錦糸町', 35.6968, 139.8140],
+  ['新小岩', 35.7166, 139.8575], ['市川', 35.7287, 139.9087], ['船橋', 35.7014, 139.9855], ['津田沼', 35.6914, 140.0210],
+  ['千葉', 35.6131, 140.1133], ['西船橋', 35.7072, 139.9593], ['柏', 35.8620, 139.9710], ['松戸', 35.7843, 139.9013],
+  ['立川', 35.6980, 139.4138], ['八王子', 35.6555, 139.3389], ['吉祥寺', 35.7030, 139.5798], ['町田', 35.5426, 139.4453],
+  ['所沢', 35.7870, 139.4693], ['大船', 35.3541, 139.5313], ['藤沢', 35.3387, 139.4875], ['戸塚', 35.4005, 139.5337],
+  ['中野', 35.7058, 139.6658], ['荻窪', 35.7048, 139.6200], ['三鷹', 35.7027, 139.5611], ['蒲田', 35.5625, 139.7160],
+  ['自由が丘', 35.6076, 139.6700], ['二子玉川', 35.6117, 139.6269], ['溝の口', 35.6003, 139.6106], ['調布', 35.6513, 139.5444],
+  ['府中', 35.6720, 139.4780], ['国分寺', 35.7001, 139.4800], ['川口', 35.8019, 139.7241], ['蕨', 35.8279, 139.6799],
+  ['南浦和', 35.8423, 139.6694], ['新越谷', 35.8756, 139.7915], ['春日部', 35.9753, 139.7527], ['草加', 35.8318, 139.8055],
+  ['新松戸', 35.8001, 139.9215], ['海浜幕張', 35.6483, 140.0422]
+];
+const Locate = {
+  index: null, marker: null, point: null,
+  init() { document.getElementById('btnLocate').onclick = () => this.locate(true); },
+  km(lat1, lng1, lat2, lng2) { // ハバーシン距離
+    const R = 6371, r = d => d * Math.PI / 180, dLat = r(lat2 - lat1), dLng = r(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  },
+  /* SVG内の<text>を駅名で検索できるよう、初回のみ索引化 */
+  buildIndex() {
+    const m = new Map();
+    if (MapView.svg) MapView.svg.querySelectorAll('text').forEach(t => {
+      const k = (t.textContent || '').replace(/\s+/g, ''); if (!k) return;
+      if (!m.has(k)) m.set(k, []); m.get(k).push(t);
+    });
+    this.index = m;
+  },
+  /* <text>のgetBBox()中心を、ルートSVGのユーザー座標へ変換して返す（候補が複数なら最も大きい＝主要ラベル） */
+  stationPoint(name) {
+    if (!this.index) this.buildIndex();
+    const svg = MapView.svg; if (!svg) return null;
+    const cands = [...(this.index.get(name) || []), ...(this.index.get(name + '駅') || [])];
+    let best = null;
+    cands.forEach(t => {
+      try {
+        const b = t.getBBox(), m1 = t.getScreenCTM(), m2 = svg.getScreenCTM(); if (!m1 || !m2) return;
+        const pt = svg.createSVGPoint(); pt.x = b.x + b.width / 2; pt.y = b.y + b.height / 2;
+        const p = pt.matrixTransform(m1).matrixTransform(m2.inverse());
+        const area = b.width * b.height;
+        if (!best || area > best.area) best = { x: p.x, y: p.y, area };
+      } catch (_) {}
+    });
+    return best;
+  },
+  locate() {
+    if (!navigator.geolocation) { UI.toast('この端末では位置情報を利用できません'); return; }
+    const btn = document.getElementById('btnLocate'); btn.classList.add('spin');
+    navigator.geolocation.getCurrentPosition(pos => {
+      btn.classList.remove('spin');
+      const { latitude: la, longitude: lo } = pos.coords;
+      const ranked = STATIONS.map(([n, a, b]) => ({ n, d: this.km(la, lo, a, b) })).sort((p, q) => p.d - q.d);
+      if (ranked[0].d > 40) { UI.toast('現在地は関東の路線図の範囲外のようです'); return; }
+      for (const st of ranked) {
+        if (st.d > 40) break;
+        const p = this.stationPoint(st.n);
+        if (p) { this.show(p.x, p.y, st.n); return; }
+      }
+      UI.toast('現在地付近の駅を路線図上で見つけられませんでした');
+    }, err => {
+      btn.classList.remove('spin');
+      UI.toast({ 1: '位置情報の利用が許可されていません（設定 > プライバシー > 位置情報サービス）',
+                 2: '現在地を取得できませんでした', 3: '現在地の取得がタイムアウトしました' }[err.code] || '現在地を取得できませんでした');
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  },
+  /* 青い波紋アニメ付きのピンマーカーを最寄り駅の位置に重ね、その地点へ滑らかに移動 */
+  show(x, y, name) {
+    this.clear(true);
+    const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('id', 'meMarker');
+    g.innerHTML = `
+      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
+        <animate attributeName="r" values="8;48" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.75;0" dur="2s" repeatCount="indefinite"/></circle>
+      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
+        <animate attributeName="r" values="8;48" dur="2s" begin="1s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.75;0" dur="2s" begin="1s" repeatCount="indefinite"/></circle>
+      <path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/>
+      <circle cy="-34" r="6.5" fill="#fff"/>`;
+    MapView.svg.appendChild(g);
+    this.marker = g; this.point = { x, y }; this.rescale();
+    const chip = document.getElementById('locChip');
+    chip.innerHTML = `<span class="material-symbols-outlined">my_location</span><span>現在地（最寄り：${esc(name)}駅周辺）${I18n.bi() ? '<small class="en">Current location</small>' : ''}</span><span class="material-symbols-outlined x">close</span>`;
+    chip.hidden = false; chip.onclick = () => this.clear();
+    Zoom.focusOn(x, y);
+  },
+  /* マーカーは常に画面上で同じ大きさになるよう、ズーム確定のたびに拡大率を補正 */
+  rescale() {
+    if (this.marker && this.point) this.marker.setAttribute('transform', `translate(${this.point.x} ${this.point.y}) scale(${1 / Zoom.ck})`);
+  },
+  clear(keepChip) {
+    if (this.marker) this.marker.remove();
+    this.marker = null; this.point = null;
+    if (!keepChip) document.getElementById('locChip').hidden = true;
+  }
+};
+
+/* ---------- 車内チャイム風の通知音（Web Audio API：ミ→ド） ---------- */
+const Chime = {
+  ctx: null,
+  init() { ['pointerdown', 'touchend', 'keydown'].forEach(t => document.addEventListener(t, () => this.unlock(), { once: true, passive: true })); },
+  unlock() { // iOSはユーザー操作の中でAudioContextを開始する必要がある
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      if (!this.ctx) this.ctx = new AC();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (_) {}
+  },
+  tone(f, t) {
+    const c = this.ctx;
+    [[1, .5], [2, .12], [3, .05]].forEach(([m, a]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f * m;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(a * 0.35, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 1.15);
+    });
+  },
+  play() {
+    this.unlock();
+    const c = this.ctx; if (!c || c.state !== 'running') return;
+    const t0 = c.currentTime + 0.05;
+    this.tone(659.25, t0);        // ミ
+    this.tone(523.25, t0 + 0.55); // ド
+  }
+};
+
+/* ---------- 下部ニュースティッカー ---------- */
+const Ticker = {
+  last: '',
+  text() {
+    const bi = I18n.bi();
+    const abn = LINES.map(L => ({ L, s: Store.of(L.ja) })).filter(x => x.s.status !== 'normal')
+      .sort((a, b) => STATUS[a.s.status].rank - STATUS[b.s.status].rank);
+    if (!abn.length) return '現在、関東エリアの主要路線は平常通り運転しています。' + (bi ? ' / All major lines are operating normally.' : '');
+    return abn.map(({ L, s }) => `【${L.ja}　${STATUS[s.status].ja}】${s.detail || ''}`).join('　／　');
+  },
+  render() {
+    const track = document.getElementById('tickerTrack'); if (!track) return;
+    const t = this.text();
+    if (t === this.last && track.textContent) return; // 内容が同じなら流れを途切れさせない
+    track.textContent = t;
+    const w = track.scrollWidth;
+    if (!w) { this.last = ''; return; } // 非表示中は計測できないので次回に
+    this.last = t;
+    track.style.animationDuration = Math.max(15, w / 90) + 's'; // 約90px/秒
   }
 };
 
@@ -563,14 +770,24 @@ const statusBadge = (st, cls = 'st') => `<span class="${cls} ${st}">${bi(STATUS[
 const pad = n => String(n).padStart(2, '0');
 
 /* ---------- E235系 異常時案内風ポップアップ ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const Detail = {
   el: null, name: null,
   open(name) { this.name = name; this.render(); this.el.hidden = false; this.tickTime(); },
   isOpen() { return this.el && !this.el.hidden; },
+  /* 取得テキストはHTMLエスケープし、「振替輸送」を含む文は強調表示 */
+  highlight(text) {
+    return (String(text).match(/[^。]*。?/g) || []).filter(Boolean).map(p => {
+      const e = esc(p);
+      return p.includes('振替輸送') ? `<mark class="furikae">${e.replace(/振替輸送/g, '<b>振替輸送</b>')}</mark>` : e;
+    }).join('');
+  },
   render() {
     const L = lineByName(this.name); if (!L) return;
     const s = Store.of(L.ja), st = STATUS[s.status], on = I18n.bi();
-    const body = s.status === 'normal' ? STRINGS.normalTxt.ja : (s.detail || `${L.ja}は、運行情報をお知らせします。`);
+    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : this.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
+    const url = /^https:\/\/transit\.yahoo\.co\.jp\//.test(s.url || '') ? s.url : YAHOO_URL;
+    const fav = Favs.has(L.ja);
     document.getElementById('detailBody').innerHTML = `
       <div class="lcd" style="--lc:${L.color}">
         <div class="lcd-head">
@@ -578,10 +795,12 @@ const Detail = {
           <span class="cbar"></span>
           <span class="sym">${L.code}</span>
           <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>
+          <button class="fav-btn${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
           <div class="rside"><time id="dTime">--:--</time>${statusBadge(s.status, 'car')}</div>
         </div>
         <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
         <div class="lcd-body"><p class="h">【${L.ja}　${st.ja}】</p><p>${body}</p></div>
+        <div class="lcd-foot"><a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a></div>
       </div>`;
     this.tickTime();
   },
@@ -617,12 +836,16 @@ const Search = {
     document.getElementById('searchClear').hidden = !this.q;
     el.innerHTML = list.length ? list.map(L => {
       const s = Store.of(L.ja).status;
-      return `<button class="line-row s-${s}" data-line="${L.ja}" style="--lc:${L.color}">
-        <span class="badge">${L.code}</span>
-        <span class="lr-name"><b>${L.ja}</b>${I18n.bi() ? `<small>${L.en}</small>` : ''}</span>
-        <span class="co-tag">${L.op.ja}</span>
-        ${statusBadge(s)}
-      </button>`;
+      const fav = Favs.has(L.ja);
+      return `<div class="line-row s-${s}" style="--lc:${L.color}">
+        <button class="lr-main" data-line="${L.ja}">
+          <span class="badge">${L.code}</span>
+          <span class="lr-name"><b>${L.ja}</b>${I18n.bi() ? `<small>${L.en}</small>` : ''}</span>
+          <span class="co-tag">${L.op.ja}</span>
+          ${statusBadge(s)}
+        </button>
+        <button class="star${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
+      </div>`;
     }).join('') : `<div class="empty">${I18n.text('none')}</div>`;
   },
   init() {
@@ -630,8 +853,10 @@ const Search = {
     input.addEventListener('input', () => { this.q = input.value; this.render(); });
     document.getElementById('searchClear').onclick = () => { this.q = ''; input.value = ''; this.render(); input.focus(); };
     document.getElementById('searchList').addEventListener('click', e => {
-      const row = e.target.closest('.line-row'); if (!row) return;
-      Modals.closeAll(); Detail.open(row.dataset.line);
+      const star = e.target.closest('.star');
+      if (star) { Favs.toggle(star.dataset.fav); return; }
+      const main = e.target.closest('.lr-main'); if (!main) return;
+      Modals.closeAll(); Detail.open(main.dataset.line);
     });
   }
 };
@@ -660,9 +885,22 @@ const UI = {
     b.checked = Settings.get('bilingual'); d.checked = Settings.get('demo');
     b.onchange = () => Settings.set('bilingual', b.checked);
     d.onchange = () => Settings.set('demo', d.checked);
+    [['optAutoLocate', 'autoLocate'], ['optTicker', 'ticker'], ['optChime', 'chime']].forEach(([id, key]) => {
+      const el = document.getElementById(id); el.checked = !!Settings.get(key);
+      el.onchange = () => { Settings.set(key, el.checked); if (key === 'chime' && el.checked) { Chime.unlock(); Chime.play(); } };
+    });
+    document.getElementById('btnFocus').onclick = () => Settings.set('focus', !Settings.get('focus'));
+    document.getElementById('favBar').addEventListener('click', e => { const c = e.target.closest('.fav-chip'); if (c) Detail.open(c.dataset.line); });
+    document.getElementById('detailBody').addEventListener('click', e => { const f = e.target.closest('.fav-btn'); if (f) Favs.toggle(f.dataset.fav); });
+    document.addEventListener('favs:change', () => {
+      this.renderFavBar();
+      if (Search.isOpen()) Search.render();
+      if (Detail.isOpen()) Detail.render();
+    });
+    Favs.load(); Chime.init();
     document.addEventListener('settings:change', e => {
       if (e.detail.key === 'demo') { // デモ⇔実データで混在させない
-        Store.data = {}; MapView.applyStatuses();
+        Store.data = {}; MapView.applyStatuses(); this.prevAbn = null;
         this.sync.ok = true; this.sync.text = Settings.get('demo') ? 'デモモード：ダミーデータを表示します' : '実データを取得中…';
       }
       this.renderAll();
@@ -677,10 +915,38 @@ const UI = {
   renderAll() {
     I18n.apply(); this.buildTabs(); this.buildLegend();
     document.getElementById('demoChip').hidden = !Settings.get('demo');
-    this.renderSync();
+    this.renderSync(); this.applyFlags(); this.renderFavBar(); Ticker.render();
     if (Search.isOpen()) Search.render();
     if (Detail.isOpen()) Detail.render();
   },
+  /* 設定に応じた表示状態（ティッカー表示・異常のみ強調） */
+  applyFlags() {
+    document.body.classList.toggle('no-ticker', !Settings.get('ticker'));
+    document.getElementById('stage').classList.toggle('focus-abn', !!Settings.get('focus'));
+    document.getElementById('btnFocus').setAttribute('aria-pressed', String(!!Settings.get('focus')));
+  },
+  /* マイ路線クイックバー（登録がなければ非表示） */
+  renderFavBar() {
+    const bar = document.getElementById('favBar'), list = Favs.list.map(lineByName).filter(Boolean);
+    bar.hidden = !list.length;
+    bar.innerHTML = `<span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myLines')}</span>` +
+      list.map(L => {
+        const st = Store.of(L.ja).status;
+        return `<button class="fav-chip s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span class="fc-name">${L.ja}</span><span class="fc-st ${st}">${STATUS[st].ja}</span></button>`;
+      }).join('');
+  },
+  toast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
+  },
+  /* データ更新後：新規の遅延・見合わせを検知してチャイム、ティッカーとマイ路線バーを更新 */
+  afterData() {
+    const cur = new Set(LINES.filter(L => Store.of(L.ja).status !== 'normal').map(L => L.ja));
+    if (this.prevAbn && Settings.get('chime') && [...cur].some(n => !this.prevAbn.has(n))) Chime.play();
+    this.prevAbn = cur;
+    Ticker.render(); this.renderFavBar();
+  },
+  prevAbn: null, toastTimer: null,
   buildTabs() {
     const nav = document.getElementById('companyTabs');
     nav.innerHTML = COMPANIES.map(c =>
@@ -736,7 +1002,7 @@ const UI = {
       Store.data = data; this.lastOk = Date.now();
       lamp.classList.remove('err');
       this.setSync(true, provider === LiveProvider ? Yahoo.reportText() : 'デモモード：ダミーデータを表示中');
-      MapView.applyStatuses();
+      MapView.applyStatuses(); this.afterData();
       if (Search.isOpen()) Search.render();
       if (Detail.isOpen()) Detail.render();
     } catch (e) {
@@ -759,6 +1025,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await MapView.init();
   Zoom.init(document.getElementById('stage'), document.getElementById('map'));
   MapView.applyFilter(UI.company);
+  Locate.init();
+  if (Settings.get('autoLocate')) Locate.locate();
   await UI.refresh();
 });
 
