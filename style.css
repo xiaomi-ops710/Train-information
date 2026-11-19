@@ -52,18 +52,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 
 /* ---------- 路線図 ---------- */
 .stage{position:relative;flex:1;overflow:hidden;background:var(--paper);touch-action:none}
-.map{position:absolute;inset:0}
+.map{position:absolute;inset:0;transform-origin:0 0;will-change:transform}
 .map svg{width:100%;height:100%;display:block}
 .map svg *{pointer-events:none}
 .map svg .hit{pointer-events:stroke;stroke-width:var(--hitw,70px)}
 .map svg text{font-family:'Noto Sans JP','Roboto',sans-serif!important;font-weight:700;
-  paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
+  paint-order:stroke;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round}
 .map svg [data-line]{transition:opacity .3s}
 .map svg [data-line].dim{opacity:.13}
 .map svg .fx{display:none}
-.zoom{position:absolute;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:3}
+.zoom{position:absolute;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:3}
 .zoom .icon-btn{width:56px;height:56px;box-shadow:0 3px 10px #0008}
-.legend{position:absolute;left:16px;bottom:calc(16px + env(safe-area-inset-bottom));display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
+.legend{position:absolute;left:16px;bottom:16px;display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
   background:var(--metal);color:#fff;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0008,inset 0 1px 0 rgba(255,255,255,.18)}
 .legend i{display:inline-block;width:24px;height:6px;border-radius:3px;margin-right:7px;vertical-align:middle;box-shadow:0 0 8px currentColor}
 .legend small{margin-left:5px;font-size:10px;opacity:.7}
@@ -84,7 +84,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 /* ---------- 共通モーダル ---------- */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.66);display:grid;place-items:center;z-index:20;padding:16px}
 .modal[hidden]{display:none}
-.sheet{width:min(560px,94vw);background:#fff;color:#111;border-radius:12px;overflow:hidden;box-shadow:0 14px 48px #000a}
+.sheet{width:min(560px,94vw);max-height:92vh;overflow-x:hidden;overflow-y:auto;background:#fff;color:#111;border-radius:12px;box-shadow:0 14px 48px #000a}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 10px 22px;background:var(--metal);color:#fff}
 .sheet-head h2{margin:0;font-size:20px}
 .sheet-head h2 .en{margin-left:.5em;font-size:13px;opacity:.7}
@@ -169,3 +169,77 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .sync-val{font-size:14px;font-weight:500;line-height:1.5;word-break:break-all;font-variant-numeric:tabular-nums;color:#333}
 .sync-val.ok{color:#1b7f3a}
 .sync-val.err{color:#c62828;font-weight:700}
+
+/* ================= 追加機能 ================= */
+.stage{min-height:0}
+/* ティッカー非表示時は、ホームインジケータ分だけボタンを浮かせる */
+body.no-ticker .zoom{bottom:calc(20px + env(safe-area-inset-bottom))}
+body.no-ticker .legend{bottom:calc(16px + env(safe-area-inset-bottom))}
+
+/* 異常のみ強調：平常路線を減光、異常路線だけネオン発光のまま残す */
+.btn-focus{display:flex;align-items:center;gap:6px;border:2px solid #6b707a;border-radius:999px;background:transparent;color:#d6dae4;
+  padding:6px 14px 6px 10px;font:700 15px 'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap}
+.btn-focus .lbl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.1}
+.btn-focus small{font-size:10px;opacity:.7}
+.btn-focus[aria-pressed="true"]{background:var(--delay);border-color:var(--delay);color:#111}
+.stage.focus-abn .map svg [data-line]:not(.status-delay):not(.status-suspend){opacity:.18;filter:grayscale(80%)}
+
+/* マイ路線クイックバー */
+.favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  background:linear-gradient(180deg,#1b1d22,#101114);border-bottom:1px solid #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);z-index:4}
+.favbar[hidden]{display:none}
+.fav-title{flex:none;display:flex;align-items:center;gap:4px;font-weight:700;font-size:13px;color:#ffd23a;white-space:nowrap}
+.fav-title small{font-size:10px;opacity:.7;margin-left:4px}
+.fav-title .material-symbols-outlined{font-size:20px}
+.fav-chip{flex:none;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px 0 5px;border:1px solid #3a3e46;border-radius:6px;
+  background:linear-gradient(180deg,#2c3036,#1a1c20);color:#fff;font:700 14px 'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap}
+.fav-chip.s-suspend{border-color:var(--suspend)}
+.fav-chip.s-delay,.fav-chip.s-partial{border-color:var(--orange)}
+.badge.sm{width:28px;height:28px;border-width:3px;border-radius:5px;font-size:11px}
+.fc-st{font-size:12px;padding:2px 8px;border-radius:4px;color:#fff}
+.fc-st.normal{background:#1f9d4a}.fc-st.delay,.fc-st.partial{background:var(--orange)}.fc-st.suspend{background:#d91a1a}
+
+/* マイ路線の★（検索一覧・ポップアップ） */
+.line-row{padding:0}
+.lr-main{flex:1;min-width:0;display:flex;align-items:center;gap:14px;padding:10px 6px 10px 14px;border:0;background:transparent;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.star{flex:none;width:52px;align-self:stretch;border:0;background:transparent;cursor:pointer;color:#c3c8d3;display:grid;place-items:center}
+.star.on{color:#f5b400}
+.fav-btn{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);cursor:pointer;display:grid;place-items:center}
+.fav-btn.on{color:#ffd23a;background:rgba(255,210,58,.18)}
+.star .material-symbols-outlined,.fav-btn .material-symbols-outlined{font-size:28px}
+
+/* ポップアップ：振替輸送の強調・公式ページボタン */
+.lcd-body mark.furikae{background:#fff1a8;color:#111;padding:1px 4px;border-radius:3px;box-shadow:inset 0 -3px 0 #f5b400}
+.lcd-body mark.furikae b{font-weight:900;text-decoration:underline;text-decoration-color:#d97800;text-decoration-thickness:3px;text-underline-offset:3px}
+.lcd-foot{display:flex;justify-content:flex-end;padding:10px 14px;background:#fff;border-top:1px solid #b0b5bd}
+.btn-yahoo{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:6px;background:linear-gradient(180deg,#32363d,#16181c);
+  color:#fff;text-decoration:none;font:700 15px 'Noto Sans JP',sans-serif;line-height:1.2}
+.btn-yahoo small{display:block;font-size:10px;opacity:.75}
+.btn-yahoo .material-symbols-outlined{font-size:22px}
+
+/* 現在地ボタン・チップ・トースト */
+.icon-btn.spin .material-symbols-outlined{animation:spin .8s linear infinite}
+.loc-chip{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:8px;max-width:90%;
+  padding:8px 12px 8px 14px;border-radius:999px;background:#0a1230ee;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 3px 12px #0008}
+.loc-chip[hidden]{display:none}
+.loc-chip .material-symbols-outlined{font-size:20px;color:#6fa0ff}
+.loc-chip .x{color:#aab}
+.loc-chip small{margin-left:6px;font-size:10px;opacity:.7}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:6;max-width:88%;padding:10px 18px;border-radius:8px;
+  background:#16181cf2;color:#fff;font-weight:700;font-size:14px;line-height:1.5;text-align:center;box-shadow:0 4px 16px #000a}
+.toast[hidden]{display:none}
+
+/* 下部ニュースティッカー（E235系トレインチャンネル風） */
+.ticker{flex:none;position:relative;z-index:4;display:flex;align-items:stretch;height:calc(34px + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);background:var(--metal);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 -2px 10px rgba(0,0,0,.5)}
+body.no-ticker .ticker{display:none}
+.ticker-label{flex:none;display:flex;align-items:center;padding:0 14px;font:900 14px 'Noto Sans JP',sans-serif;letter-spacing:.08em;color:#fff;
+  background:linear-gradient(180deg,#3b78ff,#1a3fa0)}
+.ticker-view{flex:1;min-width:0;overflow:hidden}
+.ticker-track{display:inline-block;white-space:nowrap;padding-left:100%;font:700 16px/34px 'Noto Sans JP',sans-serif;color:#fff;
+  animation:ticker 40s linear infinite;will-change:transform}
+@keyframes ticker{to{transform:translateX(-100%)}}
+
+@media (max-width:1300px){.title .en,.btn-focus .lbl small{display:none}.btn-search small{display:none}}
+@media (max-width:1100px){.btn-focus .lbl{display:none}.btn-focus{padding:6px 10px}}

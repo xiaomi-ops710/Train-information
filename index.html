@@ -23,6 +23,7 @@
   <div class="bar-left">
     <h1 class="title" data-i18n="title"></h1>
     <nav class="tabs" id="companyTabs" aria-label="鉄道会社"></nav>
+    <button class="btn-focus" id="btnFocus" aria-pressed="false"><span class="material-symbols-outlined">warning</span><span class="lbl" data-i18n="focus"></span></button>
     <button class="btn-search" id="btnSearch">
       <span class="material-symbols-outlined">search</span><span class="lbl" data-i18n="search"></span>
     </button>
@@ -35,16 +36,24 @@
     <button class="icon-btn" id="btnSettings" aria-label="設定"><span class="material-symbols-outlined">settings</span></button>
   </div>
 </header>
+<div class="favbar" id="favBar" hidden></div>
 
 <main class="stage" id="stage">
   <div class="map" id="map"></div>
   <div class="legend" id="legend"></div>
+  <div class="loc-chip" id="locChip" hidden></div>
+  <div class="toast" id="toast" hidden></div>
   <div class="zoom">
+    <button class="icon-btn" id="btnLocate" aria-label="現在地へ移動"><span class="material-symbols-outlined">my_location</span></button>
     <button class="icon-btn" id="zoomIn" aria-label="拡大"><span class="material-symbols-outlined">add</span></button>
     <button class="icon-btn" id="zoomOut" aria-label="縮小"><span class="material-symbols-outlined">remove</span></button>
     <button class="icon-btn" id="zoomReset" aria-label="リセット"><span class="material-symbols-outlined">center_focus_strong</span></button>
   </div>
 </main>
+<footer class="ticker" id="ticker">
+  <div class="ticker-label">運行情報</div>
+  <div class="ticker-view"><div class="ticker-track" id="tickerTrack"></div></div>
+</footer>
 
 <!-- 設定モーダル -->
 <div class="modal" id="modalSettings" hidden>
@@ -55,6 +64,12 @@
       <input type="checkbox" class="switch" id="optBilingual"></label>
     <label class="row"><span data-i18n="demo"></span>
       <input type="checkbox" class="switch" id="optDemo"></label>
+    <label class="row"><span data-i18n="autoLocate"></span>
+      <input type="checkbox" class="switch" id="optAutoLocate"></label>
+    <label class="row"><span data-i18n="ticker"></span>
+      <input type="checkbox" class="switch" id="optTicker"></label>
+    <label class="row"><span data-i18n="chime"></span>
+      <input type="checkbox" class="switch" id="optChime"></label>
     <div class="row sync"><div data-i18n="syncTime"></div><div class="sync-val" id="syncTime">--</div></div>
     <div class="row sync"><div data-i18n="syncState"></div><div class="sync-val" id="syncState">未同期</div></div>
   </div>
