@@ -243,3 +243,153 @@ body.no-ticker .ticker{display:none}
 
 @media (max-width:1300px){.title .en,.btn-focus .lbl small{display:none}.btn-search small{display:none}}
 @media (max-width:1100px){.btn-focus .lbl{display:none}.btn-focus{padding:6px 10px}}
+
+/* ================= ヘッダー拡張・稼働率メーター ================= */
+.tools{display:flex;align-items:center;gap:8px}
+.meter{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;background:#0c0d10;border:1px solid #3a3e46;font-size:12px;font-weight:700;white-space:nowrap;color:#cfd3dc}
+.meter b{margin-left:6px;font:900 16px Roboto,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
+.meter small{font-size:9px;opacity:.7;margin-left:3px}
+.mdot{width:9px;height:9px;border-radius:50%;background:#6b707a}
+.meter.good .mdot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.meter.warn .mdot{background:var(--delay);box-shadow:0 0 8px var(--delay)}
+.meter.bad .mdot{background:var(--suspend);box-shadow:0 0 8px var(--suspend)}
+@media (max-width:1500px){.btn-focus .lbl,.btn-search .lbl small{display:none}.btn-search .lbl{display:flex}}
+@media (max-width:1380px){.btn-focus .lbl{display:none}.meter small{display:none}}
+@media (max-width:1200px){.btn-search .lbl{display:none}.btn-search{padding:6px 10px}.meter{padding:4px 8px}.clock{font-size:26px;min-width:4.6em}}
+
+/* ================= 振替・代替ルートのハイライト ================= */
+.stage.detour-mode .map svg [data-line]:not(.alt-hl):not(.detour-src){opacity:.12!important}
+.map svg [data-line].detour-src{opacity:1!important}
+.map svg [data-line].detour-src:not(.status-delay):not(.status-suspend){color:var(--suspend)}
+.map svg [data-line].detour-src .rail{stroke:currentColor!important}
+.map svg [data-line].detour-src .fx{display:inline;animation:neon 1.2s ease-in-out infinite}
+.map svg [data-line].alt-hl{opacity:1!important;color:#2f9bff}
+.map svg [data-line].alt-hl .rail{stroke:#2f9bff!important;stroke-dasharray:28 16;animation:dash 1s linear infinite}
+.map svg [data-line].alt-hl .fx{display:inline;animation:neon 1.6s ease-in-out infinite}
+@keyframes dash{to{stroke-dashoffset:-44}}
+.detour-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;max-width:92%;
+  padding:8px 8px 8px 14px;border-radius:10px;background:#0a1230f2;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 3px 12px #0008}
+.detour-bar[hidden]{display:none}
+.detour-bar .material-symbols-outlined{color:#5eb0ff}
+.detour-bar button{flex:none;border:0;border-radius:6px;padding:7px 14px;font:700 14px 'Noto Sans JP',sans-serif;cursor:pointer;background:#fff;color:#111}
+
+/* ================= 異常路線LCDボード ================= */
+.board{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;background:linear-gradient(180deg,#e6e9ef,#cfd5de);overflow:hidden}
+.board[hidden]{display:none}
+.board-head{flex:none;display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 24px;background:#fff;color:#111;
+  font-weight:900;font-size:1.15rem;letter-spacing:.06em;border-bottom:1px solid #b0b5bd}
+.board-head time{font:500 20px Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.board-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;align-content:start}
+.board-card{display:block;text-align:left;border:0;padding:0;cursor:pointer;border-radius:4px;overflow:hidden;background:#fff;color:#111;font-family:inherit;
+  box-shadow:0 0 0 2px #05060a,0 6px 16px rgba(0,0,0,.35)}
+.bc-head{display:flex;align-items:center;gap:14px;height:84px;padding:0 14px;color:#fff;background:linear-gradient(180deg,#32363d 0%,#181a1f 50%,#0d0e12 100%)}
+.bc-head .lname b{font-size:1.7rem}
+.bc-head .car{min-width:110px;font-size:17px}
+.bc-body{padding:14px 20px 18px;font-weight:700;font-size:1.15rem;line-height:1.6;background:linear-gradient(180deg,#e6e9ef,#cfd5de);min-height:110px}
+.bc-body p{margin:0}.bc-body .h{margin-bottom:.25em}
+.board-ok{flex:1;display:grid;place-content:center;justify-items:center;gap:10px;padding:24px;text-align:center;color:#111}
+.board-ok .material-symbols-outlined{font-size:84px;color:#1f9d4a}
+.board-ok b{font-size:1.9rem}.board-ok small{font-size:1.1rem;opacity:.7}
+
+/* ================= ポップアップ追加：号車・メモ・代替ボタン ================= */
+.rside .rtop{display:flex;align-items:baseline;gap:12px}
+.carno{display:inline-flex;align-items:baseline;gap:2px;font-family:Roboto,sans-serif}
+.carno b{font:500 22px/1 Roboto,sans-serif}
+.carno small{font:500 11px 'Noto Sans JP',sans-serif;opacity:.85}
+.lcd-memo{padding:10px 14px 0;background:#fff;border-top:1px solid #b0b5bd}
+.lcd-memo label{display:block;font-weight:700;font-size:13px;color:#333;margin-bottom:4px}
+.lcd-memo label small{margin-left:6px;opacity:.65}
+.lcd-memo textarea{width:100%;resize:vertical;min-height:52px;border:1px solid #b0b5bd;border-radius:6px;padding:8px 10px;font:500 15px/1.5 'Noto Sans JP',sans-serif;
+  color:#111;background:#f7f8fb;-webkit-user-select:text;user-select:text}
+.lcd-foot{gap:10px;flex-wrap:wrap;border-top:0}
+.btn-alt{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border:0;border-radius:6px;cursor:pointer;color:#fff;font:700 15px 'Noto Sans JP',sans-serif;line-height:1.2;
+  background:linear-gradient(180deg,#3b78ff,#1a3fa0)}
+.btn-alt small{display:block;font-size:10px;opacity:.8}
+.btn-alt .material-symbols-outlined{font-size:22px}
+.btn-yahoo.plain{background:linear-gradient(180deg,#fff,#dcdcdc);color:#111;border:1px solid #888}
+
+/* ================= マイ駅・履歴・リンク集 ================= */
+.stn-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 4px 10px}
+.stn-chips .fav-chip{height:38px;padding:0 14px;background:linear-gradient(180deg,#fff,#dde1ea);color:#111}
+.badge.stn-ic{border-color:#2f6df0}
+.badge.stn-ic .material-symbols-outlined{font-size:24px;color:#2f6df0}
+.stn-back{display:inline-flex;align-items:center;gap:6px;border:0;background:#fff;border-radius:8px;padding:8px 14px;margin:4px 0 8px;font:700 14px 'Noto Sans JP',sans-serif;cursor:pointer;box-shadow:0 1px 2px #0003}
+.sheet.stn-detail #stnSearch{display:none}
+.tr-card{border-radius:4px;overflow:hidden;background:#fff;box-shadow:0 0 0 2px #05060a,0 6px 16px rgba(0,0,0,.3)}
+.tr-head{display:flex;align-items:center;gap:14px;height:96px;padding:0 14px 0 20px;color:#fff;background:linear-gradient(180deg,#32363d 0%,#181a1f 50%,#0d0e12 100%)}
+.tr-name{flex:1;display:flex;align-items:baseline;gap:6px}.tr-name b{font-size:2.4rem;font-weight:700}.tr-name span{font-size:1.2rem}
+.tr-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.tr-meta small{font:500 11px Roboto;opacity:.75}
+.tr-head .star{width:48px;height:48px;align-self:center;border-radius:50%;background:rgba(255,255,255,.1);color:rgba(255,255,255,.45)}
+.tr-head .star.on{color:#ffd23a}
+.tr-lines{display:flex;flex-direction:column;gap:6px;padding:10px;background:linear-gradient(180deg,#e6e9ef,#cfd5de)}
+.tl-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:#fff;box-shadow:0 1px 2px #0003;color:#111}
+.tl-row time{flex:none;font:700 14px Roboto,sans-serif;color:#555;font-variant-numeric:tabular-nums}
+.tl-row b{flex:1;min-width:0;font-size:17px}
+.tl-chg{flex:none;font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px;color:#fff;background:#d97800}
+.tl-chg.normal{background:#1f9d4a}.tl-chg.suspend{background:#d91a1a}
+.link-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:#fff;box-shadow:0 1px 2px #0003;color:#111;flex-wrap:wrap}
+.link-row .lr-name{flex:1;min-width:140px}
+.link-row .btn-yahoo{padding:8px 12px;font-size:13px}
+
+/* ================= 券売機（MV50系）風 設定UI ================= */
+.mv{width:min(780px,96vw);max-height:96vh;display:flex;flex-direction:column;padding:12px;border-radius:20px;
+  background:linear-gradient(145deg,#b9b5e6,#8e8ac6 50%,#7b77b4);box-shadow:0 30px 80px #000c,inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,0,0,.2)}
+.mv-screen{display:flex;flex-direction:column;min-height:0;flex:1;border-radius:10px;overflow:hidden;background:#f7f5eb;color:#111;box-shadow:0 0 0 3px #1b1b24,inset 0 0 12px rgba(0,0,0,.25)}
+.mv-head{flex:none;display:flex;align-items:center;gap:16px;padding:10px 16px;background:#111111;color:#fff}
+.mv-badge{position:relative;flex:none;width:58px;height:58px;border-radius:14px;background:#00a040;display:grid;place-items:center;box-shadow:inset 0 2px 0 rgba(255,255,255,.35)}
+.mv-badge .material-symbols-outlined{font-size:36px;color:#fff}
+.mv-badge .gear{position:absolute;right:3px;bottom:3px;font-size:19px;background:#00a040;border-radius:50%}
+.mv-title{flex:1;min-width:0;text-align:center;line-height:1.15}
+.mv-title b{display:block;font-size:1.7rem;font-weight:900;letter-spacing:.06em}
+.mv-title small{font:500 15px Roboto,sans-serif;opacity:.85}
+.mv-ic{flex:none;padding:5px 12px;border:2px solid #fff;border-radius:7px;font:900 17px Roboto,sans-serif;letter-spacing:.12em}
+.mv-cats{flex:none;display:flex;gap:8px;padding:10px 12px 8px;background:#f7f5eb;border-bottom:1px solid #d6d2bd}
+.mv-tab{flex:1;padding:8px 6px 10px;border:2px solid #555;border-radius:12px;font:700 14px/1.2 'Noto Sans JP',sans-serif;color:#111;cursor:pointer;
+  background:linear-gradient(180deg,#fff,#d8d8d8);box-shadow:0 4px 0 #777}
+.mv-tab small{display:block;font:500 10px Roboto,sans-serif;opacity:.65}
+.mv-tab[aria-pressed="true"]{background:linear-gradient(180deg,#44474c,#1a1c20);color:#fff;transform:translateY(2px);box-shadow:0 2px 0 #000}
+.mv-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;background:#f7f5eb}
+.mv-main-btn{width:100%;padding:18px 16px;border:2px solid #000;border-radius:14px;cursor:pointer;color:#fff;text-align:center;
+  background:linear-gradient(180deg,#44474c 0%,#1a1c20 100%);box-shadow:0 6px 0 #000,0 10px 14px rgba(0,0,0,.35)}
+.mv-main-btn b{display:block;font-size:1.55rem;font-weight:900;letter-spacing:.03em}
+.mv-main-btn small{display:block;margin-top:5px;font:500 13px/1.4 'Noto Sans JP',sans-serif;opacity:.85}
+.mv-main-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #000}
+.mv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.mv-btn.tile{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;text-align:left;cursor:pointer;color:#111;
+  border:2px solid #222;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#dcdcdc 100%);box-shadow:0 5px 0 #8a8a8a,0 8px 10px rgba(0,0,0,.25)}
+.mv-btn.tile:active{transform:translateY(4px);box-shadow:0 1px 0 #8a8a8a}
+.t-lbl{min-width:0;display:flex;flex-direction:column}
+.t-lbl b{font-size:16px;line-height:1.25}.t-lbl small{font:500 11px Roboto,sans-serif;color:#555}
+.st-badge{flex:none;min-width:56px;text-align:center;padding:5px 10px;border-radius:999px;border:2px solid #222;font:900 14px/1.15 Roboto,'Noto Sans JP',sans-serif}
+.st-badge small{display:block;font:500 9px Roboto,sans-serif}
+.st-badge.on{background:#1f9d4a;color:#fff;border-color:#0d6b2f}
+.st-badge.off{background:#c4c4c4;color:#444;border-color:#8a8a8a}
+.st-badge.val{background:#fff3c4;color:#222}
+.mv-sync{margin-top:16px;padding:6px 12px;border:1px solid #cfcab0;border-radius:8px;background:#fffdf3}
+.mv-sync .row{padding:8px 0;border-bottom:1px dashed #ddd8bd;font-size:14px}.mv-sync .row:last-child{border-bottom:0}
+.mv-maint{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px;background:#ebe5ce;border-top:1px solid #c7c0a2}
+.mv-silver,.mv-bright{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 8px;cursor:pointer;color:#111;text-align:left;
+  border:2px solid #333;border-radius:10px;background:linear-gradient(180deg,#fafafa,#bcbcbc);box-shadow:0 4px 0 #6f6f6f,0 6px 8px rgba(0,0,0,.2)}
+.mv-silver:active,.mv-bright:active{transform:translateY(3px);box-shadow:0 1px 0 #6f6f6f}
+.ms-lbl{display:flex;flex-direction:column;line-height:1.2}.ms-lbl b{font-size:13px}.ms-lbl small{font-size:10px;color:#555}
+.mv-silver .material-symbols-outlined,.mv-bright .material-symbols-outlined{font-size:26px}
+.mv-silver.armed{background:linear-gradient(180deg,#fff1b8,#f5c21c);border-color:#7a5b00}
+.mv-silver.armed .ms-lbl small{color:#7a1b00;font-weight:700}
+.mv-silver.armed .ms-lbl small::after{content:' ← もう一度タップ'}
+.mv-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px 12px;background:#ece9f7;border-top:1px solid #c9c5e2}
+.mv-cancel{width:80px;height:80px;border-radius:50%;border:5px solid #fff;cursor:pointer;color:#fff;line-height:1.1;
+  background:radial-gradient(circle at 35% 30%,#ff8a8a,#e60012 55%,#9a000b);box-shadow:0 0 0 2px #7a0008,0 6px 0 #7a0008,0 10px 14px rgba(0,0,0,.4)}
+.mv-cancel b{display:block;font-size:20px;font-weight:900}.mv-cancel small{font-size:10px}
+.mv-cancel:active{transform:translateY(4px)}
+.mv-footinfo{display:flex;align-items:center;gap:14px}
+.mv-bright.on{background:linear-gradient(180deg,#44474c,#1a1c20);color:#fff;border-color:#000}
+.mv-bright.on .ms-lbl small{color:#cfd3dc}
+.mv-time{font:700 17px 'Noto Sans JP',Roboto,sans-serif;font-variant-numeric:tabular-nums;color:#222;white-space:nowrap}
+@media (max-width:560px){.mv-grid{grid-template-columns:1fr}.mv-maint{grid-template-columns:1fr}.mv-title b{font-size:1.2rem}}
+
+/* ================= LCD質感・夜間減光オーバーレイ ================= */
+#lcdOverlay,#dimOverlay{display:none;position:fixed;inset:0;pointer-events:none}
+#lcdOverlay{z-index:80;opacity:.5;
+  background:linear-gradient(rgba(0,0,0,.22) 1px,transparent 1px) 0 0/100% 3px,linear-gradient(90deg,rgba(255,40,40,.07),rgba(40,255,40,.06),rgba(60,60,255,.08)) 0 0/3px 100%}
+#dimOverlay{z-index:90;background:rgba(0,0,0,.32)}
+body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
