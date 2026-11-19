@@ -33,15 +33,7 @@ const STRINGS = {
   suspend:   { ja: '運転見合わせ', en: 'Suspended' },
   ph:        { ja: '路線名・路線記号・会社名で検索', en: 'Line name, symbol or company' },
   none:      { ja: '該当する路線がありません。', en: 'No matching lines.' },
-  normalTxt: { ja: '現在、平常通り運転しています。', en: '' },
-  syncTime:  { ja: '最終同期時刻', en: 'Last sync' },
-  syncState: { ja: '取得ステータス', en: 'Sync status' },
-  focus:     { ja: '異常のみ強調', en: 'Alerts Only' },
-  autoLocate:{ ja: '起動時に現在地へ自動移動', en: 'Auto-locate on launch' },
-  ticker:    { ja: '下部ニュースティッカー', en: 'News ticker' },
-  chime:     { ja: '新規遅延発生時のチャイム通知', en: 'Chime on new delays' },
-  official:  { ja: '公式詳細ページを開く', en: 'Open official page' },
-  myLines:   { ja: 'マイ路線', en: 'My Lines' }
+  normalTxt: { ja: '現在、平常通り運転しています。', en: '' }
 };
 
 /* ---------- 路線マスターデータ（41路線） ----------
@@ -100,7 +92,7 @@ const lineByName = name => LINES.find(l => l.ja === name);
 /* ---------- 設定（localStorage） ---------- */
 const Settings = {
   KEY: 'tokyo-lcd:settings',
-  data: { bilingual: true, demo: false, autoLocate: false, ticker: true, chime: false, focus: false }, // 保存値があればそちらを優先（load）
+  data: { bilingual: true, demo: true },
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -152,47 +144,33 @@ const DemoProvider = {
 };
 
 /* ---------- Yahoo!路線情報（関東エリア）の取得・解析 ----------
- * ・fetchViaProxy：自作Cloudflare Workersプロキシ経由で生のHTMLを取得（外部の無料CORSプロキシは使用しない）
- * ・parse：<table>の<tr>のうち /diainfo/ へのリンクを含む行を路線データとして抽出（クラス名に依存しない）
- * ・平常運転以外の路線は個別詳細ページ(#mdServiceStatus)を並列取得して詳細メッセージに反映
- * ・Yahoo側の表記ゆれ(canon + ALIAS + 会社名プレフィックス)を吸収してマスター路線に照合
+ * ・CORSプロキシ経由でHTMLを取得（1つ目が失敗したら次へフォールバック）
+ * ・DOMParserで路線リンク(/diainfo/{数字}/{数字})を起点に、行から「路線名・状況・詳細」を抽出
+ * ・Yahoo側の表記揺れ(canon + ALIAS)を吸収してマスター路線名にマッチング
  * ・一覧に載っていない路線は平常運転として扱う */
-const YAHOO_ORIGIN = 'https://transit.yahoo.co.jp';
-const YAHOO_URL = YAHOO_ORIGIN + '/diainfo/area/4';
+const YAHOO_URL = 'https://transit.yahoo.co.jp/diainfo/area/4';
 const AUTO_REFRESH_MS = 180000;   // 自動更新間隔：3分
 const FETCH_TIMEOUT_MS = 12000;
-const PROXY_BASE = 'https://train-info-proxy.xiongdayiteng4.workers.dev/';
-const proxyUrl = targetUrl => `${PROXY_BASE}?url=${encodeURIComponent(targetUrl)}`;
-const clean = t => String(t || '').replace(/\s+/g, ' ').trim();
-
-/* 自作Workersプロキシ経由で targetUrl のHTML文字列を取得。失敗時は原因入りのErrorを投げる */
-async function fetchViaProxy(targetUrl, validate = html => /diainfo|運行情報/.test(html)) {
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(proxyUrl(targetUrl), { signal: ctl.signal, cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const html = await res.text();
-    if (html.length < 500 || !validate(html)) throw new Error('不正な応答（HTMLが短い/想定外の内容）');
-    return { html, proxy: 'Cloudflare Workers' };
-  } catch (e) {
-    const why = e.name === 'AbortError' ? 'タイムアウト' : (e.message === 'Failed to fetch' ? '通信失敗(接続不可/CORS)' : e.message);
-    console.warn('[Yahoo] proxy failed →', why);
-    throw new Error('プロキシ取得失敗：' + why);
-  } finally { clearTimeout(timer); }
-}
+const PROXIES = [
+  { name: 'allorigins',
+    build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}&_=${Date.now()}`,
+    extract: async res => (await res.json()).contents },
+  { name: 'corsproxy',
+    build: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+    extract: res => res.text() }
+];
 
 const Yahoo = {
-  report: null,
   /* マスター路線名 → 追加の別表記（canon後に比較するので括弧・中黒・全半角の差は気にしなくてよい） */
   ALIAS_EXTRA: {
     '京浜東北線': ['京浜東北・根岸線', '根岸線'],
     '中央線快速': ['中央本線快速', '中央線(快速電車)'],
-    '中央・総武各駅停車': ['中央・総武線(各駅停車)', '中央･総武線(各停)', '総武線(各駅停車)', '中央線(各駅停車)', '中央・総武線'],
+    '中央・総武各駅停車': ['中央・総武線(各駅停車)', '総武線(各駅停車)', '中央線(各駅停車)', '中央・総武線'],
     '東海道線': ['東海道本線'],
     '総武快速線': ['総武線(快速)', '総武本線(快速)', '横須賀・総武快速線'],
     '埼京線': ['埼京・川越線', '埼京線・川越線'],
     '常磐線快速': ['常磐線(快速)'],
-    '常磐線各駅停車': ['常磐線(各駅停車)', '常磐線(各停)', '常磐緩行線'],
+    '常磐線各駅停車': ['常磐線(各駅停車)', '常磐線各停', '常磐緩行線'],
     '丸ノ内線': ['丸の内線'],
     '東急東横線': ['東横線'],
     '東急田園都市線': ['田園都市線'],
@@ -210,25 +188,15 @@ const Yahoo = {
     ['上野東京ライン', ['上野東京ライン']],
     ['東武スカイツリーライン', ['東武スカイツリーライン']]
   ],
-  /* 会社名プレフィックス（長いものを先に）。外して会社区分つきで再照合する */
-  PREFIXES: [['JR東日本', 'JR'], ['JR', 'JR'], ['東京メトロ', 'Metro'], ['東京地下鉄', 'Metro'], ['地下鉄', 'Metro'], ['都営地下鉄', 'Toei'], ['都営', 'Toei']],
   lookup: null,
 
-  /* 正規化：全半角統一 → [..]の区間表記を削除 → 区間表記を含む(..)を削除 → 「各停」を「各駅停車」に
-   *        → 「本線」を「線」に → 残りの括弧(種別:快速など)は中身を残して記号だけ除去 → 中黒(・/･)・空白を除去 */
+  /* 正規化：全半角統一・区間表記の括弧を除去・残りの括弧/中黒/空白を除去 */
   canon(s) {
     return String(s).normalize('NFKC')
-      .replace(/\[[^\]]*\]/g, '')
       .replace(/\([^)]*[~〜\-－間方面][^)]*\)/g, '')
-      .replace(/各停/g, '各駅停車')
-      .replace(/本線/g, '線')
       .replace(/[()\[\]【】「」]/g, '')
       .replace(/[\s・･·]/g, '')
       .toLowerCase();
-  },
-  /* 予備の正規化：種別を含む括弧の中身も全部削除（例：「山手線(内回り)」→「山手線」） */
-  canonLoose(s) {
-    return this.canon(String(s).normalize('NFKC').replace(/\([^)]*\)/g, ''));
   },
   buildLookup() {
     this.lookup = new Map();
@@ -246,18 +214,10 @@ const Yahoo = {
   /* Yahoo側の路線名 → マスター路線名の配列（該当なしは空配列） */
   match(name) {
     if (!this.lookup) this.buildLookup();
-    for (const c of [this.canon(name), this.canonLoose(name)]) {
-      if (this.lookup.has(c)) return this.lookup.get(c);
-      const hit = this.PREFIX.find(([p]) => c.startsWith(this.canon(p)));
-      if (hit) return hit[1];
-      for (const [p, co] of this.PREFIXES) { // 会社名プレフィックスを外し、同じ会社区分の路線だけに絞って照合
-        const cp = this.canon(p);
-        if (!c.startsWith(cp)) continue;
-        const names = (this.lookup.get(c.slice(cp.length)) || []).filter(n => lineByName(n).co === co);
-        if (names.length) return names;
-      }
-    }
-    return [];
+    const c = this.canon(name);
+    if (this.lookup.has(c)) return this.lookup.get(c);
+    const hit = this.PREFIX.find(([p]) => c.startsWith(this.canon(p)));
+    return hit ? hit[1] : [];
   },
   /* 状況テキスト → 内部ステータス（判定不能は null） */
   statusOf(t) {
@@ -269,41 +229,39 @@ const Yahoo = {
     return null;
   },
 
-  isLineHref(h) { return /\/diainfo\/[^/?#]+/.test(h || '') && !/\/diainfo\/area/.test(h); },
-  toUrl(h) { try { return new URL(h, YAHOO_ORIGIN).href; } catch (_) { return YAHOO_ORIGIN + h; } },
-  /* 主：すべての<table>の<tr>から、/diainfo/ のリンクを含む行を拾う */
-  rowsFromTables(doc) {
-    const out = [];
-    doc.querySelectorAll('table tr').forEach(tr => {
-      const a = [...tr.querySelectorAll('a[href]')].find(x => this.isLineHref(x.getAttribute('href')));
-      if (!a) return;
-      const name = clean(a.textContent), url = this.toUrl(a.getAttribute('href'));
-      if (name) out.push({ name, url, row: tr });
-    });
-    return out;
-  },
-  /* 予備：テーブルでない構造（li/dl等）のとき */
-  rowsFromLinks(doc) {
-    const out = [], seen = new Set();
-    doc.querySelectorAll('a[href]').forEach(a => {
-      const href = a.getAttribute('href');
-      if (!this.isLineHref(href)) return;
-      const name = clean(a.textContent), url = this.toUrl(href);
-      if (!name || seen.has(url)) return;
-      let row = a.closest('li') || a.closest('dl') || a.parentElement;
-      if (row.querySelectorAll('a[href*="/diainfo/"]').length > 1) row = a.parentElement;
-      seen.add(url); out.push({ name, url, row });
-    });
-    return out;
+  async fetchHtml() {
+    let lastErr;
+    for (const p of PROXIES) {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(p.build(YAHOO_URL), { signal: ctl.signal, cache: 'no-store' });
+        if (!res.ok) throw new Error(`${p.name}: HTTP ${res.status}`);
+        const html = await p.extract(res);
+        if (typeof html !== 'string' || html.length < 1000 || !/diainfo|運行情報/.test(html))
+          throw new Error(`${p.name}: invalid response`);
+        return html;
+      } catch (e) {
+        lastErr = e; console.warn('[Yahoo] proxy failed →', e.message || e);
+      } finally { clearTimeout(timer); }
+    }
+    throw lastErr || new Error('all proxies failed');
   },
 
-  /* HTML → [{ name, url, status, detail }] */
+  /* HTML → [{ name, status, detail }] */
   parse(html) {
+    const clean = t => String(t || '').replace(/\s+/g, ' ').trim();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    let rows = this.rowsFromTables(doc);
-    if (!rows.length) rows = this.rowsFromLinks(doc);
+    const seen = new Map();
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const href = a.getAttribute('href') || '';
+      const name = clean(a.textContent);
+      if (!/\/diainfo\/\d+\/\d+/.test(href) || !name || seen.has(href)) return;
+      let row = a.closest('tr') || a.closest('li') || a.closest('dl') || a.parentElement;
+      if (row.querySelectorAll('a[href*="/diainfo/"]').length > 1) row = a.parentElement; // 複数路線を含む大きな塊は避ける
+      seen.set(href, { name, row });
+    });
     const out = [];
-    rows.forEach(({ name, url, row }) => {
+    seen.forEach(({ name, row }) => {
       const text = clean(row.textContent);
       const cells = [...row.querySelectorAll('td,dd')].map(c => clean(c.textContent));
       const lab = row.querySelector('[class*="trouble" i],[class*="status" i],[class*="label" i]');
@@ -311,31 +269,13 @@ const Yahoo = {
       const status = this.statusOf(lab && lab.textContent) || this.statusOf(cells[1]) || this.statusOf(rest);
       if (!status) return; // 状況が読めない行（ナビ等）は無視
       let detail = cells.length >= 3 ? cells[cells.length - 1] : rest;
-      detail = clean(detail.replace(/^(平常運転|遅延|運転見合わせ|見合わせ|運転状況|交通障害情報?|運転再開|一部運休|運休|その他)\s*/, ''));
-      out.push({ name, url, status, detail });
+      detail = clean(detail.replace(/^(平常運転|遅延|運転見合わせ|運転状況|交通障害情報?|運転再開|一部運休|運休|その他)\s*/, ''));
+      out.push({ name, status, detail });
     });
-    return this.merge(out);
-  },
-  /* 上部「現在運行情報のある路線」と下部の会社別一覧で重複した路線を1件に統合（異常状態・詳細が長い方を優先） */
-  merge(list) {
-    const score = x => (x.status !== 'normal' ? 1000 : 0) + x.detail.length;
-    const m = new Map();
-    list.forEach(e => {
-      const key = e.url.split(/[?#]/)[0], cur = m.get(key);
-      if (!cur || score(e) > score(cur)) m.set(key, e);
-    });
-    return [...m.values()];
-  },
-  /* 個別詳細ページ → 運行情報本文（#mdServiceStatus 内の<p>） */
-  parseDetail(html) {
-    const box = new DOMParser().parseFromString(html, 'text/html').querySelector('#mdServiceStatus, [id*="ServiceStatus" i]');
-    if (!box) return '';
-    const ps = [...box.querySelectorAll('p')].map(p => clean(p.textContent)).filter(Boolean);
-    const text = ps.length ? ps.join('　') : clean(box.textContent);
-    return text.length > 240 ? text.slice(0, 239) + '…' : text;
+    return out;
   },
 
-  /* [{name,url,status,detail}] → { マスター路線名: {status, detail, url} }（同一路線は最も重い状態を採用） */
+  /* [{name,status,detail}] → { マスター路線名: {status, detail} }（同一路線は最も重い状態を採用） */
   toStatuses(entries) {
     const byLine = {};
     entries.forEach(e => {
@@ -347,37 +287,17 @@ const Yahoo = {
     Object.entries(byLine).forEach(([n, list]) => {
       list.sort((a, b) => STATUS[a.status].rank - STATUS[b.status].rank);
       if (list[0].status === 'normal') return; // 平常運転は「情報なし」と同じ扱い
-      const abn = list.filter(x => x.status !== 'normal');
-      const details = [...new Set(abn.map(x => x.detail).filter(Boolean))];
-      result[n] = { status: list[0].status, detail: details.join('　'), url: list[0].url };
+      const details = [...new Set(list.filter(x => x.status !== 'normal').map(x => x.detail).filter(Boolean))];
+      result[n] = { status: list[0].status, detail: details.join('　') };
     });
     return result;
   },
 
   async fetchStatus() {
-    const { html, proxy } = await fetchViaProxy(YAHOO_URL);
+    const html = await this.fetchHtml();
     const entries = this.parse(html);
-    if (!entries.length && !/情報はありません|平常/.test(html))
-      throw new Error('解析エラー：路線の行が見つかりません（Yahoo!のページ構造が変わった可能性）');
-    const result = this.toStatuses(entries);
-    const matched = new Set(entries.flatMap(e => this.match(e.name))).size;
-
-    /* 平常運転以外の路線は個別詳細ページを並列取得して、理由テキストを差し替える */
-    let detailOk = 0, detailFail = 0;
-    await Promise.all(Object.values(result).map(async r => {
-      try {
-        const { html: dh } = await fetchViaProxy(r.url, h => h.length > 500);
-        const t = this.parseDetail(dh);
-        if (t) { r.detail = t; detailOk++; } else detailFail++;
-      } catch (e) { detailFail++; console.warn('[Yahoo] detail failed:', r.url, e.message); }
-    }));
-    this.report = { rows: entries.length, matched, abnormal: Object.keys(result).length, proxy, detailOk, detailFail };
-    return result;
-  },
-  reportText() {
-    const r = this.report; if (!r) return '同期成功';
-    return `同期成功：${r.rows}路線取得（アプリ対象${r.matched}路線・異常${r.abnormal}路線／経由 ${r.proxy}）` +
-      (r.detailFail ? `／詳細本文の取得に失敗 ${r.detailFail}件（一覧の文言を表示）` : '');
+    if (!entries.length && !/情報はありません|平常/.test(html)) throw new Error('parse failed: no rows found');
+    return this.toStatuses(entries);
   }
 };
 const LiveProvider = { fetchStatus: () => Yahoo.fetchStatus() };
@@ -443,8 +363,6 @@ const MapView = {
     });
     g.appendChild(hit);
   },
-  setHitWidth(w) { if (this.svg) this.svg.style.setProperty('--hitw', w.toFixed(1) + 'px'); },
-  setHitWidth(w) { if (this.svg) this.svg.style.setProperty('--hitw', w.toFixed(1) + 'px'); },
   lines() { return this.svg ? [...this.svg.querySelectorAll('[data-line]')] : []; },
   applyStatuses() {
     this.lines().forEach(g => {
@@ -459,111 +377,48 @@ const MapView = {
   }
 };
 
-/* ---------- ズーム・パン（ハイブリッド描画） ----------
- * 操作中：ラッパー(.map)に translate3d + scale のCSS transformだけを当てて軽量に動かす
- * 確定後：目標の表示範囲から viewBox を1回だけ計算して適用し、transformを外す → 常に最高画質のベクター描画
- * 目標状態 x,y,k（viewBox左上・1SVG単位あたりのpx）と、確定済み状態 cx,cy,ck を別々に持つ */
+/* ---------- ズーム・パン（ピンチ／ドラッグ／ホイール／ボタン） ---------- */
 const Zoom = {
-  x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400,
-  MAX_K: 2.6, HOME_RATIO: 2.4, HOME_PT: [0.507, 0.472],
-  stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0,
-  init(stage, mapEl) {
-    this.stage = stage; this.mapEl = mapEl; this.svg = MapView.svg;
-    const vb = this.svg && this.svg.viewBox.baseVal;
-    if (vb && vb.width) { this.VW = vb.width; this.VH = vb.height; }
-    if (this.svg) this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    this.measure();
+  k: 1, x: 0, y: 0, MIN: 0.8, MAX: 14, HOME_K: 2.4, HOME_PT: [0.507, 0.472],
+  stage: null, target: null, pts: new Map(), last: null, moved: 0,
+  init(stage, target) {
+    this.stage = stage; this.target = target;
     stage.addEventListener('pointerdown', e => this.down(e));
     stage.addEventListener('pointermove', e => this.move(e));
     ['pointerup', 'pointercancel'].forEach(t => stage.addEventListener(t, e => this.up(e)));
     stage.addEventListener('wheel', e => {
-      e.preventDefault(); this.stopAnim();
+      e.preventDefault();
       this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
-      this.commitLater(150);
     }, { passive: false });
     const c = () => { const r = stage.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-    document.getElementById('zoomIn').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1.4); this.commitLater(150); };
-    document.getElementById('zoomOut').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1 / 1.4); this.commitLater(150); };
+    document.getElementById('zoomIn').onclick = () => this.zoomAt(...c(), 1.4);
+    document.getElementById('zoomOut').onclick = () => this.zoomAt(...c(), 1 / 1.4);
     document.getElementById('zoomReset').onclick = () => this.home();
-    if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
   },
-  measure() { const r = this.stage.getBoundingClientRect(); this.W = Math.max(1, r.width); this.H = Math.max(1, r.height); },
-  fitK() { return Math.min(this.W / this.VW, this.H / this.VH); },
-  clampK(k) { return Math.min(this.MAX_K, Math.max(this.fitK() * 0.9, k)); },
-  /* 画面の中心が地図の外へ出ないように制限 */
-  clampPos() {
-    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
-    this.x += Math.min(this.VW, Math.max(0, mx)) - mx;
-    this.y += Math.min(this.VH, Math.max(0, my)) - my;
-  },
-  /* 確定済みviewBox → 目標状態 への変換をCSS transformで表現（GPU合成のみ・SVGの再描画なし） */
-  schedule() {
-    if (this.raf) return;
-    this.raf = requestAnimationFrame(() => { this.raf = 0; this.tf(); });
-  },
-  tf() {
-    this.clampPos();
-    const sc = this.k / this.ck, tx = (this.cx - this.x) * this.k, ty = (this.cy - this.y) * this.k;
-    this.mapEl.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${sc})`;
-  },
-  /* viewBoxを書き換えて確定 → transformを外す（ここでだけSVGが再描画される） */
-  commit() {
-    clearTimeout(this.timer);
-    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
-    if (!this.svg) return;
-    this.clampPos();
-    this.svg.setAttribute('viewBox', `${this.x} ${this.y} ${this.W / this.k} ${this.H / this.k}`);
-    this.cx = this.x; this.cy = this.y; this.ck = this.k;
-    this.mapEl.style.transform = 'none';
-    MapView.setHitWidth(Math.min(80, Math.max(12, 28 / this.k))); // タップ判定の太さは画面上でほぼ一定に
-    Locate.rescale();
-  },
-  commitLater(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.commit(), ms); },
-  stopAnim() { if (this.anim) { cancelAnimationFrame(this.anim); this.anim = 0; } },
+  apply() { this.target.style.transform = `translate(${this.x}px,${this.y}px) scale(${this.k})`; },
   /* 初期表示：都心部を画面中央に拡大して表示 */
   home() {
-    this.stopAnim(); this.measure();
-    this.k = this.clampK(this.fitK() * this.HOME_RATIO);
-    this.x = this.HOME_PT[0] * this.VW - this.W / this.k / 2;
-    this.y = this.HOME_PT[1] * this.VH - this.H / this.k / 2;
-    this.commit();
-  },
-  /* 指定のSVG座標を画面中央に滑らかに移動・拡大（アニメ中はtransformのみ → 終了時にviewBox確定） */
-  animateTo(px, py, k, ms = 700) {
-    this.stopAnim();
-    const sx = this.x + this.W / this.k / 2, sy = this.y + this.H / this.k / 2, sk = this.k, ek = this.clampK(k);
-    const t0 = performance.now(), ease = t => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-    const step = now => {
-      const t = Math.min(1, (now - t0) / ms), e = ease(t);
-      this.k = Math.exp(Math.log(sk) + (Math.log(ek) - Math.log(sk)) * e);
-      const mx = sx + (px - sx) * e, my = sy + (py - sy) * e;
-      this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
-      this.tf();
-      if (t < 1) this.anim = requestAnimationFrame(step); else { this.anim = 0; this.commit(); }
-    };
-    this.anim = requestAnimationFrame(step);
-  },
-  focusOn(px, py) { this.animateTo(px, py, Math.min(this.MAX_K, this.fitK() * 6)); },
-  /* ウインドウサイズ変更：画面中心を保ったままviewBoxを再計算 */
-  onResize() {
-    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
-    this.measure(); this.k = this.clampK(this.k);
-    this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
-    this.commit();
+    const r = this.stage.getBoundingClientRect(), vb = MapView.svg && MapView.svg.viewBox.baseVal;
+    if (!vb || !vb.width) { this.k = 1; this.x = 0; this.y = 0; return this.apply(); }
+    const s = Math.min(r.width / vb.width, r.height / vb.height);
+    const ox = (r.width - vb.width * s) / 2, oy = (r.height - vb.height * s) / 2;
+    const px = this.HOME_PT[0] * vb.width, py = this.HOME_PT[1] * vb.height;
+    this.k = this.HOME_K;
+    this.x = r.width / 2 - this.k * (ox + px * s);
+    this.y = r.height / 2 - this.k * (oy + py * s);
+    this.apply();
   },
   zoomAt(cx, cy, f) {
     const r = this.stage.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
-    const sx = this.x + px / this.k, sy = this.y + py / this.k; // カーソル下のSVG座標を固定
-    const nk = this.clampK(this.k * f);
-    this.x = sx - px / nk; this.y = sy - py / nk; this.k = nk;
-    this.schedule();
+    const nk = Math.min(this.MAX, Math.max(this.MIN, this.k * f)), real = nk / this.k;
+    this.x = px - (px - this.x) * real; this.y = py - (py - this.y) * real; this.k = nk;
+    this.apply();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
   down(e) {
-    if (e.target.closest('.zoom,.legend,.loc-chip')) return;
-    this.stopAnim(); clearTimeout(this.timer);
+    if (e.target.closest('.zoom,.legend')) return;
     this.stage.setPointerCapture(e.pointerId);
     this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pts.size === 1) this.moved = 0;
@@ -574,12 +429,12 @@ const Zoom = {
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     this.moved += Math.abs(dx) + Math.abs(dy);
     if (this.pts.size === 1) {
-      if (this.moved >= 8) { this.x -= dx / this.k; this.y -= dy / this.k; this.schedule(); }
+      if (this.moved >= 8) { this.x += dx; this.y += dy; this.apply(); }
       p.x = e.clientX; p.y = e.clientY;
     } else if (this.pts.size === 2) {
       p.x = e.clientX; p.y = e.clientY;
       const d = this.dist(), m = this.mid();
-      this.x -= (m[0] - this.last.m[0]) / this.k; this.y -= (m[1] - this.last.m[1]) / this.k;
+      this.x += m[0] - this.last.m[0]; this.y += m[1] - this.last.m[1];
       this.zoomAt(m[0], m[1], d / this.last.d);
       this.last = { d, m };
     }
@@ -592,175 +447,6 @@ const Zoom = {
     }
     this.pts.delete(e.pointerId); this.last = null;
     if (this.pts.size === 1) this.moved = 99; // ピンチ後の誤タップ防止
-    if (this.pts.size === 0) this.commit();   // 指を離した瞬間にviewBoxを確定
-  }
-};
-
-/* ---------- マイ路線（お気に入り） ---------- */
-const Favs = {
-  KEY: 'tokyo-lcd:favs', list: [],
-  load() {
-    try { const a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); if (Array.isArray(a)) this.list = a.filter(n => lineByName(n)); } catch (_) {}
-  },
-  has(n) { return this.list.includes(n); },
-  toggle(n) {
-    this.list = this.has(n) ? this.list.filter(x => x !== n) : [...this.list, n];
-    try { localStorage.setItem(this.KEY, JSON.stringify(this.list)); } catch (_) {}
-    document.dispatchEvent(new CustomEvent('favs:change'));
-  }
-};
-
-/* ---------- 現在地：関東の主要50駅（駅名・緯度・経度）と、最寄り駅の路線図座標へのマッピング ---------- */
-const STATIONS = [
-  ['東京', 35.6812, 139.7671], ['新宿', 35.6896, 139.7006], ['渋谷', 35.6580, 139.7016], ['池袋', 35.7295, 139.7109],
-  ['上野', 35.7141, 139.7774], ['品川', 35.6285, 139.7387], ['秋葉原', 35.6984, 139.7731], ['横浜', 35.4658, 139.6226],
-  ['川崎', 35.5308, 139.6970], ['武蔵小杉', 35.5763, 139.6596], ['大宮', 35.9065, 139.6240], ['浦和', 35.8589, 139.6573],
-  ['赤羽', 35.7779, 139.7209], ['北千住', 35.7497, 139.8049], ['日暮里', 35.7278, 139.7708], ['錦糸町', 35.6968, 139.8140],
-  ['新小岩', 35.7166, 139.8575], ['市川', 35.7287, 139.9087], ['船橋', 35.7014, 139.9855], ['津田沼', 35.6914, 140.0210],
-  ['千葉', 35.6131, 140.1133], ['西船橋', 35.7072, 139.9593], ['柏', 35.8620, 139.9710], ['松戸', 35.7843, 139.9013],
-  ['立川', 35.6980, 139.4138], ['八王子', 35.6555, 139.3389], ['吉祥寺', 35.7030, 139.5798], ['町田', 35.5426, 139.4453],
-  ['所沢', 35.7870, 139.4693], ['大船', 35.3541, 139.5313], ['藤沢', 35.3387, 139.4875], ['戸塚', 35.4005, 139.5337],
-  ['中野', 35.7058, 139.6658], ['荻窪', 35.7048, 139.6200], ['三鷹', 35.7027, 139.5611], ['蒲田', 35.5625, 139.7160],
-  ['自由が丘', 35.6076, 139.6700], ['二子玉川', 35.6117, 139.6269], ['溝の口', 35.6003, 139.6106], ['調布', 35.6513, 139.5444],
-  ['府中', 35.6720, 139.4780], ['国分寺', 35.7001, 139.4800], ['川口', 35.8019, 139.7241], ['蕨', 35.8279, 139.6799],
-  ['南浦和', 35.8423, 139.6694], ['新越谷', 35.8756, 139.7915], ['春日部', 35.9753, 139.7527], ['草加', 35.8318, 139.8055],
-  ['新松戸', 35.8001, 139.9215], ['海浜幕張', 35.6483, 140.0422]
-];
-const Locate = {
-  index: null, marker: null, point: null,
-  init() { document.getElementById('btnLocate').onclick = () => this.locate(true); },
-  km(lat1, lng1, lat2, lng2) { // ハバーシン距離
-    const R = 6371, r = d => d * Math.PI / 180, dLat = r(lat2 - lat1), dLng = r(lng2 - lng1);
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(a));
-  },
-  /* SVG内の<text>を駅名で検索できるよう、初回のみ索引化 */
-  buildIndex() {
-    const m = new Map();
-    if (MapView.svg) MapView.svg.querySelectorAll('text').forEach(t => {
-      const k = (t.textContent || '').replace(/\s+/g, ''); if (!k) return;
-      if (!m.has(k)) m.set(k, []); m.get(k).push(t);
-    });
-    this.index = m;
-  },
-  /* <text>のgetBBox()中心を、ルートSVGのユーザー座標へ変換して返す（候補が複数なら最も大きい＝主要ラベル） */
-  stationPoint(name) {
-    if (!this.index) this.buildIndex();
-    const svg = MapView.svg; if (!svg) return null;
-    const cands = [...(this.index.get(name) || []), ...(this.index.get(name + '駅') || [])];
-    let best = null;
-    cands.forEach(t => {
-      try {
-        const b = t.getBBox(), m1 = t.getScreenCTM(), m2 = svg.getScreenCTM(); if (!m1 || !m2) return;
-        const pt = svg.createSVGPoint(); pt.x = b.x + b.width / 2; pt.y = b.y + b.height / 2;
-        const p = pt.matrixTransform(m1).matrixTransform(m2.inverse());
-        const area = b.width * b.height;
-        if (!best || area > best.area) best = { x: p.x, y: p.y, area };
-      } catch (_) {}
-    });
-    return best;
-  },
-  locate() {
-    if (!navigator.geolocation) { UI.toast('この端末では位置情報を利用できません'); return; }
-    const btn = document.getElementById('btnLocate'); btn.classList.add('spin');
-    navigator.geolocation.getCurrentPosition(pos => {
-      btn.classList.remove('spin');
-      const { latitude: la, longitude: lo } = pos.coords;
-      const ranked = STATIONS.map(([n, a, b]) => ({ n, d: this.km(la, lo, a, b) })).sort((p, q) => p.d - q.d);
-      if (ranked[0].d > 40) { UI.toast('現在地は関東の路線図の範囲外のようです'); return; }
-      for (const st of ranked) {
-        if (st.d > 40) break;
-        const p = this.stationPoint(st.n);
-        if (p) { this.show(p.x, p.y, st.n); return; }
-      }
-      UI.toast('現在地付近の駅を路線図上で見つけられませんでした');
-    }, err => {
-      btn.classList.remove('spin');
-      UI.toast({ 1: '位置情報の利用が許可されていません（設定 > プライバシー > 位置情報サービス）',
-                 2: '現在地を取得できませんでした', 3: '現在地の取得がタイムアウトしました' }[err.code] || '現在地を取得できませんでした');
-    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
-  },
-  /* 青い波紋アニメ付きのピンマーカーを最寄り駅の位置に重ね、その地点へ滑らかに移動 */
-  show(x, y, name) {
-    this.clear(true);
-    const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('id', 'meMarker');
-    g.innerHTML = `
-      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
-        <animate attributeName="r" values="8;48" dur="2s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.75;0" dur="2s" repeatCount="indefinite"/></circle>
-      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
-        <animate attributeName="r" values="8;48" dur="2s" begin="1s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.75;0" dur="2s" begin="1s" repeatCount="indefinite"/></circle>
-      <path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/>
-      <circle cy="-34" r="6.5" fill="#fff"/>`;
-    MapView.svg.appendChild(g);
-    this.marker = g; this.point = { x, y }; this.rescale();
-    const chip = document.getElementById('locChip');
-    chip.innerHTML = `<span class="material-symbols-outlined">my_location</span><span>現在地（最寄り：${esc(name)}駅周辺）${I18n.bi() ? '<small class="en">Current location</small>' : ''}</span><span class="material-symbols-outlined x">close</span>`;
-    chip.hidden = false; chip.onclick = () => this.clear();
-    Zoom.focusOn(x, y);
-  },
-  /* マーカーは常に画面上で同じ大きさになるよう、ズーム確定のたびに拡大率を補正 */
-  rescale() {
-    if (this.marker && this.point) this.marker.setAttribute('transform', `translate(${this.point.x} ${this.point.y}) scale(${1 / Zoom.ck})`);
-  },
-  clear(keepChip) {
-    if (this.marker) this.marker.remove();
-    this.marker = null; this.point = null;
-    if (!keepChip) document.getElementById('locChip').hidden = true;
-  }
-};
-
-/* ---------- 車内チャイム風の通知音（Web Audio API：ミ→ド） ---------- */
-const Chime = {
-  ctx: null,
-  init() { ['pointerdown', 'touchend', 'keydown'].forEach(t => document.addEventListener(t, () => this.unlock(), { once: true, passive: true })); },
-  unlock() { // iOSはユーザー操作の中でAudioContextを開始する必要がある
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      if (!this.ctx) this.ctx = new AC();
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-    } catch (_) {}
-  },
-  tone(f, t) {
-    const c = this.ctx;
-    [[1, .5], [2, .12], [3, .05]].forEach(([m, a]) => {
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine'; o.frequency.value = f * m;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(a * 0.35, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 1.15);
-    });
-  },
-  play() {
-    this.unlock();
-    const c = this.ctx; if (!c || c.state !== 'running') return;
-    const t0 = c.currentTime + 0.05;
-    this.tone(659.25, t0);        // ミ
-    this.tone(523.25, t0 + 0.55); // ド
-  }
-};
-
-/* ---------- 下部ニュースティッカー ---------- */
-const Ticker = {
-  last: '',
-  text() {
-    const bi = I18n.bi();
-    const abn = LINES.map(L => ({ L, s: Store.of(L.ja) })).filter(x => x.s.status !== 'normal')
-      .sort((a, b) => STATUS[a.s.status].rank - STATUS[b.s.status].rank);
-    if (!abn.length) return '現在、関東エリアの主要路線は平常通り運転しています。' + (bi ? ' / All major lines are operating normally.' : '');
-    return abn.map(({ L, s }) => `【${L.ja}　${STATUS[s.status].ja}】${s.detail || ''}`).join('　／　');
-  },
-  render() {
-    const track = document.getElementById('tickerTrack'); if (!track) return;
-    const t = this.text();
-    if (t === this.last && track.textContent) return; // 内容が同じなら流れを途切れさせない
-    track.textContent = t;
-    const w = track.scrollWidth;
-    if (!w) { this.last = ''; return; } // 非表示中は計測できないので次回に
-    this.last = t;
-    track.style.animationDuration = Math.max(15, w / 90) + 's'; // 約90px/秒
   }
 };
 
@@ -770,24 +456,14 @@ const statusBadge = (st, cls = 'st') => `<span class="${cls} ${st}">${bi(STATUS[
 const pad = n => String(n).padStart(2, '0');
 
 /* ---------- E235系 異常時案内風ポップアップ ---------- */
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const Detail = {
   el: null, name: null,
   open(name) { this.name = name; this.render(); this.el.hidden = false; this.tickTime(); },
   isOpen() { return this.el && !this.el.hidden; },
-  /* 取得テキストはHTMLエスケープし、「振替輸送」を含む文は強調表示 */
-  highlight(text) {
-    return (String(text).match(/[^。]*。?/g) || []).filter(Boolean).map(p => {
-      const e = esc(p);
-      return p.includes('振替輸送') ? `<mark class="furikae">${e.replace(/振替輸送/g, '<b>振替輸送</b>')}</mark>` : e;
-    }).join('');
-  },
   render() {
     const L = lineByName(this.name); if (!L) return;
     const s = Store.of(L.ja), st = STATUS[s.status], on = I18n.bi();
-    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : this.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
-    const url = /^https:\/\/transit\.yahoo\.co\.jp\//.test(s.url || '') ? s.url : YAHOO_URL;
-    const fav = Favs.has(L.ja);
+    const body = s.status === 'normal' ? STRINGS.normalTxt.ja : (s.detail || `${L.ja}は、運行情報をお知らせします。`);
     document.getElementById('detailBody').innerHTML = `
       <div class="lcd" style="--lc:${L.color}">
         <div class="lcd-head">
@@ -795,12 +471,10 @@ const Detail = {
           <span class="cbar"></span>
           <span class="sym">${L.code}</span>
           <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>
-          <button class="fav-btn${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
           <div class="rside"><time id="dTime">--:--</time>${statusBadge(s.status, 'car')}</div>
         </div>
         <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
         <div class="lcd-body"><p class="h">【${L.ja}　${st.ja}】</p><p>${body}</p></div>
-        <div class="lcd-foot"><a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a></div>
       </div>`;
     this.tickTime();
   },
@@ -836,16 +510,12 @@ const Search = {
     document.getElementById('searchClear').hidden = !this.q;
     el.innerHTML = list.length ? list.map(L => {
       const s = Store.of(L.ja).status;
-      const fav = Favs.has(L.ja);
-      return `<div class="line-row s-${s}" style="--lc:${L.color}">
-        <button class="lr-main" data-line="${L.ja}">
-          <span class="badge">${L.code}</span>
-          <span class="lr-name"><b>${L.ja}</b>${I18n.bi() ? `<small>${L.en}</small>` : ''}</span>
-          <span class="co-tag">${L.op.ja}</span>
-          ${statusBadge(s)}
-        </button>
-        <button class="star${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
-      </div>`;
+      return `<button class="line-row s-${s}" data-line="${L.ja}" style="--lc:${L.color}">
+        <span class="badge">${L.code}</span>
+        <span class="lr-name"><b>${L.ja}</b>${I18n.bi() ? `<small>${L.en}</small>` : ''}</span>
+        <span class="co-tag">${L.op.ja}</span>
+        ${statusBadge(s)}
+      </button>`;
     }).join('') : `<div class="empty">${I18n.text('none')}</div>`;
   },
   init() {
@@ -853,10 +523,8 @@ const Search = {
     input.addEventListener('input', () => { this.q = input.value; this.render(); });
     document.getElementById('searchClear').onclick = () => { this.q = ''; input.value = ''; this.render(); input.focus(); };
     document.getElementById('searchList').addEventListener('click', e => {
-      const star = e.target.closest('.star');
-      if (star) { Favs.toggle(star.dataset.fav); return; }
-      const main = e.target.closest('.lr-main'); if (!main) return;
-      Modals.closeAll(); Detail.open(main.dataset.line);
+      const row = e.target.closest('.line-row'); if (!row) return;
+      Modals.closeAll(); Detail.open(row.dataset.line);
     });
   }
 };
@@ -885,24 +553,8 @@ const UI = {
     b.checked = Settings.get('bilingual'); d.checked = Settings.get('demo');
     b.onchange = () => Settings.set('bilingual', b.checked);
     d.onchange = () => Settings.set('demo', d.checked);
-    [['optAutoLocate', 'autoLocate'], ['optTicker', 'ticker'], ['optChime', 'chime']].forEach(([id, key]) => {
-      const el = document.getElementById(id); el.checked = !!Settings.get(key);
-      el.onchange = () => { Settings.set(key, el.checked); if (key === 'chime' && el.checked) { Chime.unlock(); Chime.play(); } };
-    });
-    document.getElementById('btnFocus').onclick = () => Settings.set('focus', !Settings.get('focus'));
-    document.getElementById('favBar').addEventListener('click', e => { const c = e.target.closest('.fav-chip'); if (c) Detail.open(c.dataset.line); });
-    document.getElementById('detailBody').addEventListener('click', e => { const f = e.target.closest('.fav-btn'); if (f) Favs.toggle(f.dataset.fav); });
-    document.addEventListener('favs:change', () => {
-      this.renderFavBar();
-      if (Search.isOpen()) Search.render();
-      if (Detail.isOpen()) Detail.render();
-    });
-    Favs.load(); Chime.init();
     document.addEventListener('settings:change', e => {
-      if (e.detail.key === 'demo') { // デモ⇔実データで混在させない
-        Store.data = {}; MapView.applyStatuses(); this.prevAbn = null;
-        this.sync.ok = true; this.sync.text = Settings.get('demo') ? 'デモモード：ダミーデータを表示します' : '実データを取得中…';
-      }
+      if (e.detail.key === 'demo') { Store.data = {}; MapView.applyStatuses(); } // デモ⇔実データで混在させない
       this.renderAll();
       if (e.detail.key === 'demo') this.refresh();
     });
@@ -915,38 +567,9 @@ const UI = {
   renderAll() {
     I18n.apply(); this.buildTabs(); this.buildLegend();
     document.getElementById('demoChip').hidden = !Settings.get('demo');
-    this.renderSync(); this.applyFlags(); this.renderFavBar(); Ticker.render();
     if (Search.isOpen()) Search.render();
     if (Detail.isOpen()) Detail.render();
   },
-  /* 設定に応じた表示状態（ティッカー表示・異常のみ強調） */
-  applyFlags() {
-    document.body.classList.toggle('no-ticker', !Settings.get('ticker'));
-    document.getElementById('stage').classList.toggle('focus-abn', !!Settings.get('focus'));
-    document.getElementById('btnFocus').setAttribute('aria-pressed', String(!!Settings.get('focus')));
-  },
-  /* マイ路線クイックバー（登録がなければ非表示） */
-  renderFavBar() {
-    const bar = document.getElementById('favBar'), list = Favs.list.map(lineByName).filter(Boolean);
-    bar.hidden = !list.length;
-    bar.innerHTML = `<span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myLines')}</span>` +
-      list.map(L => {
-        const st = Store.of(L.ja).status;
-        return `<button class="fav-chip s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span class="fc-name">${L.ja}</span><span class="fc-st ${st}">${STATUS[st].ja}</span></button>`;
-      }).join('');
-  },
-  toast(msg) {
-    const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
-    clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
-  },
-  /* データ更新後：新規の遅延・見合わせを検知してチャイム、ティッカーとマイ路線バーを更新 */
-  afterData() {
-    const cur = new Set(LINES.filter(L => Store.of(L.ja).status !== 'normal').map(L => L.ja));
-    if (this.prevAbn && Settings.get('chime') && [...cur].some(n => !this.prevAbn.has(n))) Chime.play();
-    this.prevAbn = cur;
-    Ticker.render(); this.renderFavBar();
-  },
-  prevAbn: null, toastTimer: null,
   buildTabs() {
     const nav = document.getElementById('companyTabs');
     nav.innerHTML = COMPANIES.map(c =>
@@ -971,20 +594,6 @@ const UI = {
     tick(); setInterval(tick, 1000);
   },
   busy: false, again: false, timer: null, lastOk: 0, spinStart: 0,
-  sync: { time: null, ok: true, text: '未同期' },
-  /* 設定モーダルに「最終同期時刻」と「取得ステータス」を表示（ランプのツールチップにも反映） */
-  setSync(ok, text) {
-    if (ok) this.sync.time = new Date();   // 最終同期時刻は「成功した時刻」
-    this.sync.ok = ok; this.sync.text = text;
-    this.renderSync();
-  },
-  renderSync() {
-    const t = this.sync.time, p = n => String(n).padStart(2, '0');
-    const timeEl = document.getElementById('syncTime'), stEl = document.getElementById('syncState');
-    if (timeEl) timeEl.textContent = t ? `${t.getFullYear()}/${p(t.getMonth() + 1)}/${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}` : '--';
-    if (stEl) { stEl.textContent = this.sync.text; stEl.className = 'sync-val ' + (this.sync.ok ? 'ok' : 'err'); }
-    const lamp = document.getElementById('lamp'); if (lamp) lamp.title = this.sync.text;
-  },
   /* 自動更新：デモOFFのときだけ、前回の取得完了から3分後に次を予約（画面にカウントダウンは出さない） */
   schedule() {
     clearTimeout(this.timer);
@@ -1000,15 +609,13 @@ const UI = {
       const data = await provider.fetchStatus();
       if (provider !== Providers.current) return; // 取得中にデモ設定が切り替わった場合は破棄
       Store.data = data; this.lastOk = Date.now();
-      lamp.classList.remove('err');
-      this.setSync(true, provider === LiveProvider ? Yahoo.reportText() : 'デモモード：ダミーデータを表示中');
-      MapView.applyStatuses(); this.afterData();
+      lamp.classList.remove('err'); lamp.title = '稼働中';
+      MapView.applyStatuses();
       if (Search.isOpen()) Search.render();
       if (Detail.isOpen()) Detail.render();
     } catch (e) {
       console.error('fetchStatus failed', e); // 失敗時は前回のデータを保持してランプを赤に
-      lamp.classList.add('err');
-      this.setSync(false, '取得エラー：' + (e && e.message ? e.message : e));
+      lamp.classList.add('err'); lamp.title = '取得に失敗しました';
     } finally {
       this.busy = false;
       const wait = Math.max(0, 800 - (Date.now() - this.spinStart)); // 回転アニメを最低1周は見せる
@@ -1025,21 +632,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   await MapView.init();
   Zoom.init(document.getElementById('stage'), document.getElementById('map'));
   MapView.applyFilter(UI.company);
-  Locate.init();
-  if (Settings.get('autoLocate')) Locate.locate();
   await UI.refresh();
 });
-
-/* ---------- PWA：Service Worker 登録（HTTPS または localhost でのみ有効） ---------- */
-if ('serviceWorker' in navigator) {
-  const hadController = !!navigator.serviceWorker.controller;
-  let reloading = false;
-  // 更新版のService Workerが有効になったら、古いJS/CSSを使い続けないよう1回だけ再読み込み
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;
-    reloading = true; location.reload();
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service Worker registration failed:', err));
-  });
-}
