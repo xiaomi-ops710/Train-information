@@ -25,7 +25,7 @@ const STATUS = {
 /* ---------- 文言 ---------- */
 const STRINGS = {
   title:     { ja: '運行情報',     en: 'Service Information' },
-  search:    { ja: '路線検索',     en: 'Search Lines' },
+  search:    { ja: '路線・駅検索', en: 'Search Lines & Stations' },
   settings:  { ja: '設定',         en: 'Settings' },
   bilingual: { ja: '日英併記',     en: 'Bilingual display' },
   demo:      { ja: 'デモモード',   en: 'Demo mode' },
@@ -453,8 +453,54 @@ const Providers = { get current() { return Settings.get('demo') ? DemoProvider :
 
 /* ---------- 路線図（SVG読込・タグ付け・状態反映・絞り込み） ---------- */
 const SVGNS = 'http://www.w3.org/2000/svg';
+/* ---------- 異常路線の発光レイヤー ----------
+ * 巨大な路線図SVGに filter や SVG内アニメーションをかけるとデスクトップで毎フレーム再ラスタライズが走って激重になるため、
+ * 異常路線の「太いストローク」を別の軽量SVG(オーバーレイ)に描き、そのSVG要素の opacity(0.35⇔1.0) だけをCSSで点滅させる
+ * （opacityはGPUコンポジットだけで済み、路線図本体は再描画されない）。viewBoxは本体と常に同期する。 */
+const FX_COLORS = { delay: '#ffd23a', suspend: '#ff3030', alt: '#2f9bff' };
+class FxLayers {
+  constructor(host, base) {
+    const vb = base.getAttribute('viewBox'), mk = cls => {
+      const s = document.createElementNS(SVGNS, 'svg');
+      s.setAttribute('class', 'fx-svg ' + cls); s.setAttribute('viewBox', vb);
+      s.setAttribute('preserveAspectRatio', 'xMidYMid meet'); s.setAttribute('aria-hidden', 'true');
+      host.appendChild(s); return s;
+    };
+    this.delay = mk('fx-delay'); this.susp = mk('fx-susp'); this.alt = mk('fx-alt'); this.me = mk('fx-me');
+  }
+  setViewBox(v) { [this.delay, this.susp, this.alt, this.me].forEach(s => s.setAttribute('viewBox', v)); }
+  draw(svg, g, color, dash) {
+    (g.__rails || []).forEach(r => {
+      const w = parseFloat(r.getAttribute('stroke-width')) || 10;
+      [[3.2, .35, false], [1.15, 1, true]].forEach(([m, o, core]) => { // 外側のにじみ＋中心の太線（filter不使用）
+        const c = r.cloneNode(false);
+        ['class', 'opacity', 'stroke-dasharray'].forEach(a => c.removeAttribute(a));
+        c.setAttribute('fill', 'none'); c.setAttribute('stroke', color); c.setAttribute('stroke-width', w * m);
+        c.setAttribute('stroke-opacity', o); c.setAttribute('stroke-linecap', 'round'); c.setAttribute('stroke-linejoin', 'round');
+        if (dash && core) c.setAttribute('stroke-dasharray', '28 16');
+        svg.appendChild(c);
+      });
+    });
+  }
+  rebuild() {
+    [this.delay, this.susp, this.alt].forEach(s => { while (s.firstChild) s.removeChild(s.firstChild); });
+    const det = Detour.active ? lineByName(Detour.active) : null, alts = det ? new Set(det.alt) : null;
+    MapView.lines().forEach(g => {
+      const n = g.dataset.line, st = Store.of(n).status;
+      if (det) { // 振替・代替ルート表示中：対象路線(赤/黄)と代替路線(青の破線)だけを描く
+        if (n === det.ja) this.draw(this.susp, g, st === 'delay' || st === 'partial' ? FX_COLORS.delay : FX_COLORS.suspend);
+        else if (alts.has(n)) this.draw(this.alt, g, FX_COLORS.alt, true);
+        return;
+      }
+      if (g.classList.contains('dim')) return; // 会社フィルターで薄くした路線は光らせない
+      if (st === 'suspend') this.draw(this.susp, g, FX_COLORS.suspend);
+      else if (st === 'delay' || st === 'partial') this.draw(this.delay, g, FX_COLORS.delay);
+    });
+  }
+}
+
 const MapView = {
-  el: null, svg: null,
+  el: null, svg: null, fx: null,
   async init() {
     this.el = document.getElementById('map');
     try {
@@ -464,6 +510,7 @@ const MapView = {
       this.el.innerHTML = txt.slice(txt.indexOf('<svg')); // XML宣言・xml-stylesheetを除去
       this.svg = this.el.querySelector('svg');
       this.tag();
+      this.fx = new FxLayers(this.el, this.svg);
     } catch (e) {
       console.error(e);
       this.el.innerHTML = '<p style="padding:2em;color:#c00;font-weight:700">路線図(tokyo_ja.svg)を読み込めませんでした。ローカルでは簡易サーバー経由で開いてください。</p>';
@@ -479,7 +526,7 @@ const MapView = {
       });
     });
   },
-  /* 路線の主線(.rail)・発光レイヤー(.fx)・タップ判定用の太い透明線(.hit)を追加 */
+  /* 路線の主線(.rail)の記録・タップ判定用の太い透明線(.hit)を追加 */
   decorate(g) {
     const direct = [...g.querySelectorAll(':scope > path, :scope > line')];
     const strokeOf = el => (el.getAttribute('stroke') || '').toUpperCase();
@@ -488,18 +535,7 @@ const MapView = {
     if (!rails.length) rails = direct.filter(usable); // 私鉄など（灰色の線＋半透明の色）
     rails.forEach(r => r.classList.add('rail'));
 
-    const fx = document.createElementNS(SVGNS, 'g'); fx.setAttribute('class', 'fx');
-    rails.forEach(r => {
-      const w = parseFloat(r.getAttribute('stroke-width')) || 10;
-      [[5, .12], [3, .22], [1.8, .42]].forEach(([m, o]) => {
-        const c = r.cloneNode(false);
-        c.removeAttribute('class'); c.removeAttribute('opacity');
-        c.setAttribute('stroke', 'currentColor'); c.setAttribute('stroke-width', w * m);
-        c.setAttribute('stroke-opacity', o); c.setAttribute('stroke-linecap', 'round');
-        fx.appendChild(c);
-      });
-    });
-    g.insertBefore(fx, g.firstChild);
+    g.__rails = rails; // 異常時の発光は別レイヤー(FxLayers)に描く（本体SVGにはfilter・アニメを一切かけない）
 
     const hit = document.createElementNS(SVGNS, 'g');
     rails.forEach(r => {
@@ -528,9 +564,11 @@ const MapView = {
       if (st === 'suspend') g.classList.add('status-suspend');
       else if (st === 'delay' || st === 'partial') g.classList.add('status-delay');
     });
+    if (this.fx) this.fx.rebuild();
   },
   applyFilter(companyId) {
     this.lines().forEach(g => g.classList.toggle('dim', companyId !== 'all' && g.dataset.company !== companyId));
+    if (this.fx) this.fx.rebuild();
   }
 };
 
@@ -541,7 +579,7 @@ const MapView = {
 const Zoom = {
   x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400,
   MAX_K: 2.6, HOME_RATIO: 2.4, HOME_PT: [0.507, 0.472],
-  stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0,
+  stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0, wheel: { f: 1, x: 0, y: 0, raf: 0 },
   init(stage, mapEl) {
     this.stage = stage; this.mapEl = mapEl; this.svg = MapView.svg;
     const vb = this.svg && this.svg.viewBox.baseVal;
@@ -551,14 +589,16 @@ const Zoom = {
     stage.addEventListener('pointerdown', e => this.down(e));
     stage.addEventListener('pointermove', e => this.move(e));
     ['pointerup', 'pointercancel'].forEach(t => stage.addEventListener(t, e => this.up(e)));
+    /* wheelは高頻度で発火するため、倍率を溜めておいて1フレームに1回だけtransformを更新 → 操作終了150ms後にviewBox確定 */
     stage.addEventListener('wheel', e => {
       e.preventDefault(); this.stopAnim();
-      this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
+      const w = this.wheel;
+      w.f *= Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)); w.x = e.clientX; w.y = e.clientY;
+      if (!w.raf) w.raf = requestAnimationFrame(() => { w.raf = 0; const f = w.f; w.f = 1; this.zoomAt(w.x, w.y, f, true); });
       this.commitLater(150);
     }, { passive: false });
-    const c = () => { const r = stage.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-    document.getElementById('zoomIn').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1.4); this.commitLater(150); };
-    document.getElementById('zoomOut').onclick = () => { this.stopAnim(); this.zoomAt(...c(), 1 / 1.4); this.commitLater(150); };
+    document.getElementById('zoomIn').onclick = () => this.step(1.4);
+    document.getElementById('zoomOut').onclick = () => this.step(1 / 1.4);
     document.getElementById('zoomReset').onclick = () => this.home();
     if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
@@ -578,7 +618,7 @@ const Zoom = {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.tf(); });
   },
   tf() {
-    this.clampPos();
+    this.interact(); this.clampPos();
     const sc = this.k / this.ck, tx = (this.cx - this.x) * this.k, ty = (this.cy - this.y) * this.k;
     this.mapEl.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${sc})`;
   },
@@ -591,8 +631,17 @@ const Zoom = {
     this.svg.setAttribute('viewBox', `${this.x} ${this.y} ${this.W / this.k} ${this.H / this.k}`);
     this.cx = this.x; this.cy = this.y; this.ck = this.k;
     this.mapEl.style.transform = 'none';
+    if (MapView.fx) MapView.fx.setViewBox(this.svg.getAttribute('viewBox'));
+    this.stage.classList.remove('is-interacting'); // 操作終了：文字のフチ等を元に戻す
     MapView.setHitWidth(Math.min(80, Math.max(12, 28 / this.k))); // タップ判定の太さは画面上でほぼ一定に
     Locate.rescale();
+  },
+  /* 操作中は is-interacting を付け、文字のフチ・トランジション・点滅を一時停止して60fpsを保つ */
+  interact() { if (!this.stage.classList.contains('is-interacting')) this.stage.classList.add('is-interacting'); },
+  step(f) {
+    this.stopAnim();
+    const r = this.stage.getBoundingClientRect();
+    this.zoomAt(r.left + r.width / 2, r.top + r.height / 2, f); this.commitLater(150);
   },
   commitLater(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.commit(), ms); },
   stopAnim() { if (this.anim) { cancelAnimationFrame(this.anim); this.anim = 0; } },
@@ -627,12 +676,12 @@ const Zoom = {
     this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
     this.commit();
   },
-  zoomAt(cx, cy, f) {
+  zoomAt(cx, cy, f, now) {
     const r = this.stage.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
     const sx = this.x + px / this.k, sy = this.y + py / this.k; // カーソル下のSVG座標を固定
     const nk = this.clampK(this.k * f);
     this.x = sx - px / nk; this.y = sy - py / nk; this.k = nk;
-    this.schedule();
+    if (now) this.tf(); else this.schedule();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
@@ -767,6 +816,17 @@ const Locate = {
     });
     this.index = m;
   },
+  /* 路線図内の駅名テキスト一覧（路線名ラベルなどは除外） */
+  textKeys() {
+    if (!this.index) this.buildIndex();
+    return [...this.index.keys()].filter(k => k.length >= 2 && k.length <= 9 && !/線|ライン|モノレール|ゆりかもめ|ライナー|[A-Za-z0-9]/.test(k));
+  },
+  /* 駅名で路線図上の位置へジャンプ（GPSの最寄り駅移動と同じマッピング） */
+  jumpTo(name) {
+    const p = this.stationPoint(name);
+    if (!p) { UI.toast('路線図上でこの駅を見つけられませんでした'); return; }
+    this.show(p.x, p.y, name, 'jump');
+  },
   /* <text>のgetBBox()中心を、ルートSVGのユーザー座標へ変換して返す（候補が複数なら最も大きい＝主要ラベル） */
   stationPoint(name) {
     if (!this.index) this.buildIndex();
@@ -805,7 +865,7 @@ const Locate = {
     }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
   },
   /* 青い波紋アニメ付きのピンマーカーを最寄り駅の位置に重ね、その地点へ滑らかに移動 */
-  show(x, y, name) {
+  show(x, y, name, kind) {
     this.clear(true);
     const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('id', 'meMarker');
     g.innerHTML = `
@@ -817,11 +877,15 @@ const Locate = {
         <animate attributeName="opacity" values="0.75;0" dur="2s" begin="1s" repeatCount="indefinite"/></circle>
       <path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/>
       <circle cy="-34" r="6.5" fill="#fff"/>`;
-    MapView.svg.appendChild(g);
+    (MapView.fx ? MapView.fx.me : MapView.svg).appendChild(g); // 波紋アニメは軽量オーバーレイ側に置く
     this.marker = g; this.point = { x, y }; this.rescale();
     const chip = document.getElementById('locChip');
-    chip.innerHTML = `<span class="material-symbols-outlined">my_location</span><span>現在地（最寄り：${esc(name)}駅周辺）${I18n.bi() ? '<small class="en">Current location</small>' : ''}</span><span class="material-symbols-outlined x">close</span>`;
-    chip.hidden = false; chip.onclick = () => this.clear();
+    const master = stationByName(name);
+    chip.innerHTML = kind === 'jump'
+      ? `<span class="material-symbols-outlined">place</span><span>${esc(name)}駅</span>${master ? `<button class="chip-act" data-stnview="${esc(name)}">乗り入れ路線</button>` : ''}<span class="material-symbols-outlined x">close</span>`
+      : `<span class="material-symbols-outlined">my_location</span><span>現在地（最寄り：${esc(name)}駅周辺）${I18n.bi() ? '<small class="en">Current location</small>' : ''}</span><span class="material-symbols-outlined x">close</span>`;
+    chip.hidden = false;
+    chip.onclick = e => { const v = e.target.closest('[data-stnview]'); if (v) StationUI.open(v.dataset.stnview); else this.clear(); };
     Zoom.focusOn(x, y);
   },
   /* マーカーは常に画面上で同じ大きさになるよう、ズーム確定のたびに拡大率を補正 */
@@ -988,7 +1052,7 @@ const StationUI = {
     });
     document.addEventListener('stn:change', () => { if (this.isOpen()) this.render(); });
   },
-  open() { Modals.open('modalStation'); this.cur = null; this.render(); },
+  open(name) { Modals.open('modalStation'); this.cur = name || null; this.render(); },
   isOpen() { return !document.getElementById('modalStation').hidden; },
   worst(names) { return names.map(n => Store.of(n).status).sort((a, b) => STATUS[a].rank - STATUS[b].rank)[0] || 'normal'; },
   render() {
@@ -1061,6 +1125,7 @@ const Detour = {
       if (g.dataset.line === name) { g.classList.add('detour-src'); src = src || g; }
       else if (alts.some(a => a.ja === g.dataset.line)) g.classList.add('alt-hl');
     });
+    if (MapView.fx) MapView.fx.rebuild();
     const bar = document.getElementById('detourBar');
     bar.innerHTML = `<span class="material-symbols-outlined">alt_route</span><span><b>${esc(name)}</b>　振替・代替ルート：${esc(alts.map(a => a.ja).join('・'))}</span><button id="detourOff">解除</button>`;
     bar.hidden = false; document.getElementById('detourOff').onclick = () => this.clear();
@@ -1072,23 +1137,91 @@ const Detour = {
     this.active = null;
     MapView.lines().forEach(g => g.classList.remove('detour-src', 'alt-hl'));
     document.getElementById('stage').classList.remove('detour-mode');
+    if (MapView.fx) MapView.fx.rebuild();
     if (!keepBar) document.getElementById('detourBar').hidden = true;
   }
 };
 
 /* ---------- 異常路線LCDボード（E235系 異常時案内レイアウトの一覧） ---------- */
 const Board = {
-  render() {
-    const el = document.getElementById('abnBoard'), on = I18n.bi(), d = new Date();
-    const abn = LINES.map(L => ({ L, s: Store.of(L.ja) })).filter(x => x.s.status !== 'normal')
+  abn() {
+    return LINES.map(L => ({ L, s: Store.of(L.ja) })).filter(x => x.s.status !== 'normal')
       .sort((a, b) => STATUS[a.s.status].rank - STATUS[b.s.status].rank);
-    el.innerHTML = `<div class="board-head"><span>運行情報${on ? '　Train Information' : ''}</span><time>${pad(d.getHours())}:${pad(d.getMinutes())}</time></div>` +
-      (abn.length ? `<div class="board-list">${abn.map(({ L, s }) => `
+  },
+  cards() {
+    const on = I18n.bi(), abn = this.abn();
+    return abn.length ? `<div class="board-list">${abn.map(({ L, s }) => `
         <button class="board-card" data-line="${L.ja}" style="--lc:${L.color}">
           <div class="bc-head"><span class="cbar"></span><span class="sym">${L.code}</span>
             <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>${statusBadge(s.status, 'car')}</div>
-          <div class="bc-body"><p class="h">【${L.ja}　${STATUS[s.status].ja}】</p><p>${Detail.highlight(s.detail || '')}</p></div></button>`).join('')}</div>`
-        : `<div class="board-ok"><span class="material-symbols-outlined">check_circle</span><b>現在、関東エリアの主要路線は平常通り運転しています。</b>${on ? '<small>All major lines are operating normally.</small>' : ''}</div>`);
+          <div class="bc-body"><p class="h">【${L.ja}　${STATUS[s.status].ja}】</p><p>${Detail.highlight(s.detail || '')}</p></div></button>`).join('')}</div>` : '';
+  },
+  okHtml() {
+    return `<div class="board-ok"><span class="material-symbols-outlined">check_circle</span><b>現在、関東エリアの主要路線は平常通り運転しています。</b>${I18n.bi() ? '<small>All major lines are operating normally.</small>' : ''}</div>`;
+  },
+  render() {
+    const el = document.getElementById('abnBoard'), on = I18n.bi(), d = new Date();
+    el.innerHTML = `<div class="board-head"><span>運行情報${on ? '　Train Information' : ''}</span><time>${pad(d.getHours())}:${pad(d.getMinutes())}</time></div>` + (this.cards() || this.okHtml());
+  }
+};
+
+/* ---------- 異常路線クイック一覧（ヘッダーの異常件数バッジから開く） ---------- */
+const AbnUI = {
+  init() {
+    document.getElementById('abnBadge').onclick = () => this.open();
+    document.getElementById('abnList').addEventListener('click', e => {
+      const c = e.target.closest('.board-card'); if (c) { Modals.closeAll(); Detail.open(c.dataset.line); }
+    });
+  },
+  open() { Modals.open('modalAbn'); this.render(); },
+  isOpen() { return !document.getElementById('modalAbn').hidden; },
+  render() {
+    const n = Board.abn().length;
+    document.getElementById('abnMeta').textContent = n ? `現在 ${n}路線で運行に乱れがあります（運転見合わせ・遅延・一部運休）` : '';
+    document.getElementById('abnList').innerHTML = Board.cards() || Board.okHtml();
+  }
+};
+
+/* ---------- E235系風 LCD大画面時計モード（タップで路線図へ戻る） ---------- */
+const ClockMode = {
+  el: null,
+  init() {
+    this.el = document.getElementById('clockMode');
+    document.getElementById('btnClock').onclick = () => (this.isOpen() ? this.close() : this.open());
+    this.el.addEventListener('click', () => this.close());
+  },
+  isOpen() { return !!this.el && !this.el.hidden; },
+  open() {
+    Modals.closeAll();
+    const on = I18n.bi();
+    this.el.innerHTML = `<div class="ck-head"><b>運行情報${on ? '　Train Information' : ''}</b><span class="ck-car"><b id="ckCar"></b>号車</span></div>
+      <div class="ck-main"><div class="ck-time" id="ckTime">--:--:--</div><div class="ck-date" id="ckDate"></div></div>
+      <div class="ck-foot"><div class="ck-meter"><small>正常稼働率${on ? ' / Uptime' : ''}</small><b id="ckPct">--</b></div><div class="ck-abn" id="ckAbn"></div></div>
+      <div class="ck-hint">画面タップで路線図に戻ります</div>`;
+    this.el.hidden = false;
+    document.getElementById('btnClock').setAttribute('aria-pressed', 'true');
+    this.tick(); this.data();
+  },
+  close() {
+    if (!this.isOpen()) return;
+    this.el.hidden = true;
+    document.getElementById('btnClock').setAttribute('aria-pressed', 'false');
+  },
+  tick() {
+    if (!this.isOpen()) return;
+    const d = new Date(), w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    document.getElementById('ckTime').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    document.getElementById('ckDate').textContent = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${w}）`;
+    document.getElementById('ckCar').textContent = Settings.get('carNo');
+  },
+  data() {
+    if (!this.isOpen()) return;
+    const ready = UI.lastOk > 0 || Settings.get('demo'), abn = Board.abn();
+    document.getElementById('ckPct').textContent = ready ? ((LINES.length - abn.length) / LINES.length * 100).toFixed(1) + '%' : '--';
+    document.getElementById('ckAbn').innerHTML = !ready ? '<span class="ck-ok">運行情報を取得中…</span>'
+      : abn.length ? abn.slice(0, 5).map(({ L, s }) => `<span class="ck-chip ${s.status}">【${L.ja}　${STATUS[s.status].ja}】</span>`).join('') +
+          (abn.length > 5 ? `<span class="ck-chip more">ほか${abn.length - 5}路線</span>` : '')
+      : '<span class="ck-ok">現在、関東エリアの主要路線は平常通り運転しています。</span>';
   }
 };
 
@@ -1259,7 +1392,10 @@ const Detail = {
 const Search = {
   q: '',
   norm: s => String(s).toLowerCase().replace(/[\s　・]/g, ''),
-  open() { Modals.open('modalSearch'); this.render(); },
+  open(focus) {
+    Modals.open('modalSearch'); this.render();
+    if (focus) setTimeout(() => document.getElementById('searchInput').focus(), 30); // PCのショートカット時はすぐ入力できるように
+  },
   isOpen() { return !document.getElementById('modalSearch').hidden; },
   filtered() {
     const q = this.norm(this.q);
@@ -1273,15 +1409,24 @@ const Search = {
       .sort((a, b) => Store.rank(a.L.ja) - Store.rank(b.L.ja) || a.i - b.i)
       .map(x => x.L);
   },
+  /* 駅：マスターの60駅を先頭に、路線図SVG内の駅名テキストも検索対象にする */
+  stations(q) {
+    if (!q) return [];
+    const out = [], seen = new Set();
+    STATIONS.forEach(S => { if (this.norm(S[0]).includes(q)) { out.push({ name: S[0], master: S }); seen.add(S[0]); } });
+    Locate.textKeys().forEach(k => {
+      if (out.length < 40 && !seen.has(k) && this.norm(k).includes(q)) { out.push({ name: k, master: null }); seen.add(k); }
+    });
+    return out;
+  },
   render() {
-    const list = this.filtered(), el = document.getElementById('searchList');
+    const list = this.filtered(), el = document.getElementById('searchList'), q = this.norm(this.q), stns = this.stations(q);
     const comp = COMPANIES.find(c => c.id === UI.company);
     document.getElementById('searchMeta').textContent =
-      `${list.length}路線` + (UI.company !== 'all' ? `　絞り込み：${comp.ja}` : '');
+      `${list.length}路線` + (stns.length ? `・${stns.length}駅` : '') + (UI.company !== 'all' ? `　絞り込み：${comp.ja}` : '');
     document.getElementById('searchClear').hidden = !this.q;
-    el.innerHTML = list.length ? list.map(L => {
-      const s = Store.of(L.ja).status;
-      const fav = Favs.has(L.ja);
+    const lines = list.map(L => {
+      const s = Store.of(L.ja).status, fav = Favs.has(L.ja);
       return `<div class="line-row s-${s}" style="--lc:${L.color}">
         <button class="lr-main" data-line="${L.ja}">
           <span class="badge">${L.code}</span>
@@ -1291,7 +1436,17 @@ const Search = {
         </button>
         <button class="star${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
       </div>`;
-    }).join('') : `<div class="empty">${I18n.text('none')}</div>`;
+    }).join('');
+    const stations = stns.length ? `<div class="sec-title">駅<small>タップで路線図の駅へジャンプ</small></div>` + stns.map(({ name, master }) => {
+      const w = master ? StationUI.worst(master[3]) : 'normal';
+      return `<div class="line-row s-${w}">
+        <button class="lr-main" data-jump="${esc(name)}"><span class="badge stn-ic"><span class="material-symbols-outlined">train</span></span>
+          <span class="lr-name"><b>${esc(name)}</b><small>${master ? master[3].length + '路線が乗り入れ' : '路線図内の駅名'}</small></span>
+          <span class="co-tag">路線図で表示</span>${master ? statusBadge(w) : ''}</button>
+        ${master ? `<button class="star" data-stnview="${esc(name)}" aria-label="乗り入れ路線を見る"><span class="material-symbols-outlined">list</span></button>` : ''}
+      </div>`;
+    }).join('') : '';
+    el.innerHTML = (lines || stations) ? lines + stations : `<div class="empty">${I18n.text('none')}</div>`;
   },
   init() {
     const input = document.getElementById('searchInput');
@@ -1299,9 +1454,14 @@ const Search = {
     document.getElementById('searchClear').onclick = () => { this.q = ''; input.value = ''; this.render(); input.focus(); };
     document.getElementById('searchList').addEventListener('click', e => {
       const star = e.target.closest('.star');
-      if (star) { Favs.toggle(star.dataset.fav); return; }
+      if (star) {
+        if (star.dataset.stnview) { Modals.closeAll(); StationUI.open(star.dataset.stnview); }
+        else if (star.dataset.fav) Favs.toggle(star.dataset.fav);
+        return;
+      }
       const main = e.target.closest('.lr-main'); if (!main) return;
-      Modals.closeAll(); Detail.open(main.dataset.line);
+      Modals.closeAll();
+      if (main.dataset.jump) Locate.jumpTo(main.dataset.jump); else Detail.open(main.dataset.line);
     });
   }
 };
@@ -1314,7 +1474,7 @@ const Modals = {
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => {
       if (e.target === m || e.target.closest('[data-close]')) this.closeAll();
     }));
-    document.addEventListener('keydown', e => e.key === 'Escape' && this.closeAll());
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { this.closeAll(); ClockMode.close(); } });
   }
 };
 
@@ -1324,12 +1484,25 @@ const UI = {
   init() {
     this.company = Settings.get('initFilter') || 'all';
     Favs.load(); Memos.load(); History.load(); Stn.load(); Chime.init();
-    Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init();
+    Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init();
     Detail.el = document.getElementById('modalDetail');
     document.getElementById('btnRefresh').onclick = () => this.refresh(true);
     document.getElementById('btnSearch').onclick = () => Search.open();
     document.getElementById('btnFocus').onclick = () => Settings.set('focus', !Settings.get('focus'));
     document.getElementById('btnCycle').onclick = () => Settings.set('autoCycle', !Settings.get('autoCycle'));
+    /* PC向けキーボードショートカット（入力欄にフォーカスが無いときのみ） */
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key === 'Escape') return;
+      const t = e.target, tag = (t && t.tagName) || '';
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable)) return;
+      if (document.querySelector('.modal:not([hidden])') || ClockMode.isOpen()) return;
+      const k = e.key;
+      if (k === '/' || k === 'f' || k === 'F') { e.preventDefault(); Search.open(true); }
+      else if (k === 'r' || k === 'R') { e.preventDefault(); this.refresh(true); }
+      else if (k === '+' || k === '=') { e.preventDefault(); Zoom.step(1.4); }
+      else if (k === '-' || k === '_') { e.preventDefault(); Zoom.step(1 / 1.4); }
+      else if (k === '0') { e.preventDefault(); Zoom.home(); }
+    });
     document.getElementById('favBar').addEventListener('click', e => { const c = e.target.closest('.fav-chip'); if (c) Detail.open(c.dataset.line); });
     const body = document.getElementById('detailBody');
     body.addEventListener('click', e => {
@@ -1393,14 +1566,27 @@ const UI = {
       }).join('');
   },
   /* 関東鉄道ネットワーク正常稼働率（マスター全路線のうち平常運転の割合） */
+  counts() {
+    let s = 0, d = 0;
+    LINES.forEach(L => { const st = Store.of(L.ja).status; if (st === 'suspend') s++; else if (st !== 'normal') d++; });
+    return { s, d };
+  },
+  /* 正常稼働率バッジ＋異常件数バッジ（見合わせ N / 遅延 M） */
   renderMeter() {
     const el = document.getElementById('meter'), txt = document.getElementById('meterTxt'); if (!el) return;
     const ready = this.lastOk > 0 || Settings.get('demo');
-    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal').length;
+    const { s, d } = this.counts(), abn = s + d;
     const pct = (LINES.length - abn) / LINES.length * 100;
     el.className = 'meter ' + (!ready ? '' : pct >= 95 ? 'good' : pct >= 85 ? 'warn' : 'bad');
-    txt.innerHTML = `${I18n.label('uptime')}<b>${ready ? pct.toFixed(1) + '%' : '--'}</b>`;
+    txt.innerHTML = `<span class="mt-l">${I18n.label('uptime')}</span><b>${ready ? pct.toFixed(1) + '%' : '--'}</b>`;
     el.title = ready ? `全${LINES.length}路線中、平常運転 ${LINES.length - abn}路線` : '運行情報を取得中';
+    const b = document.getElementById('abnBadge'), t = document.getElementById('abnTxt');
+    if (b) {
+      b.className = 'abn-badge ' + (!ready ? '' : s ? 'bad' : d ? 'warn' : 'good');
+      t.textContent = !ready ? '--' : abn ? `見合わせ ${s} / 遅延 ${d}` : '異常なし';
+    }
+    if (AbnUI.isOpen()) AbnUI.render();
+    ClockMode.data();
   },
   toast(msg) {
     const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
@@ -1444,7 +1630,7 @@ const UI = {
     const tick = () => {
       const d = new Date();
       el.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-      Detail.tickTime(); if (MV.isOpen()) MV.tickTime();
+      Detail.tickTime(); if (MV.isOpen()) MV.tickTime(); ClockMode.tick();
     };
     tick(); setInterval(tick, 1000);
   },

@@ -19,27 +19,31 @@
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<header class="bar">
-  <div class="bar-left">
-    <h1 class="title" data-i18n="title"></h1>
-    <nav class="tabs" id="companyTabs" aria-label="鉄道会社"></nav>
-    <div class="tools">
-      <button class="btn-focus" id="btnFocus" aria-pressed="false"><span class="material-symbols-outlined">warning</span><span class="lbl" data-i18n="focus"></span></button>
-      <button class="btn-focus" id="btnCycle" aria-pressed="false"><span class="material-symbols-outlined">autorenew</span><span class="lbl" data-i18n="cycle"></span></button>
-      <button class="btn-focus" id="btnStation"><span class="material-symbols-outlined">pin_drop</span><span class="lbl" data-i18n="myStation"></span></button>
-      <button class="btn-focus" id="btnHistory"><span class="material-symbols-outlined">history</span><span class="lbl" data-i18n="history"></span></button>
-      <button class="btn-search" id="btnSearch">
-        <span class="material-symbols-outlined">search</span><span class="lbl" data-i18n="search"></span>
-      </button>
+<header class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-l">
+      <h1 class="title" data-i18n="title"></h1>
+      <span class="meter" id="meter"><i class="mdot"></i><span id="meterTxt">--</span></span>
+      <button class="abn-badge" id="abnBadge" aria-label="異常路線の一覧を開く"><span class="material-symbols-outlined">warning</span><span id="abnTxt">--</span></button>
+    </div>
+    <div class="hdr-r">
+      <span class="demo-chip" id="demoChip" hidden>DEMO</span>
+      <span class="lamp" id="lamp" title="稼働中"></span>
+      <time class="clock" id="clock">--:--:--</time>
+      <button class="icon-btn" id="btnRefresh" aria-label="更新"><span class="material-symbols-outlined">refresh</span></button>
+      <button class="icon-btn" id="btnSettings" aria-label="設定"><span class="material-symbols-outlined">settings</span></button>
     </div>
   </div>
-  <div class="bar-right">
-    <span class="demo-chip" id="demoChip" hidden>DEMO</span>
-    <span class="meter" id="meter"><i class="mdot"></i><span id="meterTxt">--</span></span>
-    <span class="lamp" id="lamp" title="稼働中"></span>
-    <time class="clock" id="clock">--:--:--</time>
-    <button class="icon-btn" id="btnRefresh" aria-label="更新"><span class="material-symbols-outlined">refresh</span></button>
-    <button class="icon-btn" id="btnSettings" aria-label="設定"><span class="material-symbols-outlined">settings</span></button>
+  <div class="hdr-ctl">
+    <nav class="tabs" id="companyTabs" aria-label="鉄道会社"></nav>
+    <div class="actions">
+      <button class="cbtn" id="btnSearch"><span class="material-symbols-outlined">search</span><span class="lbl-l" data-i18n="search"></span><span class="lbl-s">検索</span></button>
+      <button class="cbtn" id="btnStation"><span class="material-symbols-outlined">pin_drop</span><span class="lbl-l" data-i18n="myStation"></span><span class="lbl-s">マイ駅</span></button>
+      <button class="cbtn" id="btnFocus" aria-pressed="false"><span class="material-symbols-outlined">warning</span><span class="lbl-l" data-i18n="focus"></span><span class="lbl-s">異常</span></button>
+      <button class="cbtn" id="btnCycle" aria-pressed="false"><span class="material-symbols-outlined">autorenew</span><span class="lbl-l" data-i18n="cycle"></span><span class="lbl-s">自動</span></button>
+      <button class="cbtn" id="btnHistory"><span class="material-symbols-outlined">history</span><span class="lbl-l" data-i18n="history"></span><span class="lbl-s">履歴</span></button>
+      <button class="cbtn" id="btnClock" aria-pressed="false"><span class="material-symbols-outlined">schedule</span><span class="lbl-l">LCD時計<small class="en">Clock</small></span><span class="lbl-s">時計</span></button>
+    </div>
   </div>
 </header>
 <div class="favbar" id="favBar" hidden></div>
@@ -47,6 +51,7 @@
 <main class="stage" id="stage">
   <div class="map" id="map"></div>
   <div class="board" id="abnBoard" hidden></div>
+  <div class="clockmode" id="clockMode" hidden></div>
   <div class="legend" id="legend"></div>
   <div class="detour-bar" id="detourBar" hidden></div>
   <div class="loc-chip" id="locChip" hidden></div>
@@ -143,6 +148,16 @@
       <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
     <div class="search-meta">各社サイトの変更でページが開けない場合は、「公式サイト」から探してください。</div>
     <div class="list" id="linksList"></div>
+  </div>
+</div>
+
+<!-- 異常路線クイック一覧 -->
+<div class="modal" id="modalAbn" hidden>
+  <div class="sheet sheet-search" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2>異常路線一覧<span class="en">Service Disruptions</span></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="search-meta" id="abnMeta"></div>
+    <div class="list" id="abnList"></div>
   </div>
 </div>
 

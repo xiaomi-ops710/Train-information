@@ -16,12 +16,6 @@ small.en{font-family:Roboto,sans-serif;font-weight:500}
 .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;font-size:28px;line-height:1}
 
 /* ---------- ヘッダー（ダークメタリック） ---------- */
-.bar{position:relative;height:calc(var(--bar-h) + env(safe-area-inset-top));flex:none;display:flex;justify-content:space-between;align-items:center;gap:16px;
-  padding:env(safe-area-inset-top) 20px 0;background:var(--metal);z-index:5;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.8),0 3px 12px rgba(0,0,0,.55)}
-.bar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
-  background:linear-gradient(90deg,#0f3d91,#5b93ff 50%,#0f3d91);box-shadow:0 0 12px rgba(91,147,255,.65)}
-.bar-left,.bar-right{display:flex;align-items:center;gap:14px;min-width:0}
 .title{margin:0;font-size:22px;font-weight:900;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 0 #000}
 .title .en{font:500 15px Roboto,sans-serif;opacity:.7;margin-left:.5em}
 .tabs{display:flex;gap:6px}
@@ -30,10 +24,6 @@ small.en{font-family:Roboto,sans-serif;font-weight:500}
   box-shadow:inset 0 1px 0 rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}
 .tab small{font-size:10px;line-height:1;opacity:.65}
 .tab[aria-pressed="true"]{background:linear-gradient(180deg,#fff,#d9dde6);color:#0c0d10;border-color:#fff}
-.btn-search{display:flex;align-items:center;gap:6px;border:2px solid #fff;border-radius:999px;background:transparent;color:#fff;
-  padding:6px 16px 6px 10px;font:700 15px 'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap}
-.btn-search .lbl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.1}
-.btn-search small{font-size:10px;opacity:.7}
 
 .clock{font:500 34px/1 Roboto,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em;min-width:5.3em;text-align:right;text-shadow:0 0 8px rgba(255,255,255,.25)}
 .lamp{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#b6ffcf,var(--ok) 55%,#0d6a2c);
@@ -60,7 +50,6 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
   paint-order:stroke;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round}
 .map svg [data-line]{transition:opacity .3s}
 .map svg [data-line].dim{opacity:.13}
-.map svg .fx{display:none}
 .zoom{position:absolute;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:3}
 .zoom .icon-btn{width:56px;height:56px;box-shadow:0 3px 10px #0008}
 .legend{position:absolute;left:16px;bottom:16px;display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
@@ -69,17 +58,6 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .legend small{margin-left:5px;font-size:10px;opacity:.7}
 
 /* 異常路線：多重ネオングロー＋明滅（SVG内は複数レイヤーの重ね描きでグローを再現） */
-.map svg [data-line].status-delay{color:var(--delay)}
-.map svg [data-line].status-suspend{color:var(--suspend)}
-.map svg [data-line].status-delay .rail,.map svg [data-line].status-suspend .rail{stroke:currentColor!important}
-.map svg [data-line].status-delay .fx,.map svg [data-line].status-suspend .fx{display:inline}
-.map svg [data-line].status-delay .fx{animation:neon 1.6s ease-in-out infinite}
-.map svg [data-line].status-suspend .fx{animation:neon 0.9s ease-in-out infinite}
-.map svg [data-line].status-delay .rail{animation:rail 1.6s ease-in-out infinite}
-.map svg [data-line].status-suspend .rail{animation:rail 0.9s ease-in-out infinite}
-@keyframes neon{0%,100%{opacity:1}50%{opacity:.25}}
-@keyframes rail{0%,100%{opacity:1}50%{opacity:.55}}
-@media (prefers-reduced-motion:reduce){.map svg .fx,.map svg .rail,.lamp{animation:none!important}}
 
 /* ---------- 共通モーダル ---------- */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.66);display:grid;place-items:center;z-index:20;padding:16px}
@@ -177,12 +155,7 @@ body.no-ticker .zoom{bottom:calc(20px + env(safe-area-inset-bottom))}
 body.no-ticker .legend{bottom:calc(16px + env(safe-area-inset-bottom))}
 
 /* 異常のみ強調：平常路線を減光、異常路線だけネオン発光のまま残す */
-.btn-focus{display:flex;align-items:center;gap:6px;border:2px solid #6b707a;border-radius:999px;background:transparent;color:#d6dae4;
-  padding:6px 14px 6px 10px;font:700 15px 'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap}
-.btn-focus .lbl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.1}
-.btn-focus small{font-size:10px;opacity:.7}
-.btn-focus[aria-pressed="true"]{background:var(--delay);border-color:var(--delay);color:#111}
-.stage.focus-abn .map svg [data-line]:not(.status-delay):not(.status-suspend){opacity:.18;filter:grayscale(80%)}
+.stage.focus-abn .map svg [data-line]:not(.status-delay):not(.status-suspend){opacity:.18}
 
 /* マイ路線クイックバー */
 .favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;
@@ -241,11 +214,8 @@ body.no-ticker .ticker{display:none}
   animation:ticker 40s linear infinite;will-change:transform}
 @keyframes ticker{to{transform:translateX(-100%)}}
 
-@media (max-width:1300px){.title .en,.btn-focus .lbl small{display:none}.btn-search small{display:none}}
-@media (max-width:1100px){.btn-focus .lbl{display:none}.btn-focus{padding:6px 10px}}
 
 /* ================= ヘッダー拡張・稼働率メーター ================= */
-.tools{display:flex;align-items:center;gap:8px}
 .meter{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;background:#0c0d10;border:1px solid #3a3e46;font-size:12px;font-weight:700;white-space:nowrap;color:#cfd3dc}
 .meter b{margin-left:6px;font:900 16px Roboto,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
 .meter small{font-size:9px;opacity:.7;margin-left:3px}
@@ -253,20 +223,9 @@ body.no-ticker .ticker{display:none}
 .meter.good .mdot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
 .meter.warn .mdot{background:var(--delay);box-shadow:0 0 8px var(--delay)}
 .meter.bad .mdot{background:var(--suspend);box-shadow:0 0 8px var(--suspend)}
-@media (max-width:1500px){.btn-focus .lbl,.btn-search .lbl small{display:none}.btn-search .lbl{display:flex}}
-@media (max-width:1380px){.btn-focus .lbl{display:none}.meter small{display:none}}
-@media (max-width:1200px){.btn-search .lbl{display:none}.btn-search{padding:6px 10px}.meter{padding:4px 8px}.clock{font-size:26px;min-width:4.6em}}
 
 /* ================= 振替・代替ルートのハイライト ================= */
 .stage.detour-mode .map svg [data-line]:not(.alt-hl):not(.detour-src){opacity:.12!important}
-.map svg [data-line].detour-src{opacity:1!important}
-.map svg [data-line].detour-src:not(.status-delay):not(.status-suspend){color:var(--suspend)}
-.map svg [data-line].detour-src .rail{stroke:currentColor!important}
-.map svg [data-line].detour-src .fx{display:inline;animation:neon 1.2s ease-in-out infinite}
-.map svg [data-line].alt-hl{opacity:1!important;color:#2f9bff}
-.map svg [data-line].alt-hl .rail{stroke:#2f9bff!important;stroke-dasharray:28 16;animation:dash 1s linear infinite}
-.map svg [data-line].alt-hl .fx{display:inline;animation:neon 1.6s ease-in-out infinite}
-@keyframes dash{to{stroke-dashoffset:-44}}
 .detour-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;max-width:92%;
   padding:8px 8px 8px 14px;border-radius:10px;background:#0a1230f2;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 3px 12px #0008}
 .detour-bar[hidden]{display:none}
@@ -393,3 +352,86 @@ body.no-ticker .ticker{display:none}
   background:linear-gradient(rgba(0,0,0,.22) 1px,transparent 1px) 0 0/100% 3px,linear-gradient(90deg,rgba(255,40,40,.07),rgba(40,255,40,.06),rgba(60,60,255,.08)) 0 0/3px 100%}
 #dimOverlay{z-index:90;background:rgba(0,0,0,.32)}
 body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
+
+/* ================= 2段ヘッダー（flexboxのみ・絶対配置/負マージンなし） ================= */
+.hdr{position:relative;flex:none;z-index:5;padding-top:env(safe-area-inset-top);background:var(--metal);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 3px 12px rgba(0,0,0,.55)}
+.hdr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#0f3d91,#5b93ff 50%,#0f3d91);box-shadow:0 0 12px rgba(91,147,255,.65)}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;gap:14px;height:48px;padding:0 16px}
+.hdr-l{display:flex;align-items:center;gap:10px;flex:1;min-width:0;overflow:hidden}
+.hdr-r{display:flex;align-items:center;gap:12px;flex:none}
+.hdr .title{flex:none;font-size:19px}
+.hdr .clock{flex:none;min-width:0;margin-right:6px;font-size:28px;text-align:right}
+.hdr .icon-btn{flex:none;width:38px;height:38px}
+.hdr .icon-btn .material-symbols-outlined{font-size:24px}
+.hdr-ctl{display:flex;align-items:center;gap:12px;height:42px;padding:0 16px 3px;border-top:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2)}
+.hdr .tabs{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.hdr .tabs::-webkit-scrollbar{display:none}
+.hdr .tab{flex:none;flex-direction:row;height:30px;padding:0 12px;font-size:13px;white-space:nowrap}
+.hdr .tab small{display:none}
+.actions{flex:none;display:flex;align-items:center;gap:6px}
+.cbtn{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px 0 8px;border:1.5px solid #6b707a;border-radius:999px;background:transparent;
+  color:#d6dae4;font:700 13px 'Noto Sans JP',sans-serif;white-space:nowrap;cursor:pointer}
+.cbtn .material-symbols-outlined{font-size:20px}
+.cbtn small{margin-left:4px;font:500 10px Roboto,sans-serif;opacity:.7}
+.cbtn[aria-pressed="true"]{background:var(--delay);border-color:var(--delay);color:#111}
+.lbl-s{display:none}
+.hdr .meter{flex:none;height:30px;padding:0 10px}
+.mt-l{display:inline}
+.abn-badge{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px 0 9px;border:1px solid #3a3e46;border-radius:6px;background:#0c0d10;
+  color:#cfd3dc;font:700 13px 'Noto Sans JP',sans-serif;white-space:nowrap;cursor:pointer}
+.abn-badge .material-symbols-outlined{font-size:19px}
+.abn-badge.good{border-color:#1f9d4a;color:#7fe3a0}
+.abn-badge.warn{background:var(--delay);border-color:var(--delay);color:#111}
+.abn-badge.bad{background:#d91a1a;border-color:#ff5a5a;color:#fff}
+@media (max-width:1350px){
+  .lbl-l{display:none}.lbl-s{display:inline}
+  .hdr .title .en,.hdr .meter small{display:none}
+  .cbtn{padding:0 10px 0 7px}
+}
+@media (max-width:900px){.mt-l{display:none}.hdr .title{font-size:16px}.hdr .clock{font-size:24px}.hdr .demo-chip{display:none}}
+@media (max-width:760px){.lbl-s{display:none}.cbtn{padding:0 7px}.hdr-top,.hdr-ctl{padding:0 10px}.hdr-r{gap:8px}}
+
+/* ================= 異常路線の発光：別SVGレイヤーのopacityのみ（GPUコンポジット） ================= */
+.map{contain:layout style paint}
+.map .fx-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.map .fx-delay,.map .fx-susp,.map .fx-alt{will-change:opacity}
+.map .fx-delay{animation:blink 1.6s ease-in-out infinite}
+.map .fx-susp{animation:blink .9s ease-in-out infinite}
+.map .fx-alt{animation:blink 1.8s ease-in-out infinite}
+.map .fx-alt path{animation:dash 1s linear infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes dash{to{stroke-dashoffset:-44}}
+.map svg [data-line].detour-src,.map svg [data-line].alt-hl{opacity:1!important}
+/* 操作中(is-interacting)は文字のフチ・トランジション・点滅を止めて60fpsを維持 */
+.stage.is-interacting .map svg text{paint-order:normal;stroke:none}
+.stage.is-interacting .map svg [data-line]{transition:none}
+.stage.is-interacting .fx-svg{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.map .fx-svg,.map .fx-alt path,.lamp{animation:none!important}}
+
+/* ================= 検索：駅セクション・ジャンプチップ ================= */
+.sec-title{padding:12px 6px 2px;font-weight:700;font-size:13px;color:#555}
+.sec-title small{margin-left:8px;font-weight:500;color:#777}
+.chip-act{flex:none;border:0;border-radius:999px;padding:4px 12px;background:#2f6df0;color:#fff;font:700 12px 'Noto Sans JP',sans-serif;cursor:pointer}
+.sheet .board-list{grid-template-columns:1fr;padding:10px 0}
+
+/* ================= LCD大画面時計モード ================= */
+.clockmode{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;cursor:pointer;color:#fff;
+  background:radial-gradient(ellipse at 50% 35%,#1c2740 0%,#0b0d12 72%)}
+.clockmode[hidden]{display:none}
+.ck-head{flex:none;display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 28px;
+  background:linear-gradient(180deg,#32363d 0%,#181a1f 50%,#0d0e12 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 2px 0 #3b78ff}
+.ck-head>b{font-size:1.5rem;letter-spacing:.08em}
+.ck-car{display:inline-flex;align-items:baseline;gap:4px;padding:4px 16px;border:2px solid rgba(255,255,255,.85);border-radius:8px;font-size:15px}
+.ck-car b{font:500 30px/1 Roboto,sans-serif}
+.ck-main{flex:1;min-height:0;display:grid;place-content:center;justify-items:center;gap:10px}
+.ck-time{font:500 clamp(72px,19vw,300px)/1 Roboto,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em;text-shadow:0 0 28px rgba(120,160,255,.4)}
+.ck-date{font:700 clamp(20px,3.4vw,44px) 'Noto Sans JP',sans-serif;opacity:.92}
+.ck-foot{flex:none;display:flex;align-items:stretch;gap:18px;padding:14px 24px;background:rgba(0,0,0,.38);border-top:1px solid rgba(255,255,255,.12)}
+.ck-meter{flex:none;text-align:center;padding:6px 20px;border-radius:10px;background:#0c0d10;border:1px solid #3a3e46}
+.ck-meter small{display:block;font-size:12px;opacity:.75}.ck-meter b{font:900 38px/1.1 Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.ck-abn{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;align-content:center}
+.ck-chip{padding:6px 12px;border-radius:6px;font-weight:700;font-size:clamp(14px,1.6vw,20px);background:var(--orange);color:#fff}
+.ck-chip.suspend{background:#d91a1a}.ck-chip.more{background:#3a3e46}
+.ck-ok{color:#7fe3a0;font-weight:700;font-size:clamp(16px,2vw,26px)}
+.ck-hint{flex:none;padding:0 0 10px;text-align:center;font-size:12px;opacity:.5}
