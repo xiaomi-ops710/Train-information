@@ -162,7 +162,7 @@ const lineByName = name => LINES.find(l => l.ja === name);
 const Settings = {
   KEY: 'tokyo-lcd:settings',
   data: { demo: false, bilingual: true, autoLocate: false, chime: false, speech: false, autoCycle: false, ticker: true, tickerSpeed: 'normal',
-          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, focus: false }, // 保存値があればそちらを優先（load）
+          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, focus: false }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -457,6 +457,61 @@ const SVGNS = 'http://www.w3.org/2000/svg';
  * 巨大な路線図SVGに filter や SVG内アニメーションをかけるとデスクトップで毎フレーム再ラスタライズが走って激重になるため、
  * 異常路線の「太いストローク」を別の軽量SVG(オーバーレイ)に描き、そのSVG要素の opacity(0.35⇔1.0) だけをCSSで点滅させる
  * （opacityはGPUコンポジットだけで済み、路線図本体は再描画されない）。viewBoxは本体と常に同期する。 */
+/* ---------- 描画の連打対策：同じ種類の更新要求は1フレームに1回だけ実行 ---------- */
+const Frame = {
+  q: new Map(), raf: 0,
+  once(key, fn) {
+    this.q.set(key, fn); // 同じキーなら最新の1件だけ残す
+    if (this.raf) return;
+    this.raf = requestAnimationFrame(() => {
+      this.raf = 0; const jobs = [...this.q.values()]; this.q.clear();
+      jobs.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+    });
+  }
+};
+/* ---------- 路線図の表示状態：親<svg id="railway-map">のクラス切替だけで一括制御（子要素の個別走査はしない） ---------- */
+const ViewState = {
+  s: { alert: false, company: 'all', detour: false },
+  MANAGED: ['is-alert-only', 'company-jr', 'company-metro', 'company-toei', 'company-private', 'detour-mode'],
+  set(p) { Object.assign(this.s, p); Frame.once('view', () => this.apply()); },
+  apply() {
+    if (!MapView.svg) return;
+    const cls = [];
+    if (this.s.alert) cls.push('is-alert-only');
+    if (this.s.company !== 'all') cls.push('company-' + String(this.s.company).toLowerCase());
+    if (this.s.detour) cls.push('detour-mode');
+    [MapView.svg, ...(MapView.fx ? MapView.fx.all() : [])].forEach(el => { el.classList.remove(...this.MANAGED); if (cls.length) el.classList.add(...cls); });
+  }
+};
+/* ---------- 異常路線・振替ルートの「明るいまま残す路線」を、1枚の<style>で指定（要素ごとのクラス付け替えをしない） ---------- */
+const DynStyle = {
+  el: null, last: null,
+  request() { Frame.once('dynstyle', () => this.update()); },
+  update() {
+    if (!this.el) { this.el = document.createElement('style'); this.el.id = 'dynStyle'; document.head.appendChild(this.el); }
+    const sel = (pre, names) => names.map(n => `${pre} [data-line="${n}"]`).join(',');
+    let css = '';
+    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal').map(L => L.ja);
+    if (abn.length) css += `${sel('#railway-map.is-alert-only', abn)}{opacity:1}`;
+    const D = Detour.active ? lineByName(Detour.active) : null;
+    if (D) css += `${sel('#railway-map.detour-mode', [D.ja, ...D.alt])}{opacity:1!important}`;
+    if (css !== this.last) { this.el.textContent = css; this.last = css; }
+  }
+};
+/* ---------- 固定レイヤー構造：上部ヘッダー／下部ティッカーの実寸をCSS変数とZoomに反映 ---------- */
+const Layout = {
+  init() {
+    const top = document.getElementById('topStack'), tk = document.getElementById('ticker'), root = document.documentElement;
+    const upd = () => {
+      const t = top.getBoundingClientRect().height, b = tk.getBoundingClientRect().height;
+      root.style.setProperty('--top-h', t + 'px'); root.style.setProperty('--bot-h', b + 'px');
+      Zoom.insT = t; Zoom.insB = b;
+    };
+    if (window.ResizeObserver) { const ro = new ResizeObserver(upd); ro.observe(top); ro.observe(tk); }
+    window.addEventListener('resize', upd); upd();
+  }
+};
+
 const FX_COLORS = { delay: '#ffd23a', suspend: '#ff3030', alt: '#2f9bff' };
 class FxLayers {
   constructor(host, base) {
@@ -468,6 +523,7 @@ class FxLayers {
     };
     this.delay = mk('fx-delay'); this.susp = mk('fx-susp'); this.alt = mk('fx-alt'); this.me = mk('fx-me');
   }
+  all() { return [this.delay, this.susp, this.alt, this.me]; }
   setViewBox(v) { [this.delay, this.susp, this.alt, this.me].forEach(s => s.setAttribute('viewBox', v)); }
   draw(svg, g, color, dash) {
     (g.__rails || []).forEach(r => {
@@ -475,6 +531,7 @@ class FxLayers {
       [[3.2, .35, false], [1.15, 1, true]].forEach(([m, o, core]) => { // 外側のにじみ＋中心の太線（filter不使用）
         const c = r.cloneNode(false);
         ['class', 'opacity', 'stroke-dasharray'].forEach(a => c.removeAttribute(a));
+        c.setAttribute('data-company', g.dataset.company || ''); // 会社フィルターの減光をCSS(親クラス)で行うため
         c.setAttribute('fill', 'none'); c.setAttribute('stroke', color); c.setAttribute('stroke-width', w * m);
         c.setAttribute('stroke-opacity', o); c.setAttribute('stroke-linecap', 'round'); c.setAttribute('stroke-linejoin', 'round');
         if (dash && core) c.setAttribute('stroke-dasharray', '28 16');
@@ -483,24 +540,24 @@ class FxLayers {
     });
   }
   rebuild() {
-    [this.delay, this.susp, this.alt].forEach(s => { while (s.firstChild) s.removeChild(s.firstChild); });
+    [this.delay, this.susp, this.alt].forEach(sv => { while (sv.firstChild) sv.removeChild(sv.firstChild); });
     const det = Detour.active ? lineByName(Detour.active) : null, alts = det ? new Set(det.alt) : null;
-    MapView.lines().forEach(g => {
-      const n = g.dataset.line, st = Store.of(n).status;
+    LINES.forEach(L => {
+      const groups = MapView.groupsOf(L.ja); if (!groups.length) return;
+      const n = L.ja, st = Store.of(n).status;
+      let layer = null, color = null, dash = false;
       if (det) { // 振替・代替ルート表示中：対象路線(赤/黄)と代替路線(青の破線)だけを描く
-        if (n === det.ja) this.draw(this.susp, g, st === 'delay' || st === 'partial' ? FX_COLORS.delay : FX_COLORS.suspend);
-        else if (alts.has(n)) this.draw(this.alt, g, FX_COLORS.alt, true);
-        return;
-      }
-      if (g.classList.contains('dim')) return; // 会社フィルターで薄くした路線は光らせない
-      if (st === 'suspend') this.draw(this.susp, g, FX_COLORS.suspend);
-      else if (st === 'delay' || st === 'partial') this.draw(this.delay, g, FX_COLORS.delay);
+        if (n === det.ja) { layer = this.susp; color = st === 'delay' || st === 'partial' ? FX_COLORS.delay : FX_COLORS.suspend; }
+        else if (alts.has(n)) { layer = this.alt; color = FX_COLORS.alt; dash = true; }
+      } else if (st === 'suspend') { layer = this.susp; color = FX_COLORS.suspend; }
+      else if (st === 'delay' || st === 'partial') { layer = this.delay; color = FX_COLORS.delay; }
+      if (layer) groups.forEach(g => this.draw(layer, g, color, dash));
     });
   }
 }
 
 const MapView = {
-  el: null, svg: null, fx: null,
+  el: null, svg: null, fx: null, _all: null, _by: null,
   async init() {
     this.el = document.getElementById('map');
     try {
@@ -509,6 +566,7 @@ const MapView = {
       const txt = await res.text();
       this.el.innerHTML = txt.slice(txt.indexOf('<svg')); // XML宣言・xml-stylesheetを除去
       this.svg = this.el.querySelector('svg');
+      this.svg.id = 'railway-map'; // 親svgのクラスで一括制御する
       this.tag();
       this.fx = new FxLayers(this.el, this.svg);
     } catch (e) {
@@ -519,10 +577,12 @@ const MapView = {
   /* マスターのprefixとSVGのグループIDを突き合わせ、data-line / data-company を付与 */
   tag() {
     const groups = [...this.svg.querySelectorAll('#lines > g > g[id]')];
+    this._all = []; this._by = new Map();
     LINES.forEach(L => {
       groups.filter(g => L.svg.some(p => g.id.startsWith(p))).forEach(g => {
         g.dataset.line = L.ja; g.dataset.company = L.co;
         this.decorate(g);
+        this._all.push(g); (this._by.get(L.ja) || this._by.set(L.ja, []).get(L.ja)).push(g); // 以後は走査せず、この索引を使う
       });
     });
   },
@@ -556,20 +616,15 @@ const MapView = {
     } catch (_) { return null; }
   },
   setHitWidth(w) { if (this.svg) this.svg.style.setProperty('--hitw', w.toFixed(1) + 'px'); },
-  lines() { return this.svg ? [...this.svg.querySelectorAll('[data-line]')] : []; },
+  lines() { return this._all || []; },
+  groupsOf(name) { return (this._by && this._by.get(name)) || []; },
+  /* 状態反映：クラスの付け替えはせず、<style>1枚と発光レイヤーを1フレームに1回だけ更新 */
   applyStatuses() {
-    this.lines().forEach(g => {
-      const st = Store.of(g.dataset.line).status;
-      g.classList.remove('status-delay', 'status-suspend');
-      if (st === 'suspend') g.classList.add('status-suspend');
-      else if (st === 'delay' || st === 'partial') g.classList.add('status-delay');
-    });
-    if (this.fx) this.fx.rebuild();
+    DynStyle.request();
+    Frame.once('fx', () => { if (this.fx) this.fx.rebuild(); });
   },
-  applyFilter(companyId) {
-    this.lines().forEach(g => g.classList.toggle('dim', companyId !== 'all' && g.dataset.company !== companyId));
-    if (this.fx) this.fx.rebuild();
-  }
+  /* 会社絞り込み：親svgのクラス(company-jr 等)を1つ切り替えるだけ */
+  applyFilter(companyId) { ViewState.set({ company: companyId }); }
 };
 
 /* ---------- ズーム・パン（ハイブリッド描画） ----------
@@ -577,7 +632,7 @@ const MapView = {
  * 確定後：目標の表示範囲から viewBox を1回だけ計算して適用し、transformを外す → 常に最高画質のベクター描画
  * 目標状態 x,y,k（viewBox左上・1SVG単位あたりのpx）と、確定済み状態 cx,cy,ck を別々に持つ */
 const Zoom = {
-  x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400,
+  x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400, insT: 0, insB: 0,
   MAX_K: 2.6, HOME_RATIO: 2.4, HOME_PT: [0.507, 0.472],
   stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0, wheel: { f: 1, x: 0, y: 0, raf: 0 },
   init(stage, mapEl) {
@@ -603,6 +658,10 @@ const Zoom = {
     if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
   },
+  /* 地図は画面全体に敷き、上部ヘッダー/下部ティッカーが重なる分だけ「見えている領域の中心」をずらして扱う */
+  off() { return (this.insT - this.insB) / 2; },
+  visC() { return { x: this.x + this.W / this.k / 2, y: this.y + (this.H / 2 + this.off()) / this.k }; },
+  setVisC(mx, my) { this.x = mx - this.W / this.k / 2; this.y = my - (this.H / 2 + this.off()) / this.k; },
   measure() { const r = this.stage.getBoundingClientRect(); this.W = Math.max(1, r.width); this.H = Math.max(1, r.height); },
   fitK() { return Math.min(this.W / this.VW, this.H / this.VH); },
   clampK(k) { return Math.min(this.MAX_K, Math.max(this.fitK() * 0.9, k)); },
@@ -649,20 +708,18 @@ const Zoom = {
   home() {
     this.stopAnim(); this.measure();
     this.k = this.clampK(this.fitK() * this.HOME_RATIO);
-    this.x = this.HOME_PT[0] * this.VW - this.W / this.k / 2;
-    this.y = this.HOME_PT[1] * this.VH - this.H / this.k / 2;
+    this.setVisC(this.HOME_PT[0] * this.VW, this.HOME_PT[1] * this.VH);
     this.commit();
   },
   /* 指定のSVG座標を画面中央に滑らかに移動・拡大（アニメ中はtransformのみ → 終了時にviewBox確定） */
   animateTo(px, py, k, ms = 700) {
     this.stopAnim();
-    const sx = this.x + this.W / this.k / 2, sy = this.y + this.H / this.k / 2, sk = this.k, ek = this.clampK(k);
+    const vc = this.visC(), sx = vc.x, sy = vc.y, sk = this.k, ek = this.clampK(k);
     const t0 = performance.now(), ease = t => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
     const step = now => {
       const t = Math.min(1, (now - t0) / ms), e = ease(t);
       this.k = Math.exp(Math.log(sk) + (Math.log(ek) - Math.log(sk)) * e);
-      const mx = sx + (px - sx) * e, my = sy + (py - sy) * e;
-      this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
+      this.setVisC(sx + (px - sx) * e, sy + (py - sy) * e);
       this.tf();
       if (t < 1) this.anim = requestAnimationFrame(step); else { this.anim = 0; this.commit(); }
     };
@@ -923,6 +980,7 @@ const Chime = {
   },
   /* 券売機風のタッチ音「ピッ」（2000Hz・約70ms） */
   beep() {
+    const nowMs = performance.now(); if (nowMs - (this._b || 0) < 80) return; this._b = nowMs; // 連打で音が多重にならないように
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
     const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
@@ -931,6 +989,7 @@ const Chime = {
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.08);
   },
   play() {
+    const nowMs = performance.now(); if (nowMs - (this._p || 0) < 500) return; this._p = nowMs;
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
     const t0 = c.currentTime + 0.05;
@@ -966,6 +1025,7 @@ const Ticker = {
 const Speech = {
   say(text, cancel = true) {
     if (!('speechSynthesis' in window)) return;
+    if (cancel) { const nowMs = Date.now(); if (nowMs - (this._t || 0) < 400) return; this._t = nowMs; }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ja-JP'; u.rate = 0.95;
     const v = (speechSynthesis.getVoices() || []).find(x => x.lang && x.lang.replace('_', '-').startsWith('ja'));
@@ -1117,27 +1177,21 @@ const Detour = {
   active: null,
   show(name) {
     const L = lineByName(name); if (!L) return;
-    this.clear(true); Cycle.toMap();
+    Cycle.toMap();
     const alts = L.alt.map(lineByName).filter(Boolean); this.active = name;
-    document.getElementById('stage').classList.add('detour-mode');
-    let src = null;
-    MapView.lines().forEach(g => {
-      if (g.dataset.line === name) { g.classList.add('detour-src'); src = src || g; }
-      else if (alts.some(a => a.ja === g.dataset.line)) g.classList.add('alt-hl');
-    });
-    if (MapView.fx) MapView.fx.rebuild();
+    ViewState.set({ detour: true }); DynStyle.request();
+    Frame.once('fx', () => { if (MapView.fx) MapView.fx.rebuild(); });
     const bar = document.getElementById('detourBar');
     bar.innerHTML = `<span class="material-symbols-outlined">alt_route</span><span><b>${esc(name)}</b>　振替・代替ルート：${esc(alts.map(a => a.ja).join('・'))}</span><button id="detourOff">解除</button>`;
     bar.hidden = false; document.getElementById('detourOff').onclick = () => this.clear();
-    const c = src && MapView.rootCenter(src);
+    const src = MapView.groupsOf(name)[0], c = src && MapView.rootCenter(src);
     if (c) Zoom.animateTo(c.x, c.y, Math.min(Zoom.MAX_K, Zoom.fitK() * 2.2));
     else UI.toast('この路線は路線図上に描画がありません（代替路線のみ強調します）');
   },
   clear(keepBar) {
     this.active = null;
-    MapView.lines().forEach(g => g.classList.remove('detour-src', 'alt-hl'));
-    document.getElementById('stage').classList.remove('detour-mode');
-    if (MapView.fx) MapView.fx.rebuild();
+    ViewState.set({ detour: false }); DynStyle.request();
+    Frame.once('fx', () => { if (MapView.fx) MapView.fx.rebuild(); });
     if (!keepBar) document.getElementById('detourBar').hidden = true;
   }
 };
@@ -1252,6 +1306,7 @@ const SETTING_DEFS = [
   { key: 'carNo', cat: 'display', ja: '号車表示番号', en: 'Car number', type: 'car' },
   { key: 'initFilter', cat: 'display', ja: '起動時の会社フィルター', en: 'Initial company filter', type: 'cycle', opts: OPT_FILTER },
   { key: 'nightDim', cat: 'display', ja: '画面の明るさ（夜間減光）', en: 'Night dimming', type: 'bool' },
+  { key: 'topOffset', cat: 'display', ja: '上部余白（PWAバー回避）', en: 'Top offset (PWA bar)', type: 'cycle', opts: [[42, '標準 42px', 'Standard'], [56, '広め 56px', 'Wide'], [0, 'なし 0px', 'None']] },
   { key: 'chime', cat: 'audio', ja: '新規遅延のチャイム通知', en: 'Chime on new delays', type: 'bool' },
   { key: 'speech', cat: 'audio', ja: '車内放送風の音声読み上げ', en: 'Voice announcement', type: 'bool' },
   { key: 'beep', cat: 'audio', ja: '券売機タッチ音（ピッ）', en: 'Touch beep', type: 'bool' },
@@ -1483,6 +1538,7 @@ const UI = {
   company: 'all',
   init() {
     this.company = Settings.get('initFilter') || 'all';
+    this.applyFlags(); Layout.init();
     Favs.load(); Memos.load(); History.load(); Stn.load(); Chime.init();
     Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init();
     Detail.el = document.getElementById('modalDetail');
@@ -1511,7 +1567,7 @@ const UI = {
     });
     body.addEventListener('input', e => { if (e.target.id === 'memoText') Memos.set(Detail.name, e.target.value); });
     document.getElementById('abnBoard').addEventListener('click', e => { const c = e.target.closest('.board-card'); if (c) Detail.open(c.dataset.line); });
-    ['pointerdown', 'wheel'].forEach(t => document.getElementById('stage').addEventListener(t, () => Cycle.pause(), { capture: true, passive: true }));
+    ['pointerdown', 'wheel'].forEach(t => document.getElementById('map-viewport').addEventListener(t, () => Cycle.pause(), { capture: true, passive: true }));
     document.addEventListener('favs:change', () => {
       this.renderFavBar();
       if (Search.isOpen()) Search.render();
@@ -1525,7 +1581,7 @@ const UI = {
       }
       if (k === 'initFilter') { this.company = e.detail.value; MapView.applyFilter(this.company); }
       if (k === 'autoCycle') Cycle.start();
-      this.renderAll();
+      Frame.once('render', () => this.renderAll()); // 連打しても再描画は1フレームに1回
       if (k === 'demo') this.refresh();
       if (k === 'interval') this.schedule();
     });
@@ -1551,7 +1607,10 @@ const UI = {
     document.body.classList.toggle('no-ticker', !Settings.get('ticker'));
     document.body.classList.toggle('night', !!Settings.get('nightDim'));
     document.body.classList.toggle('lcd-on', !!Settings.get('lcdOverlay'));
-    document.getElementById('stage').classList.toggle('focus-abn', !!Settings.get('focus'));
+    ViewState.set({ alert: !!Settings.get('focus') }); // 異常のみ強調：親svgのクラス1つだけ
+    /* iPadOS PWAのシステムバー/ぼかし領域を避ける上部余白（PWA表示のときのみ有効） */
+    const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    document.documentElement.style.setProperty('--top-offset', (standalone ? Number(Settings.get('topOffset')) || 0 : 0) + 'px');
     document.getElementById('btnFocus').setAttribute('aria-pressed', String(!!Settings.get('focus')));
     document.getElementById('btnCycle').setAttribute('aria-pressed', String(!!Settings.get('autoCycle')));
   },
@@ -1688,8 +1747,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   Settings.load();
   UI.init();
   await MapView.init();
-  Zoom.init(document.getElementById('stage'), document.getElementById('map'));
-  MapView.applyFilter(UI.company);
+  Zoom.init(document.getElementById('map-viewport'), document.getElementById('map'));
+  ViewState.set({ company: UI.company, alert: !!Settings.get('focus') });
+  DynStyle.request();
   Locate.init(); LinksUI.init();
   if (Settings.get('autoLocate')) Locate.locate();
   await UI.refresh();

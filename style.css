@@ -2,14 +2,14 @@
   --delay:#ffd23a; --suspend:#ff3030; --ok:#2fbf5b; --orange:#f08300;
   --paper:#f4f5f8; --ink:#eef1fa; --line-blue:#2f6df0;
   --metal:linear-gradient(180deg,#2c3036 0%,#16181c 55%,#0c0d10 100%);
-  --bar-h:72px;
+  --top-offset:0px; --top-h:0px; --bot-h:0px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:#0c0d10;color:var(--ink);
+html,body{margin:0;padding:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none;background-color:#16181c;color:var(--ink);
   font-family:'Noto Sans JP','Roboto',sans-serif;-webkit-user-select:none;user-select:none}
 /* 上端の余白はヘッダー側で確保（ステータスバーの裏までヘッダーのメタリック背景を伸ばす） */
 /* PWA全画面：bodyを画面いっぱいに固定し、下の余白を無くす（ホームインジケータ分の逃げはボタン側で確保） */
-body{position:fixed;inset:0;width:100%;height:100%;display:flex;flex-direction:column;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+body{position:fixed;top:0;left:0;right:0;bottom:0}
 small.en{font-family:Roboto,sans-serif;font-weight:500}
 
 /* すべて塗りつぶし(Filled)アイコン */
@@ -41,18 +41,18 @@ small.en{font-family:Roboto,sans-serif;font-weight:500}
 button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-offset:2px}
 
 /* ---------- 路線図 ---------- */
-.stage{position:relative;flex:1;overflow:hidden;background:var(--paper);touch-action:none}
+/* 地図は画面の端から端まで敷き詰め、ヘッダー／ティッカーはその上に fixed で重ねる */
+#map-viewport{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;background:var(--paper);touch-action:none;z-index:1}
 .map{position:absolute;inset:0;transform-origin:0 0;will-change:transform}
 .map svg{width:100%;height:100%;display:block}
 .map svg *{pointer-events:none}
 .map svg .hit{pointer-events:stroke;stroke-width:var(--hitw,70px)}
 .map svg text{font-family:'Noto Sans JP','Roboto',sans-serif!important;font-weight:700;
   paint-order:stroke;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round}
-.map svg [data-line]{transition:opacity .3s}
-.map svg [data-line].dim{opacity:.13}
-.zoom{position:absolute;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:3}
+.map svg [data-line]{transition:none}
+.zoom{position:absolute;right:20px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 20px);display:flex;flex-direction:column;gap:10px;z-index:3}
 .zoom .icon-btn{width:56px;height:56px;box-shadow:0 3px 10px #0008}
-.legend{position:absolute;left:16px;bottom:16px;display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
+.legend{position:absolute;left:16px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 16px);display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
   background:var(--metal);color:#fff;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0008,inset 0 1px 0 rgba(255,255,255,.18)}
 .legend i{display:inline-block;width:24px;height:6px;border-radius:3px;margin-right:7px;vertical-align:middle;box-shadow:0 0 8px currentColor}
 .legend small{margin-left:5px;font-size:10px;opacity:.7}
@@ -151,11 +151,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 /* ================= 追加機能 ================= */
 .stage{min-height:0}
 /* ティッカー非表示時は、ホームインジケータ分だけボタンを浮かせる */
-body.no-ticker .zoom{bottom:calc(20px + env(safe-area-inset-bottom))}
-body.no-ticker .legend{bottom:calc(16px + env(safe-area-inset-bottom))}
 
 /* 異常のみ強調：平常路線を減光、異常路線だけネオン発光のまま残す */
-.stage.focus-abn .map svg [data-line]:not(.status-delay):not(.status-suspend){opacity:.18}
 
 /* マイ路線クイックバー */
 .favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;
@@ -193,19 +190,19 @@ body.no-ticker .legend{bottom:calc(16px + env(safe-area-inset-bottom))}
 
 /* 現在地ボタン・チップ・トースト */
 .icon-btn.spin .material-symbols-outlined{animation:spin .8s linear infinite}
-.loc-chip{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:8px;max-width:90%;
+.loc-chip{position:absolute;top:calc(var(--top-h,0px) + 12px);left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:8px;max-width:90%;
   padding:8px 12px 8px 14px;border-radius:999px;background:#0a1230ee;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 3px 12px #0008}
 .loc-chip[hidden]{display:none}
 .loc-chip .material-symbols-outlined{font-size:20px;color:#6fa0ff}
 .loc-chip .x{color:#aab}
 .loc-chip small{margin-left:6px;font-size:10px;opacity:.7}
-.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:6;max-width:88%;padding:10px 18px;border-radius:8px;
+.toast{position:absolute;left:50%;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 24px);transform:translateX(-50%);z-index:6;max-width:88%;padding:10px 18px;border-radius:8px;
   background:#16181cf2;color:#fff;font-weight:700;font-size:14px;line-height:1.5;text-align:center;box-shadow:0 4px 16px #000a}
 .toast[hidden]{display:none}
 
 /* 下部ニュースティッカー（E235系トレインチャンネル風） */
-.ticker{flex:none;position:relative;z-index:4;display:flex;align-items:stretch;height:calc(34px + env(safe-area-inset-bottom));
-  padding-bottom:env(safe-area-inset-bottom);background:var(--metal);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 -2px 10px rgba(0,0,0,.5)}
+.ticker{position:fixed;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:stretch;min-height:34px;
+  padding-bottom:env(safe-area-inset-bottom,0px);background:var(--metal);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 -2px 10px rgba(0,0,0,.5)}
 body.no-ticker .ticker{display:none}
 .ticker-label{flex:none;display:flex;align-items:center;padding:0 14px;font:900 14px 'Noto Sans JP',sans-serif;letter-spacing:.08em;color:#fff;
   background:linear-gradient(180deg,#3b78ff,#1a3fa0)}
@@ -225,8 +222,7 @@ body.no-ticker .ticker{display:none}
 .meter.bad .mdot{background:var(--suspend);box-shadow:0 0 8px var(--suspend)}
 
 /* ================= 振替・代替ルートのハイライト ================= */
-.stage.detour-mode .map svg [data-line]:not(.alt-hl):not(.detour-src){opacity:.12!important}
-.detour-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;max-width:92%;
+.detour-bar{position:absolute;top:calc(var(--top-h,0px) + 12px);left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;max-width:92%;
   padding:8px 8px 8px 14px;border-radius:10px;background:#0a1230f2;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 3px 12px #0008}
 .detour-bar[hidden]{display:none}
 .detour-bar .material-symbols-outlined{color:#5eb0ff}
@@ -354,7 +350,7 @@ body.no-ticker .ticker{display:none}
 body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 
 /* ================= 2段ヘッダー（flexboxのみ・絶対配置/負マージンなし） ================= */
-.hdr{position:relative;flex:none;z-index:5;padding-top:env(safe-area-inset-top);background:var(--metal);
+.hdr{position:relative;z-index:5;padding-top:max(env(safe-area-inset-top,0px),var(--top-offset,0px));background:var(--metal);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 3px 12px rgba(0,0,0,.55)}
 .hdr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#0f3d91,#5b93ff 50%,#0f3d91);box-shadow:0 0 12px rgba(91,147,255,.65)}
 .hdr-top{display:flex;align-items:center;justify-content:space-between;gap:14px;height:48px;padding:0 16px}
@@ -402,7 +398,6 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 .map .fx-alt path{animation:dash 1s linear infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes dash{to{stroke-dashoffset:-44}}
-.map svg [data-line].detour-src,.map svg [data-line].alt-hl{opacity:1!important}
 /* 操作中(is-interacting)は文字のフチ・トランジション・点滅を止めて60fpsを維持 */
 .stage.is-interacting .map svg text{paint-order:normal;stroke:none}
 .stage.is-interacting .map svg [data-line]{transition:none}
@@ -435,3 +430,19 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 .ck-chip.suspend{background:#d91a1a}.ck-chip.more{background:#3a3e46}
 .ck-ok{color:#7fe3a0;font-weight:700;font-size:clamp(16px,2vw,26px)}
 .ck-hint{flex:none;padding:0 0 10px;text-align:center;font-size:12px;opacity:.5}
+
+/* ================= 固定レイヤー構造（ヘッダー/ティッカーは地図の上に重ねる） ================= */
+.top-stack{position:fixed;top:0;left:0;right:0;z-index:5}
+#map-viewport .board,#map-viewport .clockmode{padding-top:var(--top-h,0px);padding-bottom:var(--bot-h,0px)}
+
+/* ================= 路線図の減光：親<svg id="railway-map">のクラス一括制御（filter不使用・opacityのみ） ================= */
+#railway-map.company-jr [data-line]:not([data-company="JR"]),
+#railway-map.company-metro [data-line]:not([data-company="Metro"]),
+#railway-map.company-toei [data-line]:not([data-company="Toei"]),
+#railway-map.company-private [data-line]:not([data-company="Private"]),
+#railway-map.is-alert-only [data-line]{opacity:.15}
+#railway-map.detour-mode [data-line]{opacity:.12}
+.fx-svg.company-jr [data-company]:not([data-company="JR"]),
+.fx-svg.company-metro [data-company]:not([data-company="Metro"]),
+.fx-svg.company-toei [data-company]:not([data-company="Toei"]),
+.fx-svg.company-private [data-company]:not([data-company="Private"]){opacity:.15}
