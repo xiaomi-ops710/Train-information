@@ -514,13 +514,19 @@ const pathD = el => {
   return '';
 };
 
+/* ---------- 描画エンジン（iPad 第10世代 / RAM 4GB 向け：メモリを起動後に一定に保つ構成） ----------
+ * 基礎地図：tokyo_ja.svg を起動時に1回だけ長辺 3072px のCanvasへラスタライズする。以後は作り直さない。
+ * 表示：画面と同じCanvas1枚だけを使う。解像度倍率は1.5まで（それ以上は使わない）。
+ * 切り替え：会社絞り込み・異常強調は、基礎地図を薄く描いた上に、対象の路線だけを2Dで描き直す（新しいCanvasは作らない）。
+ * 静止中：描画要求がない限り何も描かない（requestAnimationFrame を回し続けない）。 */
+const LINE_PATHS = [];   // 起動時に作る路線パスの索引（Path2D付き）。描画のたびに作り直さない
+
 const Engine = {
-  BW: 3200, VW: 7300, VH: 5400,
+  BW: 3072, VW: 7300, VH: 5400,
   stage: null, canvas: null, ctx: null, dpr: 1, W: 1, H: 1, ready: false,
-  base: null, baseKey: '', baseToken: 0, baseDoc: null, svgText: '', groupEls: [],
-  crisp: null, crispToken: 0, crispTimer: 0, rebakeTimer: 0, raf: 0,
+  base: null, baseDoc: null, svgText: '',
   state: { company: 'all', alert: false, detour: null },
-  statusStamp: 0, blinkOn: true, marker: null, lastDraw: 0, pin: null, lowQ: false,
+  blinkOn: true, marker: null, lastDraw: 0, drawCount: 0, pin: null, raf: 0,
 
   init(stage, canvas) {
     this.stage = stage; this.canvas = canvas; this.ctx = canvas.getContext('2d');
@@ -528,65 +534,34 @@ const Engine = {
     if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(stage);
     window.addEventListener('resize', () => this.resize());
   },
-  /* 表示用Canvasを画面サイズ×DPR（上限2）に合わせる */
+  /* 表示用Canvasを画面サイズ×1.5（上限）に合わせる。サイズが変わったときだけ確保し直す */
   resize() {
     if (!this.stage || !this.canvas) return;
     const r = this.stage.getBoundingClientRect();
     this.W = Math.max(1, r.width); this.H = Math.max(1, r.height);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.applySize();
+    this.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.round(this.W * this.dpr), h = Math.round(this.H * this.dpr);
+    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
     this.requestDraw();
   },
-  /* 描画バッファの大きさ：操作中は1倍（画素数を約4分の1に）、静止後は画面の解像度 */
-  applySize() {
-    const d = this.lowQ ? 1 : this.dpr;
-    this.canvas.width = Math.round(this.W * d); this.canvas.height = Math.round(this.H * d);
-  },
-  setLow(v) {
-    if (this.lowQ === !!v) return;
-    this.lowQ = !!v; this.applySize(); this.requestDraw();
-  },
-  /* 描画要求は1フレームに1回へまとめる */
+  /* 描画要求：同じフレーム内の要求は1回にまとめる。要求がなければ何もしない */
   requestDraw() { if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.draw(); }); },
-  setState(p) {
-    const before = this.keyOf();
-    Object.assign(this.state, p);
-    if (this.keyOf() !== before) this.rebakeSoon();
+  setState(p) { Object.assign(this.state, p); this.requestDraw(); },
+  setBlink(on) { if (this.blinkOn === on) return; this.blinkOn = on; this.requestDraw(); },
+  onStatus() { this.requestDraw(); },
+
+  /* 起動時に1回だけ：SVG → 長辺3072pxの基礎地図Canvas。完了後はSVGの解析結果を解放する */
+  async buildBase() {
+    if (!this.baseDoc) return;
+    const BH = Math.round(this.BW * this.VH / this.VW);
+    const cv = await this.rasterize({ x: 0, y: 0, w: this.VW, h: this.VH }, this.BW, BH);
+    if (cv) this.base = cv;
+    this.baseDoc = null; this.svgText = '';
     this.requestDraw();
   },
-  /* 基礎地図の作り直しが必要かどうかを決めるキー（会社・異常強調・状態の更新回数） */
-  keyOf() { const s = this.state; return `${s.company}|${s.alert ? 1 : 0}|${s.alert ? this.statusStamp : 0}`; },
-  setBlink(on) { if (this.blinkOn === on) return; this.blinkOn = on; this.requestDraw(); },
-  onStatus() { this.statusStamp++; if (this.state.alert) this.rebakeSoon(); this.requestDraw(); },
-  rebakeSoon() { clearTimeout(this.rebakeTimer); this.rebakeTimer = setTimeout(() => this.rebake(), 100); },
-
-  /* 基礎地図：全体を BW 幅で作る。キーが同じなら作り直さない */
-  async rebake() {
-    if (!this.baseDoc) return;
-    const key = this.keyOf();
-    if (key === this.baseKey && this.base) return;
-    const token = ++this.baseToken;
-    const cv = await this.rasterize({ x: 0, y: 0, w: this.VW, h: this.VH }, this.BW, Math.round(this.BW * this.VH / this.VW));
-    if (token !== this.baseToken) return;      // 新しい要求が来ていれば古い結果は捨てる
-    if (cv) { this.base = cv; this.baseKey = key; this.crisp = null; }
-    this.requestDraw(); this.scheduleCrisp();
-  },
-
-  /* 状態（会社・異常強調）を解析済みSVGへ属性として書き込む（CSSは画像の中では効かないため） */
-  applyState() {
-    const s = this.state;
-    this.groupEls.forEach(g => {
-      const st = Store.of(g.line).status;
-      const dim = (s.company !== 'all' && g.company !== s.company) || (s.alert && st === 'normal');
-      if (dim) g.el.setAttribute('opacity', '0.15');
-      else if (g.orig !== null) g.el.setAttribute('opacity', g.orig);
-      else g.el.removeAttribute('opacity');
-    });
-  },
-  /* 指定の地図範囲（vb）を pw×ph のCanvasへラスタライズする。状態は呼び出し時点のものを使う */
+  /* 指定範囲を pw×ph のCanvasへラスタライズする（起動時の一度だけ使う） */
   async rasterize(vb, pw, ph) {
     const root = this.baseDoc.documentElement;
-    this.applyState();
     root.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
     root.setAttribute('width', String(pw)); root.setAttribute('height', String(ph));
     const str = new XMLSerializer().serializeToString(root);
@@ -604,71 +579,50 @@ const Engine = {
     } finally { URL.revokeObjectURL(url); }
   },
 
-  /* 精細化：静止後、表示範囲の周辺（余白つき）を、画面と同じ密度で作り直す */
-  scheduleCrisp() { clearTimeout(this.crispTimer); this.crispTimer = setTimeout(() => this.renderCrisp(), 200); },
-  async renderCrisp() {
-    if (!this.baseDoc) return;
-    const vw = Zoom.vw, vh = Zoom.vh(), need = this.dpr * this.W / vw;
-    if (need <= (this.BW / this.VW) * 1.05) { this.crisp = null; this.requestDraw(); return; }  // 基礎地図で足りる
-    const pad = 0.15;
-    const x0 = Math.max(0, Zoom.vx - vw * pad), y0 = Math.max(0, Zoom.vy - vh * pad);
-    const x1 = Math.min(this.VW, Zoom.vx + vw * (1 + pad)), y1 = Math.min(this.VH, Zoom.vy + vh * (1 + pad));
-    const w = x1 - x0, h = y1 - y0;
-    let pw = Math.max(1, Math.round(w * need)), ph = Math.max(1, Math.round(h * need));
-    // 上限：一辺4096px・総面積約800万px（iPadのCanvas上限と메모リ余裕の範囲）
-    const r = Math.min(1, 4096 / Math.max(pw, ph), Math.sqrt(8e6 / (pw * ph)));
-    pw = Math.max(1, Math.round(pw * r)); ph = Math.max(1, Math.round(ph * r));
-    const key = this.keyOf(), token = ++this.crispToken;
-    const cv = await this.rasterize({ x: x0, y: y0, w, h }, pw, ph);
-    if (!cv || token !== this.crispToken) return;
-    this.crisp = { canvas: cv, x: x0, y: y0, w, h, density: pw / w, key };
-    this.requestDraw();
-  },
-  /* 精細化の画像が今の表示範囲を覆い、今の拡大率に足りるときだけ使う */
-  crispUsable(vw) {
-    const cr = this.crisp;
-    if (!cr || cr.key !== this.baseKey) return false;
-    const vh = Zoom.vh(), vx = Zoom.vx, vy = Zoom.vy, eps = 0.5;
-    if (vx < cr.x - eps || vy < cr.y - eps || vx + vw > cr.x + cr.w + eps || vy + vh > cr.y + cr.h + eps) return false;
-    return cr.density >= this.dpr * this.W / vw * 0.95;
-  },
-
-  pathOf(r) { if (!r.path) r.path = new Path2D(r.d); return r.path; },
-  /* 路線の発光（にじみ＋芯）。filterは使わず、太さと不透明度だけで表現する */
-  strokeRail(c, r, color, alpha, dash) {
-    const p = this.pathOf(r), m = r.m;
+  pathOf(r) { return r.path || (r.path = new Path2D(r.d)); },
+  /* 路線を指定色で描く（薄い基礎地図の上に、本来の色で鮮明に出す） */
+  strokeSolid(c, r, color) {
+    const m = r.m;
     c.save();
     c.transform(m.a, m.b, m.c, m.d, m.e, m.f);
     c.lineCap = 'round'; c.lineJoin = 'round';
-    c.globalAlpha = alpha * 0.35; c.strokeStyle = color; c.lineWidth = r.sw * 3.2; c.setLineDash([]); c.stroke(p);
-    c.globalAlpha = alpha; c.lineWidth = r.sw * 1.15; c.setLineDash(dash ? [28, 16] : []); c.stroke(p);
+    c.globalAlpha = 1; c.strokeStyle = color || r.color; c.lineWidth = r.sw; c.setLineDash([]);
+    c.stroke(this.pathOf(r));
     c.restore();
   },
-  drawBase(c) {
-    if (this.base) c.drawImage(this.base, 0, 0, this.base.width, this.base.height, 0, 0, this.VW, this.VH);
+  /* 異常路線の発光（にじみ＋芯）。filterは使わず、太さと不透明度だけで表現する */
+  strokeRail(c, r, color, alpha, dash) {
+    const m = r.m;
+    c.save();
+    c.transform(m.a, m.b, m.c, m.d, m.e, m.f);
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.globalAlpha = alpha * 0.35; c.strokeStyle = color; c.lineWidth = r.sw * 3.2; c.setLineDash([]); c.stroke(this.pathOf(r));
+    c.globalAlpha = alpha; c.lineWidth = r.sw * 1.15; c.setLineDash(dash ? [28, 16] : []); c.stroke(this.pathOf(r));
+    c.restore();
   },
-  drawCrisp(c) {
-    const cr = this.crisp;
-    if (cr && this.crispUsable(Zoom.vw)) c.drawImage(cr.canvas, 0, 0, cr.canvas.width, cr.canvas.height, cr.x, cr.y, cr.w, cr.h);
+  /* 基礎地図：会社絞り込みは 0.18、異常強調は 0.16、通常は 1.0（新しいCanvasは作らない） */
+  drawBase(c, alpha) {
+    if (!this.base) return;
+    c.globalAlpha = alpha;
+    c.drawImage(this.base, 0, 0, this.base.width, this.base.height, 0, 0, this.VW, this.VH);
+    c.globalAlpha = 1;
+  },
+  /* 会社絞り込み：選ばれた会社の路線を、本来の色で上から描き直す */
+  drawCompanyLines(c) {
+    const co = this.state.company; if (co === 'all') return;
+    LINE_PATHS.forEach(r => { if (r.company === co) this.strokeSolid(c, r); });
   },
   /* 振替ルート表示中：地図全体を薄くし、対象路線と代替路線を元の色で描き直す */
   drawDetour(c, det) {
     const L = lineByName(det), alts = new Set(L ? L.alt : []);
     c.save(); c.fillStyle = 'rgba(244,245,248,0.86)'; c.fillRect(0, 0, this.VW, this.VH); c.restore();
-    MapView.rails.forEach(r => {
-      if (r.line !== det && !alts.has(r.line)) return;
-      const p = this.pathOf(r), m = r.m;
-      c.save();
-      c.transform(m.a, m.b, m.c, m.d, m.e, m.f);
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      c.strokeStyle = r.color; c.lineWidth = r.sw; c.setLineDash([]); c.stroke(p);
-      c.restore();
-    });
+    LINE_PATHS.forEach(r => { if (r.line === det || alts.has(r.line)) this.strokeSolid(c, r); });
   },
-  /* 異常路線の発光。会社フィルター外は光らせない */
+  /* 異常路線：強調のときは本来の色で描き直してから発光を重ねる。会社フィルター外は光らせない */
   drawGlow(c, det) {
-    const s = this.state, alts = det ? new Set((lineByName(det) || { alt: [] }).alt) : null, a = this.blinkOn ? 1 : 0.3;
-    MapView.rails.forEach(r => {
+    const s = this.state, alts = det ? new Set((lineByName(det) || { alt: [] }).alt) : null;
+    const a = this.blinkOn ? 1 : 0.3, emph = s.alert || s.company !== 'all';
+    LINE_PATHS.forEach(r => {
       if (s.company !== 'all' && r.company !== s.company) return;
       const st = Store.of(r.line).status;
       if (det) {
@@ -676,8 +630,12 @@ const Engine = {
         else if (alts.has(r.line)) this.strokeRail(c, r, FX_COLORS.alt, 1, true);
         return;
       }
-      if (st === 'suspend') this.strokeRail(c, r, FX_COLORS.suspend, a, false);
-      else if (st === 'delay' || st === 'partial') this.strokeRail(c, r, FX_COLORS.delay, a, false);
+      let color = null;
+      if (st === 'suspend') color = FX_COLORS.suspend;
+      else if (st === 'delay' || st === 'partial') color = FX_COLORS.delay;
+      if (!color) return;
+      if (emph) this.strokeSolid(c, r);
+      this.strokeRail(c, r, color, a, false);
     });
   },
   /* 運転見合わせ路線のターミナルに赤い警告点 */
@@ -705,27 +663,28 @@ const Engine = {
     c.beginPath(); c.arc(0, -34, 6.5, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
     c.restore();
   },
-  /* 1回の描画：背景 → 基礎地図 → 精細化 → 振替 → 発光 → 警告 → 現在地 */
+  /* 1回の描画：背景 → 基礎地図 → 会社・強調・振替 → 発光 → 警告 → 現在地 */
   draw() {
     if (!this.ctx || !this.ready || !this.canvas.width) return;
-    const t0 = performance.now(), c = this.ctx, vw = Zoom.vw, unit = vw / this.W;
+    const t0 = performance.now(), c = this.ctx, vw = Zoom.vw, unit = vw / this.W, s = this.state, det = s.detour;
+    const scale = this.dpr * this.W / vw;
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = '#f4f5f8'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    const s = (this.lowQ ? 1 : this.dpr) * this.W / vw;        // 地図1単位あたりの描画px（バッファの解像度に合わせる）
-    c.setTransform(s, 0, 0, s, -Zoom.vx * s, -Zoom.vy * s);
-    this.drawBase(c); this.drawCrisp(c);
-    const det = this.state.detour;
-    if (det) this.drawDetour(c, det);
+    c.globalAlpha = 1; c.fillStyle = '#f4f5f8'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    c.setTransform(scale, 0, 0, scale, -Zoom.vx * scale, -Zoom.vy * scale);
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    const alpha = det ? 1 : (s.company !== 'all' ? 0.18 : (s.alert ? 0.16 : 1));
+    this.drawBase(c, alpha);
+    if (det) this.drawDetour(c, det); else this.drawCompanyLines(c);
     this.drawGlow(c, det);
     this.drawPulses(c, unit);
     this.drawMarker(c, unit);
-    this.lastDraw = performance.now() - t0;
+    this.lastDraw = performance.now() - t0; this.drawCount++;
   }
 };
 
 const MapView = {
-  svg: null, rails: [], boxes: {}, _all: null, _by: null, dom: null,
-  /* 読み込み：SVG解析 → 一時的な実DOMで駅・路線の位置を取り出す → 一時DOMを破棄 → 基礎地図を作る */
+  svg: null, rails: LINE_PATHS, boxes: {}, _all: null, _by: null, dom: null,
+  /* 読み込み：SVG解析 → 一時的な実DOMで駅・路線の位置を取り出し破棄 → 基礎地図を1回だけ作る */
   async init() {
     const msg = document.getElementById('mapLoading');
     try {
@@ -750,26 +709,25 @@ const MapView = {
       this.tag(live);
       Stations.ensure(); LineGeo.ensure();
       holder.remove(); this.svg = null;
-      await Engine.rebake();
+      await Engine.buildBase();
       if (msg) msg.hidden = true;
     } catch (e) {
       console.error(e);
       if (msg) msg.textContent = '路線図を読み込めませんでした。ローカルでは簡易サーバー経由で開いてください。';
     }
   },
-  /* 路線グループに路線名・会社を付け、発光・振替に使う路線パスの一覧（路線図の座標）を作る */
+  /* 路線グループに路線名・会社を付け、路線パスの索引（LINE_PATHS）を作る */
   tag(live) {
-    const all = lineGroupsOf(live), dAll = lineGroupsOf(Engine.baseDoc.documentElement);
-    this._all = []; this._by = new Map(); this.rails = []; this.boxes = {}; Engine.groupEls = [];
-    all.forEach((g, i) => {
+    const all = lineGroupsOf(live);
+    this._all = []; this._by = new Map(); this.boxes = {}; LINE_PATHS.length = 0;
+    all.forEach(g => {
       const id = g.getAttribute('id') || '';
       const L = LINES.find(x => x.svg.some(p => id.startsWith(p)));
-      if (!L || !dAll[i]) return;
+      if (!L) return;
       g.dataset.line = L.ja; g.dataset.company = L.co;
       this.decorate(g);
       this._all.push(g);
       (this._by.get(L.ja) || this._by.set(L.ja, []).get(L.ja)).push(g);
-      Engine.groupEls.push({ el: dAll[i], line: L.ja, company: L.co, orig: dAll[i].getAttribute('opacity') });
       g.__rails.forEach(el => this.addRail(el, L));
     });
   },
@@ -781,13 +739,14 @@ const MapView = {
     if (!rails.length) rails = direct.filter(usable);
     g.__rails = rails;
   },
-  /* 路線パス1本を、地図座標（ルートSVGのユーザー座標）の記録として保存する */
+  /* 路線パス1本を、地図座標の記録として保存する（Path2Dは起動時に1回だけ作る） */
   addRail(el, L) {
     const m = toRoot(el); if (!m) return;
     const d = pathD(el); if (!d) return;
-    this.rails.push({
+    LINE_PATHS.push({
       line: L.ja, company: L.co, d, sw: parseFloat(el.getAttribute('stroke-width')) || 10,
-      color: el.getAttribute('stroke') || '#999', m: { a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f }, path: null
+      color: el.getAttribute('stroke') || '#999', m: { a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f },
+      path: new Path2D(d)
     });
     try {
       const bb = el.getBBox();
@@ -797,7 +756,6 @@ const MapView = {
       pts.forEach(([x, y]) => { box.x0 = Math.min(box.x0, x); box.y0 = Math.min(box.y0, y); box.x1 = Math.max(box.x1, x); box.y1 = Math.max(box.y1, y); });
     } catch (_) {}
   },
-  /* 路線の中心（振替ルートの表示位置） */
   lineCenter(name) {
     const b = this.boxes[name];
     return b && isFinite(b.x0) ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null;
@@ -891,15 +849,12 @@ const Zoom = {
   beginInteract() {
     clearTimeout(this.endTimer);
     if (!this.stage.classList.contains('is-zooming')) this.stage.classList.add('is-zooming');
-    Engine.setLow(true);
   },
   endInteractLater() { clearTimeout(this.endTimer); this.endTimer = setTimeout(() => this.finish(), 150); },
   /* 操作終了：表示範囲を確定し、静止後の精細化を予約する */
   finish() {
-    Engine.setLow(false);
     this.writeView();
     this.stage.classList.remove('is-zooming');
-    Engine.scheduleCrisp();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
@@ -1705,32 +1660,35 @@ const Blink = {
   tick() { if (document.hidden) return; Engine.setBlink(!Engine.blinkOn); }
 };
 
-/* ---------- 性能診断HUD：FPS・フレーム時間・DOM数・Canvas描画時間 ---------- */
+/* ---------- 連打防止（350msのロック）：表示状態を切り替えるボタンの多重処理を防ぐ ---------- */
+const Guard = {
+  MS: 350, until: {},
+  locked(key) { return (this.until[key] || 0) > performance.now(); },
+  run(key, fn) {
+    if (this.locked(key)) return false;
+    this.until[key] = performance.now() + this.MS;
+    fn();                                                        // 先に処理してから見た目を変える（再描画で要素が作り直されても対応）
+    document.querySelectorAll(`[data-guard="${key}"]`).forEach(e => e.classList.add('cool'));
+    setTimeout(() => document.querySelectorAll(`[data-guard="${key}"]`).forEach(e => e.classList.remove('cool')), this.MS);
+    return true;
+  }
+};
+
+/* ---------- 性能診断HUD：基礎地図のメモリ・表示Canvasのメモリ・描画回数・直近の描画時間（1秒ごとに更新、rAFは使わない） ---------- */
 const Hud = {
-  el: null, on: false, raf: 0, frames: 0, t0: 0, fps: 0, ftime: 0, nodes: 0,
+  el: null, on: false, timer: 0, lastCount: 0,
   setOn(v) {
     this.el = this.el || document.getElementById('hud');
     if (!this.el || this.on === !!v) return;
     this.on = !!v; this.el.hidden = !this.on;
-    cancelAnimationFrame(this.raf); this.raf = 0;
-    if (!this.on) return;
-    this.frames = 0; this.t0 = performance.now(); this.count();
-    const f = now => {
-      this.frames++;
-      const d = now - this.t0;
-      if (d >= 1000) {
-        this.fps = this.frames * 1000 / d; this.ftime = d / this.frames;
-        this.frames = 0; this.t0 = now; this.count(); this.render();
-      }
-      this.raf = requestAnimationFrame(f);
-    };
-    this.raf = requestAnimationFrame(f);
+    clearInterval(this.timer); this.timer = 0;
+    if (this.on) { this.lastCount = Engine.drawCount; this.timer = setInterval(() => this.render(), 1000); this.render(); }
   },
-  count() { this.nodes = document.getElementsByTagName('*').length; },
   render() {
-    const moving = Zoom.stage && Zoom.stage.classList.contains('is-zooming');
-    const crisp = Engine.crisp && Engine.crispUsable(Zoom.vw) ? '精細化あり' : '精細化なし';
-    this.el.textContent = `${moving ? '操作中' : '静止'} ／ FPS ${this.fps.toFixed(0)} ／ フレーム ${this.ftime.toFixed(1)}ms ／ DOM ${this.nodes} ／ Canvas描画 ${Engine.lastDraw.toFixed(2)}ms ／ 基礎地図 ${Engine.BW}px ／ ${crisp}`;
+    const n = Engine.drawCount, per = n - this.lastCount; this.lastCount = n;
+    const mb = cv => (cv ? cv.width * cv.height * 4 / 1048576 : 0);
+    const base = Engine.base ? `${Engine.base.width}×${Engine.base.height}（${mb(Engine.base).toFixed(1)}MB固定）` : '未作成';
+    this.el.textContent = `基礎地図 ${base} ／ 表示 ${mb(Engine.canvas).toFixed(1)}MB ／ 描画 ${per}回/秒 ・直近 ${Engine.lastDraw.toFixed(2)}ms ／ DOM ${document.getElementsByTagName('*').length}`;
   }
 };
 
@@ -2091,9 +2049,9 @@ const UI = {
     document.getElementById('btnRefresh').onclick = () => this.refresh(true);
     document.getElementById('btnSearch').onclick = () => Search.open();
     document.getElementById('btnRoute').onclick = () => RouteUI.open();
-    document.getElementById('btnDual').onclick = () => Settings.set('dual', !Settings.get('dual'));
-    document.getElementById('btnFocus').onclick = () => Settings.set('focus', !Settings.get('focus'));
-    document.getElementById('btnCycle').onclick = () => Settings.set('autoCycle', !Settings.get('autoCycle'));
+    document.getElementById('btnDual').onclick = () => Guard.run('dual', () => Settings.set('dual', !Settings.get('dual')));
+    document.getElementById('btnFocus').onclick = () => Guard.run('focus', () => Settings.set('focus', !Settings.get('focus')));
+    document.getElementById('btnCycle').onclick = () => Guard.run('cycle', () => Settings.set('autoCycle', !Settings.get('autoCycle')));
     /* PC向けキーボードショートカット（入力欄にフォーカスが無いときのみ） */
     document.addEventListener('keydown', e => {
       if (e.ctrlKey || e.metaKey || e.altKey || e.key === 'Escape') return;
@@ -2233,11 +2191,11 @@ const UI = {
   buildTabs() {
     const nav = document.getElementById('companyTabs');
     nav.innerHTML = COMPANIES.map(c =>
-      `<button class="tab" data-id="${c.id}" aria-pressed="${c.id === this.company}">${c.ja}${I18n.bi() ? `<small>${c.en}</small>` : ''}</button>`).join('');
-    nav.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {
+      `<button class="tab" data-guard="tab" data-id="${c.id}" aria-pressed="${c.id === this.company}">${c.ja}${I18n.bi() ? `<small>${c.en}</small>` : ''}</button>`).join('');
+    nav.querySelectorAll('.tab').forEach(btn => btn.onclick = () => Guard.run('tab', () => {
       this.company = btn.dataset.id; MapView.applyFilter(this.company); this.buildTabs();
       if (Search.isOpen()) Search.render();
-    });
+    }));
   },
   buildLegend() {
     document.getElementById('legend').innerHTML =
@@ -2310,7 +2268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Zoom.init(document.getElementById('map-viewport'));
   Engine.ready = true;
   Engine.setState({ company: UI.company, alert: !!Settings.get('focus') });
-  Engine.requestDraw(); Engine.scheduleCrisp();
+  Engine.requestDraw();
   Blink.sync();
   Locate.init(); LinksUI.init();
   if (Settings.get('autoLocate')) Locate.locate();

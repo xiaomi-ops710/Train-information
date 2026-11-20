@@ -542,3 +542,6 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 .map-loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;padding:12px 18px;border-radius:8px;
   background:rgba(10,18,48,.88);color:#fff;font-weight:700;font-size:15px;white-space:nowrap}
 .map-loading[hidden]{display:none}
+
+/* ================= 連打防止ロック中の見た目 ================= */
+.cool{opacity:.65!important;transition:opacity .15s}
