@@ -46,7 +46,6 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .map{position:absolute;inset:0}
 .map svg{width:100%;height:100%;display:block}
 .map svg *{pointer-events:none}
-.map svg .hit{pointer-events:stroke;stroke-width:var(--hitw,70px)}
 .map svg text{font-family:'Noto Sans JP','Roboto',sans-serif!important;font-weight:700;
   paint-order:stroke;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round}
 .map svg [data-line]{transition:none}
@@ -391,17 +390,11 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 /* ================= 異常路線の発光：別SVGレイヤーのopacityのみ（GPUコンポジット） ================= */
 .map{contain:layout style paint}
 .map .fx-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.map .fx-delay{animation:blink 1.6s ease-in-out infinite}
-.map .fx-susp{animation:blink .9s ease-in-out infinite}
-.map .fx-alt{animation:blink 1.8s ease-in-out infinite}
-.map .fx-alt path{animation:dash 1s linear infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes dash{to{stroke-dashoffset:-44}}
 /* 操作中(is-interacting)は文字のフチ・トランジション・点滅を止めて60fpsを維持 */
 .is-zooming .map svg text{paint-order:normal;stroke:none}
 .is-zooming .map svg [data-line]{transition:none!important}
-.is-zooming .fx-svg{animation:none!important}
-@media (prefers-reduced-motion:reduce){.map .fx-svg,.map .fx-alt path,.lamp{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.lamp{animation:none!important}}
 
 /* ================= 検索：駅セクション・ジャンプチップ ================= */
 .sec-title{padding:12px 6px 2px;font-weight:700;font-size:13px;color:#555}
@@ -448,11 +441,8 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 
 /* ================= 描画負荷：拡大縮小中は点滅・縁取り・アニメーションを止める ================= */
 .map .fx-svg{overflow:hidden}
-.is-zooming .map .fx-svg,.is-zooming .fx-svg *{animation:none!important}
 .is-zooming .map svg text{paint-order:normal;stroke:none}
 /* 運転見合わせのターミナル警告（ターミナル位置の赤い点滅・opacityのみ） */
-.map .fx-pulse .pz-ring{animation:blink 1.2s ease-in-out infinite}
-.map .fx-pulse .pz-dot{animation:blink 1.2s ease-in-out infinite}
 .map svg{shape-rendering:optimizeSpeed}
 .map svg text{shape-rendering:auto}
 
@@ -568,3 +558,18 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 
 /* ================= 情報案内：異常・マイ路線・マイルートの見出し ================= */
 .info-body .lcd-body p.h{margin-bottom:.2em}
+
+/* ================= 操作中の描画軽量化（LOD）：文字・円・画像を描画から外し、重ね表示を止める =================
+ * 計測：文字はレイアウト再計算の主因。visibility:hidden では効果が出ないため display:none を使う。 */
+.is-zooming .map svg text,
+.is-zooming .map svg circle,
+.is-zooming .map svg image{display:none!important}
+.is-zooming .fx-svg{display:none!important}
+/* 路線の切り抜き（clip-path）は操作中だけ外す：毎フレームの切り抜き計算が最大の描画負荷だった */
+.is-zooming #railway-map [clip-path]{clip-path:none!important}
+
+/* ================= 性能診断HUD ================= */
+.hud{position:absolute;left:10px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 10px);z-index:7;
+  padding:5px 10px;border-radius:6px;background:rgba(0,0,0,.72);color:#9ff5b5;font:500 12px/1.4 Roboto,'Noto Sans JP',monospace;
+  pointer-events:none;white-space:nowrap}
+.hud[hidden]{display:none}

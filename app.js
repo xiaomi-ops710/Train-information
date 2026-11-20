@@ -164,7 +164,7 @@ const lineByName = name => LINES.find(l => l.ja === name);
 const Settings = {
   KEY: 'tokyo-lcd:settings',
   data: { demo: false, bilingual: true, autoLocate: false, chime: false, speech: false, autoCycle: false, ticker: true, tickerSpeed: 'normal',
-          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, focus: false }, // 保存値があればそちらを優先（load）
+          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, hud: false, blink: true, focus: false }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -523,36 +523,36 @@ const TERMINALS = ['東京', '新宿', '渋谷', '池袋', '上野', '品川', '
 /* 異常路線の発光は路線図本体とは別の小さなSVG（遅延／見合わせ／代替／ターミナル警告／現在地）に描く。
  * 点滅は各SVGの opacity だけで動かし、路線図本体は再描画しない。 */
 class FxLayers {
+  /* 発光・点滅・ターミナル警告・現在地を、1枚の軽量オーバーレイにまとめる（以前の5枚から削減） */
   constructor(host, base) {
-    const vb = base.getAttribute('viewBox');
-    const mk = cls => {
-      const s = document.createElementNS(SVGNS, 'svg');
-      s.setAttribute('class', 'fx-svg ' + cls); s.setAttribute('viewBox', vb);
-      s.setAttribute('preserveAspectRatio', 'xMidYMid meet'); s.setAttribute('aria-hidden', 'true');
-      host.appendChild(s); return s;
-    };
-    this.delay = mk('fx-delay'); this.susp = mk('fx-susp'); this.alt = mk('fx-alt');
-    this.pulse = mk('fx-pulse'); this.me = mk('fx-me');
+    const s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('class', 'fx-svg'); s.setAttribute('viewBox', base.getAttribute('viewBox'));
+    s.setAttribute('preserveAspectRatio', 'xMidYMid meet'); s.setAttribute('aria-hidden', 'true');
+    host.appendChild(s); this.overlay = s;
+    const grp = cls => { const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('class', cls); s.appendChild(g); return g; };
+    this.delay = grp('glow glow-delay'); this.susp = grp('glow glow-susp'); this.alt = grp('glow glow-alt');
+    this.pulse = grp('pulse-layer'); this.me = grp('me-layer');
     this.pulses = [];
   }
-  all() { return [this.delay, this.susp, this.alt, this.pulse, this.me]; }
-  setViewBox(v) { this.all().forEach(s => s.setAttribute('viewBox', v)); }
-  draw(svg, g, color, dash) {
-    (g.__rails || []).forEach(r => {
+  all() { return [this.overlay]; }
+  setViewBox(v) { this.overlay.setAttribute('viewBox', v); }
+  /* 路線の発光（にじみ＋芯）。filterは使わず、太さと不透明度だけで表現する */
+  draw(layer, src, color, dash) {
+    (src.__rails || []).forEach(r => {
       const w = parseFloat(r.getAttribute('stroke-width')) || 10;
       [[3.2, .35, false], [1.15, 1, true]].forEach(([m, o, core]) => {
         const c = r.cloneNode(false);
         ['class', 'opacity', 'stroke-dasharray'].forEach(a => c.removeAttribute(a));
-        c.setAttribute('data-company', g.dataset.company || '');
+        c.setAttribute('data-company', src.dataset.company || '');
         c.setAttribute('fill', 'none'); c.setAttribute('stroke', color); c.setAttribute('stroke-width', w * m);
         c.setAttribute('stroke-opacity', o); c.setAttribute('stroke-linecap', 'round'); c.setAttribute('stroke-linejoin', 'round');
         if (dash && core) c.setAttribute('stroke-dasharray', '28 16');
-        svg.appendChild(c);
+        layer.appendChild(c);
       });
     });
   }
   rebuild() {
-    [this.delay, this.susp, this.alt].forEach(sv => { while (sv.firstChild) sv.removeChild(sv.firstChild); });
+    [this.delay, this.susp, this.alt].forEach(g => { while (g.firstChild) g.removeChild(g.firstChild); });
     const det = Detour.active ? lineByName(Detour.active) : null, alts = det ? new Set(det.alt) : null;
     LINES.forEach(L => {
       const groups = MapView.groupsOf(L.ja); if (!groups.length) return;
@@ -567,7 +567,7 @@ class FxLayers {
     });
     this.drawPulses();
   }
-  /* 運転見合わせ路線のターミナルに赤い警告パルスを置く */
+  /* 運転見合わせ路線のターミナルに赤い警告点 */
   drawPulses() {
     const sv = this.pulse; while (sv.firstChild) sv.removeChild(sv.firstChild);
     this.pulses = [];
@@ -578,7 +578,7 @@ class FxLayers {
       if (!Stations.lines(name).some(n => sus.includes(n))) return;
       const g = document.createElementNS(SVGNS, 'g');
       g.setAttribute('class', 'pz');
-      g.innerHTML = '<circle class="pz-ring" r="10" fill="none" stroke="#ff3030" stroke-width="3"/><circle class="pz-dot" r="5" fill="#ff3030" stroke="#fff" stroke-width="1.5"/>';
+      g.innerHTML = '<circle r="10" fill="none" stroke="#ff3030" stroke-width="3"/><circle r="5" fill="#ff3030" stroke="#fff" stroke-width="1.5"/>';
       g.__x = e.x; g.__y = e.y;
       sv.appendChild(g); this.pulses.push(g);
     });
@@ -586,6 +586,12 @@ class FxLayers {
   }
   /* 画面上で同じ大きさに見えるよう、ズームのたびに拡大率を補正 */
   sizeMarkers(u) { this.pulses.forEach(g => g.setAttribute('transform', `translate(${g.__x} ${g.__y}) scale(${u})`)); }
+  /* 点滅：不透明度の属性だけを書き換える（CSSアニメーションは使わない） */
+  blink(on) {
+    const o = on ? '1' : '0.3';
+    [this.delay, this.susp, this.pulse].forEach(g => g.setAttribute('opacity', o));
+    this.me.querySelectorAll('.ring').forEach(r => r.setAttribute('opacity', o));
+  }
 }
 
 const MapView = {
@@ -598,6 +604,9 @@ const MapView = {
       const txt = await res.text();
       this.el.innerHTML = txt.slice(txt.indexOf('<svg')); // XML宣言・xml-stylesheetを除去
       this.svg = this.el.querySelector('svg');
+      this.dom = { before: this.svg.getElementsByTagName('*').length };
+      this.dom.removed = Sanitize.run(this.svg);
+      this.dom.after = this.svg.getElementsByTagName('*').length;
       this.svg.id = 'railway-map'; // 親svgのクラスで一括制御する
       this.tag();
       this.fx = new FxLayers(this.el, this.svg);
@@ -629,15 +638,6 @@ const MapView = {
 
     g.__rails = rails; // 異常時の発光は別レイヤー(FxLayers)に描く（本体SVGにはfilter・アニメを一切かけない）
 
-    const hit = document.createElementNS(SVGNS, 'g');
-    rails.forEach(r => {
-      const c = r.cloneNode(false);
-      c.setAttribute('class', 'hit'); c.removeAttribute('opacity'); c.removeAttribute('stroke-dasharray');
-      c.setAttribute('stroke', '#000'); c.setAttribute('stroke-opacity', 0);
-      c.setAttribute('stroke-width', 70); c.setAttribute('stroke-linecap', 'round');
-      hit.appendChild(c);
-    });
-    g.appendChild(hit);
   },
   /* 要素(g/text)のバウンディングボックス中心を、ルートSVGのユーザー座標で返す */
   rootCenter(el) {
@@ -667,7 +667,7 @@ const Zoom = {
   vx: 0, vy: 0, vw: 1, VW: 7300, VH: 5400, W: 1, H: 1, insT: 0, insB: 0,
   HOME_PT: [0.507, 0.472], HOME_DIV: 2.4,
   stage: null, svg: null, pts: new Map(), last: null, moved: 0, anim: 0, endTimer: 0,
-  wheel: { f: 1, x: 0, y: 0, raf: 0 },
+  wheel: { f: 1, x: 0, y: 0, raf: 0 }, lastWrite: 0,
   init(stage) {
     this.stage = stage; this.svg = MapView.svg;
     const vb = this.svg && this.svg.viewBox.baseVal;
@@ -698,10 +698,11 @@ const Zoom = {
   },
   writeView() {
     if (!this.svg) return;
-    const v = `${this.vx} ${this.vy} ${this.vw} ${this.vh()}`;
+    const t0 = performance.now(), v = `${this.vx} ${this.vy} ${this.vw} ${this.vh()}`;
     this.svg.setAttribute('viewBox', v);
     if (MapView.fx) { MapView.fx.setViewBox(v); MapView.fx.sizeMarkers(this.unit()); }
     Locate.rescale();
+    this.lastWrite = performance.now() - t0;
   },
   request() { Frame.once('zoom', () => this.writeView()); },
   /* 指定のSVG座標を「見えている領域の中心」に置く */
@@ -760,7 +761,6 @@ const Zoom = {
   finish() {
     this.writeView();
     this.stage.classList.remove('is-zooming');
-    MapView.setHitWidth(Math.min(80, Math.max(12, 28 * this.unit())));
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
@@ -801,8 +801,8 @@ const Zoom = {
     const st = Stations.at(sx, sy, 4 * u);
     if (st) { StationPop.open(st.name, cx, cy); return; }
     StationPop.close();
-    const g = document.elementFromPoint(cx, cy)?.closest('[data-line]');
-    if (g) document.dispatchEvent(new CustomEvent('line:tap', { detail: { line: g.dataset.line } }));
+    const line = LineGeo.nearest(sx, sy, Math.min(90, 14 * u));
+    if (line) document.dispatchEvent(new CustomEvent('line:tap', { detail: { line } }));
   },
   onWheel(e) {
     e.preventDefault(); this.stopAnim(); this.beginInteract();
@@ -926,15 +926,7 @@ const Locate = {
   show(x, y, name, kind) {
     this.clear(true);
     const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('id', 'meMarker');
-    g.innerHTML = `
-      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
-        <animate attributeName="r" values="8;48" dur="2s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.75;0" dur="2s" repeatCount="indefinite"/></circle>
-      <circle r="8" fill="none" stroke="#2f6df0" stroke-width="3" opacity="0">
-        <animate attributeName="r" values="8;48" dur="2s" begin="1s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.75;0" dur="2s" begin="1s" repeatCount="indefinite"/></circle>
-      <path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/>
-      <circle cy="-34" r="6.5" fill="#fff"/>`;
+    g.innerHTML = `<circle class="ring" r="26" fill="none" stroke="#2f6df0" stroke-width="3"/><path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/><circle cy="-34" r="6.5" fill="#fff"/>`;
     (MapView.fx ? MapView.fx.me : MapView.svg).appendChild(g);
     this.marker = g; this.point = { x, y }; this.rescale();
     const chip = document.getElementById('locChip');
@@ -1332,6 +1324,8 @@ const SETTING_DEFS = [
   { key: 'beep', cat: 'audio', ja: '券売機タッチ音（ピッ）', en: 'Touch beep', type: 'bool' },
   { key: 'autoLocate', cat: 'comm', ja: '起動時に現在地へ自動移動', en: 'Auto-locate on launch', type: 'bool' },
   { key: 'autoCycle', cat: 'comm', ja: '自動画面サイクル（8秒）', en: 'Auto screen cycle', type: 'bool' },
+  { key: 'hud', cat: 'comm', ja: '性能診断HUD（FPS・DOM数）', en: 'Performance HUD', type: 'bool' },
+  { key: 'blink', cat: 'display', ja: '異常路線の点滅（省電力ならOFF）', en: 'Blinking alerts (off saves power)', type: 'bool' },
   { key: 'interval', cat: 'comm', ja: '自動更新間隔', en: 'Auto refresh interval', type: 'cycle', opts: OPT_INTERVAL }
 ];
 const MV_CATS = [['display', '表示・LCD', 'Display'], ['audio', '音声・通知', 'Sound'], ['comm', '通信・動作', 'System'], ['all', 'すべて表示', 'Show all']];
@@ -1457,7 +1451,7 @@ const Stations = {
     };
     svg.querySelectorAll('text').forEach(t => {
       let b, m;
-      try { b = t.getBBox(); m = t.getCTM(); } catch (_) { return; }
+      try { b = t.getBBox(); m = toRoot(t); } catch (_) { return; }
       if (!m || !b || !b.width) return;
       const tsp = [...t.querySelectorAll('tspan')];
       const names = tsp.length ? tsp.map(p => p.textContent.replace(/\s+/g, '')) : [t.textContent.replace(/\s+/g, '')];
@@ -1470,10 +1464,14 @@ const Stations = {
   get(name) { this.ensure(); return this.byName ? (this.byName.get(name) || null) : null; },
   /* 指定の路線図座標（SVG単位）が駅名ラベルの上にあれば、その駅を返す */
   at(x, y, pad) {
+    let best = null, bd = Infinity;
     for (const e of (this.ensure() || [])) for (const p of e.parts) {
-      if (x >= p.x0 - pad && x <= p.x1 + pad && y >= p.y0 - pad && y <= p.y1 + pad) return e;
+      if (x >= p.x0 - pad && x <= p.x1 + pad && y >= p.y0 - pad && y <= p.y1 + pad) {
+        const d = Math.hypot(e.x - x, e.y - y); // ラベルが重なるときは中心が最も近い駅を選ぶ
+        if (d < bd) { bd = d; best = e; }
+      }
     }
-    return null;
+    return best;
   },
   /* 部分一致（前方一致を優先）。q は正規化済みの文字列 */
   search(q) {
@@ -1488,40 +1486,129 @@ const Stations = {
     if (!e.lines) e.lines = this.nearLines(e.x, e.y);
     return e.lines;
   },
-  /* 路線の描画線を一定間隔でサンプリングし、100単位のマス目に登録（1回だけ） */
-  sampleRails() {
-    if (this.grid) return;
-    this.grid = new Map();
-    const svg = MapView.svg; if (!svg) return;
-    const pt = svg.createSVGPoint(), CELL = 100;
+  /* 駅ラベル付近を通る路線の推定（路線索引 LineGeo を使う） */
+  nearLines(x, y) { return LineGeo.lines(x, y, Math.max(40, Zoom.VW * 0.009)); }
+};
+
+/* 要素の座標 → ルートSVGのユーザー座標（viewBoxの拡大・位置の影響を打ち消す。getCTM() は表示状態に依存するので使わない） */
+const toRoot = el => {
+  const root = MapView.svg && MapView.svg.getScreenCTM(), m = el.getScreenCTM();
+  return root && m ? root.inverse().multiply(m) : null;
+};
+
+/* ---------- SVGのDOMダイエット：描画に影響しない要素だけを取り除く ---------- */
+const Sanitize = {
+  run(svg) {
+    let removed = 0;
+    const DROP = new Set(['metadata', 'title', 'desc']);
+    const kill = n => { n.parentNode.removeChild(n); removed++; };
+    const walk = el => {
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 8) { kill(n); return; }                  // コメント
+        if (n.nodeType !== 1) return;
+        const tag = n.localName, st = n.getAttribute('style') || '';
+        if (DROP.has(tag) || n.getAttribute('display') === 'none' || n.getAttribute('visibility') === 'hidden' ||
+            /display\s*:\s*none|visibility\s*:\s*hidden/.test(st)) { kill(n); return; }
+        walk(n);
+        if (tag === 'g' && !n.id && n.children.length === 0) kill(n); // 中身が空の無名グループ
+      });
+    };
+    walk(svg);
+    return removed;
+  }
+};
+
+/* ---------- 路線の描画線の位置索引（タップ判定用。描画要素は一切増やさない） ---------- */
+const LineGeo = {
+  grid: null, CELL: 100,
+  ensure() {
+    if (this.grid) return this.grid;
+    const svg = MapView.svg; if (!svg) return new Map();
+    const grid = new Map(), pt = svg.createSVGPoint();
     MapView.lines().forEach(g => {
       (g.__rails || []).forEach(el => {
         let len = 0, m = null;
-        try { len = el.getTotalLength(); m = el.getCTM(); } catch (_) { return; }
+        try { len = el.getTotalLength(); m = toRoot(el); } catch (_) { return; }
         if (!m || !len) return;
         const n = Math.min(500, Math.max(8, Math.ceil(len / 12)));
         for (let i = 0; i <= n; i++) {
           let p; try { p = el.getPointAtLength(len * i / n); } catch (_) { break; }
           pt.x = p.x; pt.y = p.y; const q = pt.matrixTransform(m);
-          const k = Math.floor(q.x / CELL) + ',' + Math.floor(q.y / CELL);
-          if (!this.grid.has(k)) this.grid.set(k, []);
-          this.grid.get(k).push({ x: q.x, y: q.y, l: g.dataset.line });
+          const k = Math.floor(q.x / this.CELL) + ',' + Math.floor(q.y / this.CELL);
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push({ x: q.x, y: q.y, l: g.dataset.line });
         }
       });
     });
+    this.grid = grid; return grid;
   },
-  nearLines(x, y) {
-    this.sampleRails();
-    const CELL = 100, thr = Math.max(40, Zoom.VW * 0.009), out = new Set();
-    const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
-    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
-      (this.grid.get((cx + i) + ',' + (cy + j)) || []).forEach(s => { if (Math.hypot(s.x - x, s.y - y) <= thr) out.add(s.l); });
+  /* 指定点から thr 以内を通る路線の集合 */
+  lines(x, y, thr) {
+    const g = this.ensure(), out = new Set(), cx = Math.floor(x / this.CELL), cy = Math.floor(y / this.CELL), reach = Math.ceil(thr / this.CELL);
+    for (let i = -reach; i <= reach; i++) for (let j = -reach; j <= reach; j++) {
+      (g.get((cx + i) + ',' + (cy + j)) || []).forEach(s => { if (Math.hypot(s.x - x, s.y - y) <= thr) out.add(s.l); });
     }
     return [...out];
+  },
+  /* 最も近い路線（thr 以内のみ）。タップ判定に使う */
+  nearest(x, y, thr) {
+    const g = this.ensure(), cx = Math.floor(x / this.CELL), cy = Math.floor(y / this.CELL), reach = Math.ceil(thr / this.CELL);
+    let best = null, bd = thr;
+    for (let i = -reach; i <= reach; i++) for (let j = -reach; j <= reach; j++) {
+      (g.get((cx + i) + ',' + (cy + j)) || []).forEach(s => { const d = Math.hypot(s.x - x, s.y - y); if (d <= bd) { bd = d; best = s.l; } });
+    }
+    return best;
   }
 };
 
-/* ---------- 駅ポップアップ：路線図の駅名タップ／駅検索からの移動時に表示 ---------- */
+/* ---------- 点滅：CSSアニメーションを使わず、約1秒ごとに不透明度の属性だけを書き換える ---------- */
+const Blink = {
+  timer: 0, on: true,
+  /* 設定「異常路線の点滅」がONのときだけ動かす（OFFのときは表示を常に点灯にする） */
+  sync() {
+    const want = !!Settings.get('blink');
+    if (want && !this.timer) this.timer = setInterval(() => this.tick(), 1800);
+    if (!want && this.timer) { clearInterval(this.timer); this.timer = 0; }
+    if (!want && MapView.fx) { this.on = true; MapView.fx.blink(true); }
+  },
+  tick() {
+    if (document.hidden || !MapView.fx) return;
+    this.on = !this.on; MapView.fx.blink(this.on);
+  }
+};
+
+/* ---------- 性能診断HUD：FPS・フレーム時間・DOM数・viewBox書換えのJS時間 ---------- */
+const Hud = {
+  el: null, on: false, raf: 0, frames: 0, t0: 0, fps: 0, ftime: 0, nodes: 0, fxNodes: 0,
+  setOn(v) {
+    this.el = this.el || document.getElementById('hud');
+    if (!this.el || this.on === !!v) return;
+    this.on = !!v; this.el.hidden = !this.on;
+    cancelAnimationFrame(this.raf); this.raf = 0;
+    if (!this.on) return;
+    this.frames = 0; this.t0 = performance.now(); this.count();
+    const f = now => {
+      this.frames++;
+      const d = now - this.t0;
+      if (d >= 1000) {
+        this.fps = this.frames * 1000 / d; this.ftime = d / this.frames;
+        this.frames = 0; this.t0 = now; this.count(); this.render();
+      }
+      this.raf = requestAnimationFrame(f);
+    };
+    this.raf = requestAnimationFrame(f);
+  },
+  count() {
+    this.nodes = MapView.svg ? MapView.svg.getElementsByTagName('*').length : 0;
+    this.fxNodes = MapView.fx ? MapView.fx.overlay.getElementsByTagName('*').length : 0;
+  },
+  render() {
+    const moving = Zoom.stage && Zoom.stage.classList.contains('is-zooming');
+    this.el.textContent = `${moving ? '操作中' : '静止'} ／ FPS ${this.fps.toFixed(0)} ／ フレーム ${this.ftime.toFixed(1)}ms ／ DOM ${this.nodes}（重ね ${this.fxNodes}） ／ viewBox書換 ${Zoom.lastWrite.toFixed(2)}ms`;
+  }
+};
+
+/* ---------- 駅ポップアップ：路線図の駅名タップ/* ---------- 駅ポップアップ：路線図の駅名タップ／駅検索からの移動時に表示 ---------- */
 const StationPop = {
   el: null, name: null,
   init() {
@@ -1956,6 +2043,8 @@ const UI = {
     document.getElementById('btnCycle').setAttribute('aria-pressed', String(!!Settings.get('autoCycle')));
     document.getElementById('btnDual').setAttribute('aria-pressed', String(!!Settings.get('dual')));
     InfoLcd.setOn(!!Settings.get('dual'));
+    Hud.setOn(!!Settings.get('hud'));
+    Blink.sync();
   },
   /* マイ路線クイックバー＋マイルートの迂回アラート（どちらも未登録なら非表示） */
   renderFavBar() {
@@ -2091,6 +2180,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   Settings.load();
   UI.init();
   await MapView.init();
+  Blink.sync();
+  setTimeout(() => { Stations.ensure(); LineGeo.ensure(); }, 1200); // 駅索引・路線索引は起動後に一度だけ作る
   Zoom.init(document.getElementById('map-viewport'), document.getElementById('map'));
   ViewState.set({ company: UI.company, alert: !!Settings.get('focus') });
   DynStyle.request();
