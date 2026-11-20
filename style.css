@@ -7,15 +7,15 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none;background-color:#16181c;color:var(--ink);
   font-family:'Noto Sans JP','Roboto',sans-serif;-webkit-user-select:none;user-select:none}
-/* 上端の余白はヘッダー側で確保（ステータスバーの裏までヘッダーのメタリック背景を伸ばす） */
-/* PWA全画面：bodyを画面いっぱいに固定し、下の余白を無くす（ホームインジケータ分の逃げはボタン側で確保） */
+
+
 body{position:fixed;top:0;left:0;right:0;bottom:0}
 small.en{font-family:Roboto,sans-serif;font-weight:500}
 
-/* すべて塗りつぶし(Filled)アイコン */
+
 .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;font-size:28px;line-height:1}
 
-/* ---------- ヘッダー（ダークメタリック） ---------- */
+
 .title{margin:0;font-size:22px;font-weight:900;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 0 #000}
 .title .en{font:500 15px Roboto,sans-serif;opacity:.7;margin-left:.5em}
 .tabs{display:flex;gap:6px}
@@ -40,15 +40,10 @@ small.en{font-family:Roboto,sans-serif;font-weight:500}
 @keyframes spin{to{transform:rotate(360deg)}}
 button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-offset:2px}
 
-/* ---------- 路線図 ---------- */
-/* 地図は画面の端から端まで敷き詰め、ヘッダー／ティッカーはその上に fixed で重ねる */
+
+
 #map-viewport{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;background:var(--paper);touch-action:none;z-index:1}
 .map{position:absolute;inset:0}
-.map svg{width:100%;height:100%;display:block}
-.map svg *{pointer-events:none}
-.map svg text{font-family:'Noto Sans JP','Roboto',sans-serif!important;font-weight:700;
-  paint-order:stroke;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round}
-.map svg [data-line]{transition:none}
 .zoom{position:absolute;right:20px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 20px);display:flex;flex-direction:column;gap:10px;z-index:3}
 .zoom .icon-btn{width:56px;height:56px;box-shadow:0 3px 10px #0008}
 .legend{position:absolute;left:16px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 16px);display:flex;gap:16px;padding:9px 16px;border-radius:6px;z-index:3;
@@ -56,9 +51,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .legend i{display:inline-block;width:24px;height:6px;border-radius:3px;margin-right:7px;vertical-align:middle;box-shadow:0 0 8px currentColor}
 .legend small{margin-left:5px;font-size:10px;opacity:.7}
 
-/* 異常路線：多重ネオングロー＋明滅（SVG内は複数レイヤーの重ね描きでグローを再現） */
 
-/* ---------- 共通モーダル ---------- */
+
+
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.66);display:grid;place-items:center;z-index:20;padding:16px}
 .modal[hidden]{display:none}
 .sheet{width:min(560px,94vw);max-height:92vh;overflow-x:hidden;overflow-y:auto;background:#fff;color:#111;border-radius:12px;box-shadow:0 14px 48px #000a}
@@ -72,7 +67,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .switch:checked{background:var(--line-blue)}
 .switch:checked::after{transform:translateX(26px)}
 
-/* ---------- 路線検索 ---------- */
+
 .sheet-search{width:min(720px,94vw);height:min(82vh,780px);display:flex;flex-direction:column;background:#eef0f4}
 .searchbar{display:flex;align-items:center;gap:8px;margin:14px 16px 6px;padding:0 8px 0 14px;height:54px;border-radius:27px;background:#fff;border:2px solid #c9ced8;color:#555}
 .searchbar:focus-within{border-color:var(--line-blue)}
@@ -99,7 +94,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .st.delay,.st.partial{background:var(--orange)}
 .st.suspend{background:#e0201f}
 
-/* ---------- E235系 異常時案内ポップアップ ---------- */
+
 .bezel{position:relative;width:min(860px,96vw);padding:12px;border-radius:6px;
   background:linear-gradient(145deg,#4a4e55,#23262b 45%,#15171a);
   box-shadow:0 30px 80px rgba(0,0,0,.85),0 8px 18px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.18),inset 0 0 0 2px #0b0c0e}
@@ -141,19 +136,19 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
   .lcd-head .co{display:none}.lcd-body{padding:20px}
 }
 
-/* ---------- 同期状態（設定モーダル） ---------- */
+
 .row.sync{flex-direction:column;align-items:flex-start;gap:6px;font-size:15px}
 .sync-val{font-size:14px;font-weight:500;line-height:1.5;word-break:break-all;font-variant-numeric:tabular-nums;color:#333}
 .sync-val.ok{color:#1b7f3a}
 .sync-val.err{color:#c62828;font-weight:700}
 
-/* ================= 追加機能 ================= */
+
 .stage{min-height:0}
-/* ティッカー非表示時は、ホームインジケータ分だけボタンを浮かせる */
 
-/* 異常のみ強調：平常路線を減光、異常路線だけネオン発光のまま残す */
 
-/* マイ路線クイックバー */
+
+
+
 .favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;
   background:linear-gradient(180deg,#1b1d22,#101114);border-bottom:1px solid #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);z-index:4}
 .favbar[hidden]{display:none}
@@ -168,7 +163,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .fc-st{font-size:12px;padding:2px 8px;border-radius:4px;color:#fff}
 .fc-st.normal{background:#1f9d4a}.fc-st.delay,.fc-st.partial{background:var(--orange)}.fc-st.suspend{background:#d91a1a}
 
-/* マイ路線の★（検索一覧・ポップアップ） */
+
 .line-row{padding:0}
 .lr-main{flex:1;min-width:0;display:flex;align-items:center;gap:14px;padding:10px 6px 10px 14px;border:0;background:transparent;
   font:inherit;color:inherit;text-align:left;cursor:pointer}
@@ -178,7 +173,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .fav-btn.on{color:#ffd23a;background:rgba(255,210,58,.18)}
 .star .material-symbols-outlined,.fav-btn .material-symbols-outlined{font-size:28px}
 
-/* ポップアップ：振替輸送の強調・公式ページボタン */
+
 .lcd-body mark.furikae{background:#fff1a8;color:#111;padding:1px 4px;border-radius:3px;box-shadow:inset 0 -3px 0 #f5b400}
 .lcd-body mark.furikae b{font-weight:900;text-decoration:underline;text-decoration-color:#d97800;text-decoration-thickness:3px;text-underline-offset:3px}
 .lcd-foot{display:flex;justify-content:flex-end;padding:10px 14px;background:#fff;border-top:1px solid #b0b5bd}
@@ -187,7 +182,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 .btn-yahoo small{display:block;font-size:10px;opacity:.75}
 .btn-yahoo .material-symbols-outlined{font-size:22px}
 
-/* 現在地ボタン・チップ・トースト */
+
 .icon-btn.spin .material-symbols-outlined{animation:spin .8s linear infinite}
 .loc-chip{position:absolute;top:calc(var(--top-h,0px) + 12px);left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:8px;max-width:90%;
   padding:8px 12px 8px 14px;border-radius:999px;background:#0a1230ee;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 3px 12px #0008}
@@ -199,7 +194,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
   background:#16181cf2;color:#fff;font-weight:700;font-size:14px;line-height:1.5;text-align:center;box-shadow:0 4px 16px #000a}
 .toast[hidden]{display:none}
 
-/* 下部ニュースティッカー（E235系トレインチャンネル風） */
+
 .ticker{position:fixed;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:stretch;min-height:34px;
   padding-bottom:env(safe-area-inset-bottom,0px);background:var(--metal);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 -2px 10px rgba(0,0,0,.5)}
 body.no-ticker .ticker{display:none}
@@ -211,7 +206,7 @@ body.no-ticker .ticker{display:none}
 @keyframes ticker{to{transform:translateX(-100%)}}
 
 
-/* ================= ヘッダー拡張・稼働率メーター ================= */
+
 .meter{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;background:#0c0d10;border:1px solid #3a3e46;font-size:12px;font-weight:700;white-space:nowrap;color:#cfd3dc}
 .meter b{margin-left:6px;font:900 16px Roboto,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
 .meter small{font-size:9px;opacity:.7;margin-left:3px}
@@ -220,14 +215,14 @@ body.no-ticker .ticker{display:none}
 .meter.warn .mdot{background:var(--delay);box-shadow:0 0 8px var(--delay)}
 .meter.bad .mdot{background:var(--suspend);box-shadow:0 0 8px var(--suspend)}
 
-/* ================= 振替・代替ルートのハイライト ================= */
+
 .detour-bar{position:absolute;top:calc(var(--top-h,0px) + 12px);left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;max-width:92%;
   padding:8px 8px 8px 14px;border-radius:10px;background:#0a1230f2;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 3px 12px #0008}
 .detour-bar[hidden]{display:none}
 .detour-bar .material-symbols-outlined{color:#5eb0ff}
 .detour-bar button{flex:none;border:0;border-radius:6px;padding:7px 14px;font:700 14px 'Noto Sans JP',sans-serif;cursor:pointer;background:#fff;color:#111}
 
-/* ================= 異常路線LCDボード ================= */
+
 .board{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;background:linear-gradient(180deg,#e6e9ef,#cfd5de);overflow:hidden}
 .board[hidden]{display:none}
 .board-head{flex:none;display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 24px;background:#fff;color:#111;
@@ -245,7 +240,7 @@ body.no-ticker .ticker{display:none}
 .board-ok .material-symbols-outlined{font-size:84px;color:#1f9d4a}
 .board-ok b{font-size:1.9rem}.board-ok small{font-size:1.1rem;opacity:.7}
 
-/* ================= ポップアップ追加：号車・メモ・代替ボタン ================= */
+
 .rside .rtop{display:flex;align-items:baseline;gap:12px}
 .carno{display:inline-flex;align-items:baseline;gap:2px;font-family:Roboto,sans-serif}
 .carno b{font:500 22px/1 Roboto,sans-serif}
@@ -262,7 +257,7 @@ body.no-ticker .ticker{display:none}
 .btn-alt .material-symbols-outlined{font-size:22px}
 .btn-yahoo.plain{background:linear-gradient(180deg,#fff,#dcdcdc);color:#111;border:1px solid #888}
 
-/* ================= マイ駅・履歴・リンク集 ================= */
+
 .stn-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 4px 10px}
 .stn-chips .fav-chip{height:38px;padding:0 14px;background:linear-gradient(180deg,#fff,#dde1ea);color:#111}
 .badge.stn-ic{border-color:#2f6df0}
@@ -285,7 +280,7 @@ body.no-ticker .ticker{display:none}
 .link-row .lr-name{flex:1;min-width:140px}
 .link-row .btn-yahoo{padding:8px 12px;font-size:13px}
 
-/* ================= 券売機（MV50系）風 設定UI ================= */
+
 .mv{width:min(780px,96vw);max-height:96vh;display:flex;flex-direction:column;padding:12px;border-radius:20px;
   background:linear-gradient(145deg,#b9b5e6,#8e8ac6 50%,#7b77b4);box-shadow:0 30px 80px #000c,inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,0,0,.2)}
 .mv-screen{display:flex;flex-direction:column;min-height:0;flex:1;border-radius:10px;overflow:hidden;background:#f7f5eb;color:#111;box-shadow:0 0 0 3px #1b1b24,inset 0 0 12px rgba(0,0,0,.25)}
@@ -341,14 +336,14 @@ body.no-ticker .ticker{display:none}
 .mv-time{font:700 17px 'Noto Sans JP',Roboto,sans-serif;font-variant-numeric:tabular-nums;color:#222;white-space:nowrap}
 @media (max-width:560px){.mv-grid{grid-template-columns:1fr}.mv-maint{grid-template-columns:1fr}.mv-title b{font-size:1.2rem}}
 
-/* ================= LCD質感・夜間減光オーバーレイ ================= */
+
 #lcdOverlay,#dimOverlay{display:none;position:fixed;inset:0;pointer-events:none}
 #lcdOverlay{z-index:80;opacity:.5;
   background:linear-gradient(rgba(0,0,0,.22) 1px,transparent 1px) 0 0/100% 3px,linear-gradient(90deg,rgba(255,40,40,.07),rgba(40,255,40,.06),rgba(60,60,255,.08)) 0 0/3px 100%}
 #dimOverlay{z-index:90;background:rgba(0,0,0,.32)}
 body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 
-/* ================= 2段ヘッダー（flexboxのみ・絶対配置/負マージンなし） ================= */
+
 .hdr{position:relative;z-index:5;padding-top:max(env(safe-area-inset-top,0px),var(--top-offset,0px));background:var(--metal);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 3px 12px rgba(0,0,0,.55)}
 .hdr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#0f3d91,#5b93ff 50%,#0f3d91);box-shadow:0 0 12px rgba(91,147,255,.65)}
@@ -387,22 +382,18 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 @media (max-width:900px){.mt-l{display:none}.hdr .title{font-size:16px}.hdr .clock{font-size:24px}.hdr .demo-chip{display:none}}
 @media (max-width:760px){.lbl-s{display:none}.cbtn{padding:0 7px}.hdr-top,.hdr-ctl{padding:0 10px}.hdr-r{gap:8px}}
 
-/* ================= 異常路線の発光：別SVGレイヤーのopacityのみ（GPUコンポジット） ================= */
+
 .map{contain:layout style paint}
-.map .fx-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-/* 操作中(is-interacting)は文字のフチ・トランジション・点滅を止めて60fpsを維持 */
-.is-zooming .map svg text{paint-order:normal;stroke:none}
-.is-zooming .map svg [data-line]{transition:none!important}
 @media (prefers-reduced-motion:reduce){.lamp{animation:none!important}}
 
-/* ================= 検索：駅セクション・ジャンプチップ ================= */
+
 .sec-title{padding:12px 6px 2px;font-weight:700;font-size:13px;color:#555}
 .sec-title small{margin-left:8px;font-weight:500;color:#777}
 .chip-act{flex:none;border:0;border-radius:999px;padding:4px 12px;background:#2f6df0;color:#fff;font:700 12px 'Noto Sans JP',sans-serif;cursor:pointer}
 .sheet .board-list{grid-template-columns:1fr;padding:10px 0}
 
-/* ================= LCD大画面時計モード ================= */
+
 .clockmode{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;cursor:pointer;color:#fff;
   background:radial-gradient(ellipse at 50% 35%,#1c2740 0%,#0b0d12 72%)}
 .clockmode[hidden]{display:none}
@@ -423,30 +414,11 @@ body.lcd-on #lcdOverlay,body.night #dimOverlay{display:block}
 .ck-ok{color:#7fe3a0;font-weight:700;font-size:clamp(16px,2vw,26px)}
 .ck-hint{flex:none;padding:0 0 10px;text-align:center;font-size:12px;opacity:.5}
 
-/* ================= 固定レイヤー構造（ヘッダー/ティッカーは地図の上に重ねる） ================= */
+
 .top-stack{position:fixed;top:0;left:0;right:0;z-index:5}
 #map-viewport .board,#map-viewport .clockmode{padding-top:var(--top-h,0px);padding-bottom:var(--bot-h,0px)}
 
-/* ================= 路線図の減光：親<svg id="railway-map">のクラス一括制御（filter不使用・opacityのみ） ================= */
-#railway-map.company-jr [data-line]:not([data-company="JR"]),
-#railway-map.company-metro [data-line]:not([data-company="Metro"]),
-#railway-map.company-toei [data-line]:not([data-company="Toei"]),
-#railway-map.company-private [data-line]:not([data-company="Private"]),
-#railway-map.is-alert-only [data-line]{opacity:.15}
-#railway-map.detour-mode [data-line]{opacity:.12}
-.fx-svg.company-jr [data-company]:not([data-company="JR"]),
-.fx-svg.company-metro [data-company]:not([data-company="Metro"]),
-.fx-svg.company-toei [data-company]:not([data-company="Toei"]),
-.fx-svg.company-private [data-company]:not([data-company="Private"]){opacity:.15}
 
-/* ================= 描画負荷：拡大縮小中は点滅・縁取り・アニメーションを止める ================= */
-.map .fx-svg{overflow:hidden}
-.is-zooming .map svg text{paint-order:normal;stroke:none}
-/* 運転見合わせのターミナル警告（ターミナル位置の赤い点滅・opacityのみ） */
-.map svg{shape-rendering:optimizeSpeed}
-.map svg text{shape-rendering:auto}
-
-/* ================= 2画面LCD：左＝路線図、右＝情報案内LCD ================= */
 body.dual #map-viewport{right:50vw}
 .info-lcd{display:none;position:fixed;top:var(--top-h,0px);bottom:var(--bot-h,0px);right:0;width:50vw;z-index:3;flex-direction:column;
   background:linear-gradient(180deg,#1a1d24,#0c0d10);box-shadow:-2px 0 0 #000,inset 1px 0 0 rgba(255,255,255,.08);color:#fff;cursor:pointer}
@@ -461,7 +433,7 @@ body.dual .info-lcd{display:flex}
 .info-foot{flex:none;padding:8px 20px;font-size:13px;color:#aab;text-align:right;border-top:1px solid rgba(255,255,255,.08)}
 .info-foot small{opacity:.7}
 
-/* ================= 駅ポップアップ ================= */
+
 .stn-pop{position:absolute;z-index:6;width:300px;max-width:calc(100% - 24px);padding:12px 14px 14px;border-radius:12px;
   background:linear-gradient(180deg,#1f2530,#0c0f16);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.12)}
 .stn-pop[hidden]{display:none}
@@ -483,20 +455,20 @@ body.dual .info-lcd{display:flex}
 .tr-act .sp-btn{color:#111;border:1px solid #888}
 .sp-line .badge.sm{width:24px;height:24px;font-size:10px}
 
-/* ================= 異常時案内ボードの種別バッジ：立体グラデーション枠 ================= */
+
 .car{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 0 rgba(0,0,0,.25),0 2px 6px rgba(0,0,0,.35)}
 .car.normal{background:linear-gradient(180deg,#44d874,#1f9d4a);border-color:#fff}
 .car.delay,.car.partial{background:linear-gradient(180deg,#ffb84d,#f08300);border-color:#fff}
 .car.suspend{background:linear-gradient(180deg,#ff6666,#d91a1a);border-color:#fff}
 .lcd-head .sym{box-shadow:0 2px 6px rgba(0,0,0,.35)}
 
-/* ================= 追加：現場検索ボタン ================= */
+
 .btn-rt{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:6px;background:linear-gradient(180deg,#ff8a2a,#d95a00);
   color:#fff;text-decoration:none;font:700 15px 'Noto Sans JP',sans-serif;line-height:1.2}
 .btn-rt small{display:block;font-size:10px;opacity:.85}
 .btn-rt .material-symbols-outlined{font-size:22px}
 
-/* ================= 券売機：案内メッセージバー・係員呼出 ================= */
+
 .mv-msg{flex:none;padding:10px 16px;background:linear-gradient(180deg,#fff7d6,#fbe9a6);color:#111;font:700 15px 'Noto Sans JP',sans-serif;
   border-bottom:2px solid #c9a94a;box-shadow:inset 0 -2px 0 rgba(255,255,255,.6)}
 .mv-msg.flash{animation:msgflash .5s ease-out}
@@ -517,7 +489,7 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 #modalHelp{z-index:30}
 #modalRoute{z-index:21}
 
-/* ================= マイルート ================= */
+
 .route-alert{flex:none;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:6px;border:1px solid #3a3e46;
   background:#0c0d10;color:#cfd3dc;font:700 13px 'Noto Sans JP',sans-serif;white-space:nowrap;cursor:pointer}
 .route-alert .material-symbols-outlined{font-size:18px}
@@ -556,20 +528,17 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 .rf-pick.on{border-color:var(--lc);background:#fff;box-shadow:inset 0 0 0 1px var(--lc)}
 .rf-pick .badge.sm{width:24px;height:24px;font-size:10px}
 
-/* ================= 情報案内：異常・マイ路線・マイルートの見出し ================= */
+
 .info-body .lcd-body p.h{margin-bottom:.2em}
 
-/* ================= 操作中の描画軽量化（LOD）：文字・円・画像を描画から外し、重ね表示を止める =================
- * 計測：文字はレイアウト再計算の主因。visibility:hidden では効果が出ないため display:none を使う。 */
-.is-zooming .map svg text,
-.is-zooming .map svg circle,
-.is-zooming .map svg image{display:none!important}
-.is-zooming .fx-svg{display:none!important}
-/* 路線の切り抜き（clip-path）は操作中だけ外す：毎フレームの切り抜き計算が最大の描画負荷だった */
-.is-zooming #railway-map [clip-path]{clip-path:none!important}
 
-/* ================= 性能診断HUD ================= */
 .hud{position:absolute;left:10px;bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 10px);z-index:7;
   padding:5px 10px;border-radius:6px;background:rgba(0,0,0,.72);color:#9ff5b5;font:500 12px/1.4 Roboto,'Noto Sans JP',monospace;
   pointer-events:none;white-space:nowrap}
 .hud[hidden]{display:none}
+
+/* ================= Canvas地図 ================= */
+.map-canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;touch-action:none;background:#f4f5f8}
+.map-loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;padding:12px 18px;border-radius:8px;
+  background:rgba(10,18,48,.88);color:#fff;font-weight:700;font-size:15px;white-space:nowrap}
+.map-loading[hidden]{display:none}
