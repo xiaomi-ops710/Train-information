@@ -45,7 +45,9 @@ const STRINGS = {
   myStation: { ja: 'マイ駅', en: 'My Stations' },
   cycle:     { ja: '自動切替', en: 'Auto Cycle' },
   history:   { ja: '履歴ログ', en: 'History' },
-  uptime:    { ja: '正常稼働率', en: 'Uptime' }
+  uptime:    { ja: '正常稼働率', en: 'Uptime' },
+  route:     { ja: 'マイルート', en: 'My Routes' },
+  dual:      { ja: '2画面LCD', en: 'Dual LCD' }
 };
 
 /* ---------- 路線マスターデータ（41路線） ----------
@@ -162,7 +164,7 @@ const lineByName = name => LINES.find(l => l.ja === name);
 const Settings = {
   KEY: 'tokyo-lcd:settings',
   data: { demo: false, bilingual: true, autoLocate: false, chime: false, speech: false, autoCycle: false, ticker: true, tickerSpeed: 'normal',
-          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, focus: false }, // 保存値があればそちらを優先（load）
+          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, focus: false }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -461,7 +463,7 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const Frame = {
   q: new Map(), raf: 0,
   once(key, fn) {
-    this.q.set(key, fn); // 同じキーなら最新の1件だけ残す
+    this.q.set(key, fn);
     if (this.raf) return;
     this.raf = requestAnimationFrame(() => {
       this.raf = 0; const jobs = [...this.q.values()]; this.q.clear();
@@ -469,7 +471,7 @@ const Frame = {
     });
   }
 };
-/* ---------- 路線図の表示状態：親<svg id="railway-map">のクラス切替だけで一括制御（子要素の個別走査はしない） ---------- */
+/* ---------- 路線図の表示状態：親<svg id="railway-map">のクラス付け替えだけで一括制御（子要素の個別走査はしない） ---------- */
 const ViewState = {
   s: { alert: false, company: 'all', detour: false },
   MANAGED: ['is-alert-only', 'company-jr', 'company-metro', 'company-toei', 'company-private', 'detour-mode'],
@@ -480,25 +482,29 @@ const ViewState = {
     if (this.s.alert) cls.push('is-alert-only');
     if (this.s.company !== 'all') cls.push('company-' + String(this.s.company).toLowerCase());
     if (this.s.detour) cls.push('detour-mode');
-    [MapView.svg, ...(MapView.fx ? MapView.fx.all() : [])].forEach(el => { el.classList.remove(...this.MANAGED); if (cls.length) el.classList.add(...cls); });
+    [MapView.svg, ...(MapView.fx ? MapView.fx.all() : [])].forEach(el => {
+      el.classList.remove(...this.MANAGED); if (cls.length) el.classList.add(...cls);
+    });
+    DynStyle.request();
   }
 };
-/* ---------- 異常路線・振替ルートの「明るいまま残す路線」を、1枚の<style>で指定（要素ごとのクラス付け替えをしない） ---------- */
+/* ---------- 「明るいまま残す路線」は1枚の<style>で指定（要素ごとのクラス付け替えをしない） ---------- */
 const DynStyle = {
   el: null, last: null,
   request() { Frame.once('dynstyle', () => this.update()); },
   update() {
     if (!this.el) { this.el = document.createElement('style'); this.el.id = 'dynStyle'; document.head.appendChild(this.el); }
     const sel = (pre, names) => names.map(n => `${pre} [data-line="${n}"]`).join(',');
+    const co = ViewState.s.company;
     let css = '';
-    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal').map(L => L.ja);
-    if (abn.length) css += `${sel('#railway-map.is-alert-only', abn)}{opacity:1}`;
+    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal' && (co === 'all' || L.co === co)).map(L => L.ja);
+    if (abn.length && ViewState.s.alert) css += `${sel('#railway-map.is-alert-only', abn)}{opacity:1}`;
     const D = Detour.active ? lineByName(Detour.active) : null;
     if (D) css += `${sel('#railway-map.detour-mode', [D.ja, ...D.alt])}{opacity:1!important}`;
     if (css !== this.last) { this.el.textContent = css; this.last = css; }
   }
 };
-/* ---------- 固定レイヤー構造：上部ヘッダー／下部ティッカーの実寸をCSS変数とZoomに反映 ---------- */
+/* ---------- 固定レイヤー：上部ヘッダー／下部ティッカーの実寸をCSS変数とZoomに反映 ---------- */
 const Layout = {
   init() {
     const top = document.getElementById('topStack'), tk = document.getElementById('ticker'), root = document.documentElement;
@@ -513,25 +519,31 @@ const Layout = {
 };
 
 const FX_COLORS = { delay: '#ffd23a', suspend: '#ff3030', alt: '#2f9bff' };
+const TERMINALS = ['東京', '新宿', '渋谷', '池袋', '上野', '品川', '秋葉原', '横浜', '大宮', '千葉', '北千住'];
+/* 異常路線の発光は路線図本体とは別の小さなSVG（遅延／見合わせ／代替／ターミナル警告／現在地）に描く。
+ * 点滅は各SVGの opacity だけで動かし、路線図本体は再描画しない。 */
 class FxLayers {
   constructor(host, base) {
-    const vb = base.getAttribute('viewBox'), mk = cls => {
+    const vb = base.getAttribute('viewBox');
+    const mk = cls => {
       const s = document.createElementNS(SVGNS, 'svg');
       s.setAttribute('class', 'fx-svg ' + cls); s.setAttribute('viewBox', vb);
       s.setAttribute('preserveAspectRatio', 'xMidYMid meet'); s.setAttribute('aria-hidden', 'true');
       host.appendChild(s); return s;
     };
-    this.delay = mk('fx-delay'); this.susp = mk('fx-susp'); this.alt = mk('fx-alt'); this.me = mk('fx-me');
+    this.delay = mk('fx-delay'); this.susp = mk('fx-susp'); this.alt = mk('fx-alt');
+    this.pulse = mk('fx-pulse'); this.me = mk('fx-me');
+    this.pulses = [];
   }
-  all() { return [this.delay, this.susp, this.alt, this.me]; }
-  setViewBox(v) { [this.delay, this.susp, this.alt, this.me].forEach(s => s.setAttribute('viewBox', v)); }
+  all() { return [this.delay, this.susp, this.alt, this.pulse, this.me]; }
+  setViewBox(v) { this.all().forEach(s => s.setAttribute('viewBox', v)); }
   draw(svg, g, color, dash) {
     (g.__rails || []).forEach(r => {
       const w = parseFloat(r.getAttribute('stroke-width')) || 10;
-      [[3.2, .35, false], [1.15, 1, true]].forEach(([m, o, core]) => { // 外側のにじみ＋中心の太線（filter不使用）
+      [[3.2, .35, false], [1.15, 1, true]].forEach(([m, o, core]) => {
         const c = r.cloneNode(false);
         ['class', 'opacity', 'stroke-dasharray'].forEach(a => c.removeAttribute(a));
-        c.setAttribute('data-company', g.dataset.company || ''); // 会社フィルターの減光をCSS(親クラス)で行うため
+        c.setAttribute('data-company', g.dataset.company || '');
         c.setAttribute('fill', 'none'); c.setAttribute('stroke', color); c.setAttribute('stroke-width', w * m);
         c.setAttribute('stroke-opacity', o); c.setAttribute('stroke-linecap', 'round'); c.setAttribute('stroke-linejoin', 'round');
         if (dash && core) c.setAttribute('stroke-dasharray', '28 16');
@@ -544,16 +556,36 @@ class FxLayers {
     const det = Detour.active ? lineByName(Detour.active) : null, alts = det ? new Set(det.alt) : null;
     LINES.forEach(L => {
       const groups = MapView.groupsOf(L.ja); if (!groups.length) return;
-      const n = L.ja, st = Store.of(n).status;
+      const st = Store.of(L.ja).status;
       let layer = null, color = null, dash = false;
-      if (det) { // 振替・代替ルート表示中：対象路線(赤/黄)と代替路線(青の破線)だけを描く
-        if (n === det.ja) { layer = this.susp; color = st === 'delay' || st === 'partial' ? FX_COLORS.delay : FX_COLORS.suspend; }
-        else if (alts.has(n)) { layer = this.alt; color = FX_COLORS.alt; dash = true; }
+      if (det) {
+        if (L.ja === det.ja) { layer = this.susp; color = st === 'delay' || st === 'partial' ? FX_COLORS.delay : FX_COLORS.suspend; }
+        else if (alts.has(L.ja)) { layer = this.alt; color = FX_COLORS.alt; dash = true; }
       } else if (st === 'suspend') { layer = this.susp; color = FX_COLORS.suspend; }
       else if (st === 'delay' || st === 'partial') { layer = this.delay; color = FX_COLORS.delay; }
       if (layer) groups.forEach(g => this.draw(layer, g, color, dash));
     });
+    this.drawPulses();
   }
+  /* 運転見合わせ路線のターミナルに赤い警告パルスを置く */
+  drawPulses() {
+    const sv = this.pulse; while (sv.firstChild) sv.removeChild(sv.firstChild);
+    this.pulses = [];
+    const sus = LINES.filter(L => Store.of(L.ja).status === 'suspend').map(L => L.ja);
+    if (!sus.length || !Stations.ensure().length) return;
+    TERMINALS.forEach(name => {
+      const e = Stations.get(name); if (!e) return;
+      if (!Stations.lines(name).some(n => sus.includes(n))) return;
+      const g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('class', 'pz');
+      g.innerHTML = '<circle class="pz-ring" r="10" fill="none" stroke="#ff3030" stroke-width="3"/><circle class="pz-dot" r="5" fill="#ff3030" stroke="#fff" stroke-width="1.5"/>';
+      g.__x = e.x; g.__y = e.y;
+      sv.appendChild(g); this.pulses.push(g);
+    });
+    this.sizeMarkers(Zoom.unit());
+  }
+  /* 画面上で同じ大きさに見えるよう、ズームのたびに拡大率を補正 */
+  sizeMarkers(u) { this.pulses.forEach(g => g.setAttribute('transform', `translate(${g.__x} ${g.__y}) scale(${u})`)); }
 }
 
 const MapView = {
@@ -627,153 +659,158 @@ const MapView = {
   applyFilter(companyId) { ViewState.set({ company: companyId }); }
 };
 
-/* ---------- ズーム・パン（ハイブリッド描画） ----------
- * 操作中：ラッパー(.map)に translate3d + scale のCSS transformだけを当てて軽量に動かす
- * 確定後：目標の表示範囲から viewBox を1回だけ計算して適用し、transformを外す → 常に最高画質のベクター描画
- * 目標状態 x,y,k（viewBox左上・1SVG単位あたりのpx）と、確定済み状態 cx,cy,ck を別々に持つ */
+/* ---------- ズーム・パン（viewBoxだけを制御。transform・will-change・filterは一切使わない） ----------
+ * 状態：vx,vy＝viewBoxの左上、vw＝viewBoxの幅。高さは画面の縦横比から求めるので余白は出ない。
+ * 上限：全体表示の幅の 1/5（＝5倍）まで拡大。全体表示より縮小はしない。
+ * 描画：requestAnimationFrame で1フレームに1回だけ viewBox を書き換える。 */
 const Zoom = {
-  x: 0, y: 0, k: 1, cx: 0, cy: 0, ck: 1, W: 1, H: 1, VW: 7300, VH: 5400, insT: 0, insB: 0,
-  MAX_K: 2.6, HOME_RATIO: 2.4, HOME_PT: [0.507, 0.472],
-  stage: null, mapEl: null, svg: null, pts: new Map(), last: null, moved: 0, raf: 0, timer: 0, anim: 0, wheel: { f: 1, x: 0, y: 0, raf: 0 },
-  init(stage, mapEl) {
-    this.stage = stage; this.mapEl = mapEl; this.svg = MapView.svg;
+  vx: 0, vy: 0, vw: 1, VW: 7300, VH: 5400, W: 1, H: 1, insT: 0, insB: 0,
+  HOME_PT: [0.507, 0.472], HOME_DIV: 2.4,
+  stage: null, svg: null, pts: new Map(), last: null, moved: 0, anim: 0, endTimer: 0,
+  wheel: { f: 1, x: 0, y: 0, raf: 0 },
+  init(stage) {
+    this.stage = stage; this.svg = MapView.svg;
     const vb = this.svg && this.svg.viewBox.baseVal;
     if (vb && vb.width) { this.VW = vb.width; this.VH = vb.height; }
-    if (this.svg) this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    this.svg.setAttribute('shape-rendering', 'optimizeSpeed');
     this.measure();
     stage.addEventListener('pointerdown', e => this.down(e));
     stage.addEventListener('pointermove', e => this.move(e));
     ['pointerup', 'pointercancel'].forEach(t => stage.addEventListener(t, e => this.up(e)));
-    /* wheelは高頻度で発火するため、倍率を溜めておいて1フレームに1回だけtransformを更新 → 操作終了150ms後にviewBox確定 */
-    stage.addEventListener('wheel', e => {
-      e.preventDefault(); this.stopAnim();
-      const w = this.wheel;
-      w.f *= Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)); w.x = e.clientX; w.y = e.clientY;
-      if (!w.raf) w.raf = requestAnimationFrame(() => { w.raf = 0; const f = w.f; w.f = 1; this.zoomAt(w.x, w.y, f, true); });
-      this.commitLater(150);
-    }, { passive: false });
+    stage.addEventListener('wheel', e => this.onWheel(e), { passive: false });
     document.getElementById('zoomIn').onclick = () => this.step(1.4);
     document.getElementById('zoomOut').onclick = () => this.step(1 / 1.4);
     document.getElementById('zoomReset').onclick = () => this.home();
     if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
   },
-  /* 地図は画面全体に敷き、上部ヘッダー/下部ティッカーが重なる分だけ「見えている領域の中心」をずらして扱う */
-  off() { return (this.insT - this.insB) / 2; },
-  visC() { return { x: this.x + this.W / this.k / 2, y: this.y + (this.H / 2 + this.off()) / this.k }; },
-  setVisC(mx, my) { this.x = mx - this.W / this.k / 2; this.y = my - (this.H / 2 + this.off()) / this.k; },
   measure() { const r = this.stage.getBoundingClientRect(); this.W = Math.max(1, r.width); this.H = Math.max(1, r.height); },
-  fitK() { return Math.min(this.W / this.VW, this.H / this.VH); },
-  clampK(k) { return Math.min(this.MAX_K, Math.max(this.fitK() * 0.9, k)); },
-  /* 画面の中心が地図の外へ出ないように制限 */
+  off() { return (this.insT - this.insB) / 2; },
+  maxVw() { return Math.min(this.VW, this.VH * this.W / this.H); },
+  clampVw(v) { const hi = this.maxVw(); return Math.min(hi, Math.max(hi / 5, v)); },
+  unit() { return this.vw / this.W; },
+  vh() { return this.vw * this.H / this.W; },
   clampPos() {
-    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
-    this.x += Math.min(this.VW, Math.max(0, mx)) - mx;
-    this.y += Math.min(this.VH, Math.max(0, my)) - my;
+    const vh = this.vh(), cl = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)));
+    this.vx = cl(this.vx, Math.min(0, this.VW - this.vw), Math.max(0, this.VW - this.vw));
+    this.vy = cl(this.vy, Math.min(0, this.VH - vh), Math.max(0, this.VH - vh));
   },
-  /* 確定済みviewBox → 目標状態 への変換をCSS transformで表現（GPU合成のみ・SVGの再描画なし） */
-  schedule() {
-    if (this.raf) return;
-    this.raf = requestAnimationFrame(() => { this.raf = 0; this.tf(); });
-  },
-  tf() {
-    this.interact(); this.clampPos();
-    const sc = this.k / this.ck, tx = (this.cx - this.x) * this.k, ty = (this.cy - this.y) * this.k;
-    this.mapEl.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${sc})`;
-  },
-  /* viewBoxを書き換えて確定 → transformを外す（ここでだけSVGが再描画される） */
-  commit() {
-    clearTimeout(this.timer);
-    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
+  writeView() {
     if (!this.svg) return;
-    this.clampPos();
-    this.svg.setAttribute('viewBox', `${this.x} ${this.y} ${this.W / this.k} ${this.H / this.k}`);
-    this.cx = this.x; this.cy = this.y; this.ck = this.k;
-    this.mapEl.style.transform = 'none';
-    if (MapView.fx) MapView.fx.setViewBox(this.svg.getAttribute('viewBox'));
-    this.stage.classList.remove('is-interacting'); // 操作終了：文字のフチ等を元に戻す
-    MapView.setHitWidth(Math.min(80, Math.max(12, 28 / this.k))); // タップ判定の太さは画面上でほぼ一定に
+    const v = `${this.vx} ${this.vy} ${this.vw} ${this.vh()}`;
+    this.svg.setAttribute('viewBox', v);
+    if (MapView.fx) { MapView.fx.setViewBox(v); MapView.fx.sizeMarkers(this.unit()); }
     Locate.rescale();
   },
-  /* 操作中は is-interacting を付け、文字のフチ・トランジション・点滅を一時停止して60fpsを保つ */
-  interact() { if (!this.stage.classList.contains('is-interacting')) this.stage.classList.add('is-interacting'); },
-  step(f) {
-    this.stopAnim();
-    const r = this.stage.getBoundingClientRect();
-    this.zoomAt(r.left + r.width / 2, r.top + r.height / 2, f); this.commitLater(150);
+  request() { Frame.once('zoom', () => this.writeView()); },
+  /* 指定のSVG座標を「見えている領域の中心」に置く */
+  centerOn(tx, ty) {
+    this.vx = tx - this.vw / 2;
+    this.vy = ty - (this.H / 2 + this.off()) * this.unit();
   },
-  commitLater(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.commit(), ms); },
-  stopAnim() { if (this.anim) { cancelAnimationFrame(this.anim); this.anim = 0; } },
-  /* 初期表示：都心部を画面中央に拡大して表示 */
+  visXY() { return { x: this.vx + this.vw / 2, y: this.vy + (this.H / 2 + this.off()) * this.unit() }; },
   home() {
     this.stopAnim(); this.measure();
-    this.k = this.clampK(this.fitK() * this.HOME_RATIO);
-    this.setVisC(this.HOME_PT[0] * this.VW, this.HOME_PT[1] * this.VH);
-    this.commit();
+    this.vw = this.clampVw(this.maxVw() / this.HOME_DIV);
+    this.centerOn(this.HOME_PT[0] * this.VW, this.HOME_PT[1] * this.VH);
+    this.clampPos(); this.finish();
   },
-  /* 指定のSVG座標を画面中央に滑らかに移動・拡大（アニメ中はtransformのみ → 終了時にviewBox確定） */
-  animateTo(px, py, k, ms = 700) {
-    this.stopAnim();
-    const vc = this.visC(), sx = vc.x, sy = vc.y, sk = this.k, ek = this.clampK(k);
-    const t0 = performance.now(), ease = t => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  animateTo(tx, ty, targetVw, ms = 700) {
+    this.stopAnim(); this.measure();
+    const ev = this.clampVw(targetVw), sv = this.vw, from = this.visXY();
+    const ease = t => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    const t0 = performance.now();
     const step = now => {
       const t = Math.min(1, (now - t0) / ms), e = ease(t);
-      this.k = Math.exp(Math.log(sk) + (Math.log(ek) - Math.log(sk)) * e);
-      this.setVisC(sx + (px - sx) * e, sy + (py - sy) * e);
-      this.tf();
-      if (t < 1) this.anim = requestAnimationFrame(step); else { this.anim = 0; this.commit(); }
+      this.vw = Math.exp(Math.log(sv) + (Math.log(ev) - Math.log(sv)) * e);
+      this.centerOn(from.x + (tx - from.x) * e, from.y + (ty - from.y) * e);
+      this.clampPos(); this.writeView();
+      if (t < 1) this.anim = requestAnimationFrame(step); else { this.anim = 0; this.finish(); }
     };
     this.anim = requestAnimationFrame(step);
   },
-  focusOn(px, py) { this.animateTo(px, py, Math.min(this.MAX_K, this.fitK() * 6)); },
-  /* ウインドウサイズ変更：画面中心を保ったままviewBoxを再計算 */
-  onResize() {
-    const mx = this.x + this.W / this.k / 2, my = this.y + this.H / this.k / 2;
-    this.measure(); this.k = this.clampK(this.k);
-    this.x = mx - this.W / this.k / 2; this.y = my - this.H / this.k / 2;
-    this.commit();
+  stopAnim() { if (this.anim) { cancelAnimationFrame(this.anim); this.anim = 0; } },
+  focusOn(x, y) { this.animateTo(x, y, this.maxVw() / 4); },
+  /* 指定した画面上の点を動かさずに倍率だけ変える */
+  zoomAt(px, py, f) {
+    const u = this.unit(), sx = this.vx + px * u, sy = this.vy + py * u;
+    const nvw = this.clampVw(this.vw / f), nu = nvw / this.W;
+    this.vw = nvw; this.vx = sx - px * nu; this.vy = sy - py * nu;
+    this.clampPos(); this.request();
   },
-  zoomAt(cx, cy, f, now) {
-    const r = this.stage.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
-    const sx = this.x + px / this.k, sy = this.y + py / this.k; // カーソル下のSVG座標を固定
-    const nk = this.clampK(this.k * f);
-    this.x = sx - px / nk; this.y = sy - py / nk; this.k = nk;
-    if (now) this.tf(); else this.schedule();
+  panBy(dx, dy) { const u = this.unit(); this.vx -= dx * u; this.vy -= dy * u; this.clampPos(); this.request(); },
+  step(f) {
+    this.stopAnim(); this.beginInteract();
+    this.zoomAt(this.W / 2, this.H / 2 + this.off(), f);
+    this.endInteractLater();
+  },
+  onResize() {
+    const c = this.visXY();
+    this.measure();
+    this.vw = this.clampVw(this.vw);
+    this.centerOn(c.x, c.y); this.clampPos(); this.request();
+  },
+  beginInteract() {
+    clearTimeout(this.endTimer);
+    if (!this.stage.classList.contains('is-zooming')) this.stage.classList.add('is-zooming');
+  },
+  endInteractLater() { clearTimeout(this.endTimer); this.endTimer = setTimeout(() => this.finish(), 150); },
+  /* 操作終了：viewBoxを確定し、負荷カット（is-zooming）を外す */
+  finish() {
+    this.writeView();
+    this.stage.classList.remove('is-zooming');
+    MapView.setHitWidth(Math.min(80, Math.max(12, 28 * this.unit())));
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
   down(e) {
-    if (e.target.closest('.zoom,.legend,.loc-chip,.board,.detour-bar')) return;
-    this.stopAnim(); clearTimeout(this.timer);
+    if (e.target.closest('.zoom,.legend,.loc-chip,.board,.detour-bar,.stn-pop,.toast,.info-lcd')) return;
+    this.stopAnim(); clearTimeout(this.endTimer);
     this.stage.setPointerCapture(e.pointerId);
     this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pts.size === 1) this.moved = 0;
-    if (this.pts.size === 2) { this.moved = 99; this.last = { d: this.dist(), m: this.mid() }; }
+    if (this.pts.size === 2) { this.moved = 99; this.last = { d: this.dist(), m: this.mid() }; this.beginInteract(); }
   },
   move(e) {
     const p = this.pts.get(e.pointerId); if (!p) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     this.moved += Math.abs(dx) + Math.abs(dy);
     if (this.pts.size === 1) {
-      if (this.moved >= 8) { this.x -= dx / this.k; this.y -= dy / this.k; this.schedule(); }
+      if (this.moved >= 5) { this.beginInteract(); this.panBy(dx, dy); }
       p.x = e.clientX; p.y = e.clientY;
     } else if (this.pts.size === 2) {
       p.x = e.clientX; p.y = e.clientY;
-      const d = this.dist(), m = this.mid();
-      this.x -= (m[0] - this.last.m[0]) / this.k; this.y -= (m[1] - this.last.m[1]) / this.k;
-      this.zoomAt(m[0], m[1], d / this.last.d);
+      const d = this.dist(), m = this.mid(), r = this.stage.getBoundingClientRect();
+      this.panBy(m[0] - this.last.m[0], m[1] - this.last.m[1]);
+      this.zoomAt(m[0] - r.left, m[1] - r.top, d / this.last.d);
       this.last = { d, m };
     }
   },
   up(e) {
     if (!this.pts.has(e.pointerId)) return;
-    if (this.pts.size === 1 && this.moved < 8) { // ほぼ動かなければタップ → 路線詳細
-      const g = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-line]');
-      if (g) document.dispatchEvent(new CustomEvent('line:tap', { detail: { line: g.dataset.line } }));
-    }
+    if (this.pts.size === 1 && this.moved < 5) this.tap(e.clientX, e.clientY);
     this.pts.delete(e.pointerId); this.last = null;
-    if (this.pts.size === 1) this.moved = 99; // ピンチ後の誤タップ防止
-    if (this.pts.size === 0) this.commit();   // 指を離した瞬間にviewBoxを確定
+    if (this.pts.size === 1) this.moved = 99;
+    if (this.pts.size === 0) this.endInteractLater();
+  },
+  /* 5px未満の移動のタップ：駅名ラベル → 駅ポップアップ、それ以外 → 路線の詳細 */
+  tap(cx, cy) {
+    const r = this.stage.getBoundingClientRect(), u = this.unit();
+    const sx = this.vx + (cx - r.left) * u, sy = this.vy + (cy - r.top) * u;
+    const st = Stations.at(sx, sy, 4 * u);
+    if (st) { StationPop.open(st.name, cx, cy); return; }
+    StationPop.close();
+    const g = document.elementFromPoint(cx, cy)?.closest('[data-line]');
+    if (g) document.dispatchEvent(new CustomEvent('line:tap', { detail: { line: g.dataset.line } }));
+  },
+  onWheel(e) {
+    e.preventDefault(); this.stopAnim(); this.beginInteract();
+    const w = this.wheel, r = this.stage.getBoundingClientRect();
+    w.f *= Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015));
+    w.x = e.clientX - r.left; w.y = e.clientY - r.top;
+    if (!w.raf) w.raf = requestAnimationFrame(() => { w.raf = 0; const f = w.f; w.f = 1; this.zoomAt(w.x, w.y, f); });
+    this.endInteractLater();
   }
 };
 
@@ -857,50 +894,14 @@ const STATIONS = [
 ];
 const stationByName = n => STATIONS.find(s => s[0] === n);
 const Locate = {
-  index: null, marker: null, point: null,
-  init() { document.getElementById('btnLocate').onclick = () => this.locate(true); },
-  km(lat1, lng1, lat2, lng2) { // ハバーシン距離
+  marker: null, point: null,
+  init() { document.getElementById('btnLocate').onclick = () => this.locate(); },
+  km(lat1, lng1, lat2, lng2) {
     const R = 6371, r = d => d * Math.PI / 180, dLat = r(lat2 - lat1), dLng = r(lng2 - lng1);
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(a));
   },
-  /* SVG内の<text>を駅名で検索できるよう、初回のみ索引化 */
-  buildIndex() {
-    const m = new Map();
-    if (MapView.svg) MapView.svg.querySelectorAll('text').forEach(t => {
-      const k = (t.textContent || '').replace(/\s+/g, ''); if (!k) return;
-      if (!m.has(k)) m.set(k, []); m.get(k).push(t);
-    });
-    this.index = m;
-  },
-  /* 路線図内の駅名テキスト一覧（路線名ラベルなどは除外） */
-  textKeys() {
-    if (!this.index) this.buildIndex();
-    return [...this.index.keys()].filter(k => k.length >= 2 && k.length <= 9 && !/線|ライン|モノレール|ゆりかもめ|ライナー|[A-Za-z0-9]/.test(k));
-  },
-  /* 駅名で路線図上の位置へジャンプ（GPSの最寄り駅移動と同じマッピング） */
-  jumpTo(name) {
-    const p = this.stationPoint(name);
-    if (!p) { UI.toast('路線図上でこの駅を見つけられませんでした'); return; }
-    this.show(p.x, p.y, name, 'jump');
-  },
-  /* <text>のgetBBox()中心を、ルートSVGのユーザー座標へ変換して返す（候補が複数なら最も大きい＝主要ラベル） */
-  stationPoint(name) {
-    if (!this.index) this.buildIndex();
-    const svg = MapView.svg; if (!svg) return null;
-    const cands = [...(this.index.get(name) || []), ...(this.index.get(name + '駅') || [])];
-    let best = null;
-    cands.forEach(t => {
-      try {
-        const b = t.getBBox(), m1 = t.getScreenCTM(), m2 = svg.getScreenCTM(); if (!m1 || !m2) return;
-        const pt = svg.createSVGPoint(); pt.x = b.x + b.width / 2; pt.y = b.y + b.height / 2;
-        const p = pt.matrixTransform(m1).matrixTransform(m2.inverse());
-        const area = b.width * b.height;
-        if (!best || area > best.area) best = { x: p.x, y: p.y, area };
-      } catch (_) {}
-    });
-    return best;
-  },
+  stationPoint(name) { const e = Stations.get(name); return e ? { x: e.x, y: e.y } : null; },
   locate() {
     if (!navigator.geolocation) { UI.toast('この端末では位置情報を利用できません'); return; }
     const btn = document.getElementById('btnLocate'); btn.classList.add('spin');
@@ -921,7 +922,7 @@ const Locate = {
                  2: '現在地を取得できませんでした', 3: '現在地の取得がタイムアウトしました' }[err.code] || '現在地を取得できませんでした');
     }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
   },
-  /* 青い波紋アニメ付きのピンマーカーを最寄り駅の位置に重ね、その地点へ滑らかに移動 */
+  /* 青い波紋アニメ付きのピンを最寄り駅に置き、その地点へ滑らかに移動 */
   show(x, y, name, kind) {
     this.clear(true);
     const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('id', 'meMarker');
@@ -934,20 +935,26 @@ const Locate = {
         <animate attributeName="opacity" values="0.75;0" dur="2s" begin="1s" repeatCount="indefinite"/></circle>
       <path d="M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z" fill="#2f6df0" stroke="#fff" stroke-width="3"/>
       <circle cy="-34" r="6.5" fill="#fff"/>`;
-    (MapView.fx ? MapView.fx.me : MapView.svg).appendChild(g); // 波紋アニメは軽量オーバーレイ側に置く
+    (MapView.fx ? MapView.fx.me : MapView.svg).appendChild(g);
     this.marker = g; this.point = { x, y }; this.rescale();
     const chip = document.getElementById('locChip');
-    const master = stationByName(name);
     chip.innerHTML = kind === 'jump'
-      ? `<span class="material-symbols-outlined">place</span><span>${esc(name)}駅</span>${master ? `<button class="chip-act" data-stnview="${esc(name)}">乗り入れ路線</button>` : ''}<span class="material-symbols-outlined x">close</span>`
+      ? `<span class="material-symbols-outlined">place</span><span>${esc(name)}駅</span><button class="chip-act" data-stnview="${esc(name)}">周辺路線</button><span class="material-symbols-outlined x">close</span>`
       : `<span class="material-symbols-outlined">my_location</span><span>現在地（最寄り：${esc(name)}駅周辺）${I18n.bi() ? '<small class="en">Current location</small>' : ''}</span><span class="material-symbols-outlined x">close</span>`;
     chip.hidden = false;
     chip.onclick = e => { const v = e.target.closest('[data-stnview]'); if (v) StationUI.open(v.dataset.stnview); else this.clear(); };
     Zoom.focusOn(x, y);
   },
-  /* マーカーは常に画面上で同じ大きさになるよう、ズーム確定のたびに拡大率を補正 */
+  /* ピンは画面上で同じ大きさに見えるよう、ズームのたびに拡大率を補正 */
   rescale() {
-    if (this.marker && this.point) this.marker.setAttribute('transform', `translate(${this.point.x} ${this.point.y}) scale(${1 / Zoom.ck})`);
+    if (this.marker && this.point) this.marker.setAttribute('transform', `translate(${this.point.x} ${this.point.y}) scale(${Zoom.unit()})`);
+  },
+  /* 全駅インデックスから駅名で路線図上へジャンプし、駅ポップアップを開く */
+  jumpTo(name) {
+    const e = Stations.get(name);
+    if (!e) { UI.toast('路線図上でこの駅を見つけられませんでした'); return; }
+    this.show(e.x, e.y, name, 'jump');
+    StationPop.open(name);
   },
   clear(keepChip) {
     if (this.marker) this.marker.remove();
@@ -956,7 +963,7 @@ const Locate = {
   }
 };
 
-/* ---------- 車内チャイム風の通知音（Web Audio API：ミ→ド） ---------- */
+/* ---------- 車内チャイム風の通知音（Web Audio API）：音色は設定で選択 ---------- */
 const Chime = {
   ctx: null,
   init() { ['pointerdown', 'touchend', 'keydown'].forEach(t => document.addEventListener(t, () => this.unlock(), { once: true, passive: true })); },
@@ -967,20 +974,20 @@ const Chime = {
       if (this.ctx.state === 'suspended') this.ctx.resume();
     } catch (_) {}
   },
-  tone(f, t) {
+  tone(f, t, dur = 1.1) {
     const c = this.ctx;
     [[1, .5], [2, .12], [3, .05]].forEach(([m, a]) => {
       const o = c.createOscillator(), g = c.createGain();
       o.type = 'sine'; o.frequency.value = f * m;
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(a * 0.35, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 1.15);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
     });
   },
-  /* 券売機風のタッチ音「ピッ」（2000Hz・約70ms） */
+  /* 券売機風のタッチ音「ピッ」（2000Hz・約70ms）。連打は間引く */
   beep() {
-    const nowMs = performance.now(); if (nowMs - (this._b || 0) < 80) return; this._b = nowMs; // 連打で音が多重にならないように
+    const nowMs = performance.now(); if (nowMs - (this._b || 0) < 80) return; this._b = nowMs;
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
     const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
@@ -988,13 +995,16 @@ const Chime = {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.08);
   },
-  play() {
-    const nowMs = performance.now(); if (nowMs - (this._p || 0) < 500) return; this._p = nowMs;
+  /* kind：std＝ミ→ド ／ jr＝4音アルペジオ ／ alarm＝見合わせ警報の反復。force＝間隔制限を外す（試聴用） */
+  play(kind, force) {
+    const nowMs = performance.now();
+    if (!force && nowMs - (this._p || 0) < 500) return; this._p = nowMs;
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
-    const t0 = c.currentTime + 0.05;
-    this.tone(659.25, t0);        // ミ
-    this.tone(523.25, t0 + 0.55); // ド
+    const k = kind || Settings.get('chimeType') || 'std', t0 = c.currentTime + 0.05;
+    if (k === 'jr') [[784, 0], [988, .22], [1175, .44], [1568, .66]].forEach(([f, d]) => this.tone(f, t0 + d, 0.9));
+    else if (k === 'alarm') for (let i = 0; i < 3; i++) { this.tone(880, t0 + i * 0.5, 0.25); this.tone(660, t0 + i * 0.5 + 0.25, 0.22); }
+    else { this.tone(659.25, t0); this.tone(523.25, t0 + 0.55); }
   }
 };
 
@@ -1089,7 +1099,7 @@ const Memos = {
 /* ---------- マイ駅（よく使う駅）＋乗り換え案内風モーダル ---------- */
 const Stn = {
   KEY: 'tokyo-lcd:mystations', list: [],
-  load() { try { const a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); if (Array.isArray(a)) this.list = a.filter(stationByName); } catch (_) {} },
+  load() { try { const a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); if (Array.isArray(a)) this.list = a.filter(n => typeof n === 'string' && n.length > 0); } catch (_) {} },
   has(n) { return this.list.includes(n); },
   toggle(n) {
     this.list = this.has(n) ? this.list.filter(x => x !== n) : [...this.list, n];
@@ -1107,42 +1117,48 @@ const StationUI = {
     document.getElementById('stnList').addEventListener('click', e => {
       const star = e.target.closest('.star'); if (star) { Stn.toggle(star.dataset.stn); return; }
       if (e.target.closest('[data-back]')) { this.cur = null; this.render(); return; }
-      const line = e.target.closest('.lr-main'); if (line) { Modals.closeAll(); Detail.open(line.dataset.line); return; }
+      if (e.target.closest('[data-zoomstn]')) { const n = this.cur; Modals.closeAll(); Locate.jumpTo(n); return; }
+      const line = e.target.closest('.lr-main[data-line]'); if (line) { Modals.closeAll(); Detail.open(line.dataset.line); return; }
       const row = e.target.closest('[data-stn]'); if (row) { this.cur = row.dataset.stn; this.render(); }
     });
     document.addEventListener('stn:change', () => { if (this.isOpen()) this.render(); });
   },
-  open(name) { Modals.open('modalStation'); this.cur = name || null; this.render(); },
+  open(name) { Modals.open('modalStation'); this.cur = name || null; this.q = ''; document.getElementById('stnInput').value = ''; this.render(); },
   isOpen() { return !document.getElementById('modalStation').hidden; },
-  worst(names) { return names.map(n => Store.of(n).status).sort((a, b) => STATUS[a].rank - STATUS[b].rank)[0] || 'normal'; },
+  worst(names) { return (names || []).map(n => Store.of(n).status).sort((a, b) => STATUS[a].rank - STATUS[b].rank)[0] || 'normal'; },
   render() {
     const sheet = document.getElementById('stnSheet'), el = document.getElementById('stnList'), on = I18n.bi();
     sheet.classList.toggle('stn-detail', !!this.cur);
     document.getElementById('stnClear').hidden = !this.q;
     if (this.cur) {
-      const S = stationByName(this.cur), lines = S[3].filter(lineByName)
-        .sort((a, b) => Store.rank(a) - Store.rank(b)), w = this.worst(lines), fav = Stn.has(S[0]);
+      const lines = Stations.lines(this.cur).slice().sort((a, b) => Store.rank(a) - Store.rank(b));
+      const w = this.worst(lines), fav = Stn.has(this.cur);
       el.innerHTML = `<button class="stn-back" data-back><span class="material-symbols-outlined">arrow_back</span>${bi('駅一覧へ戻る', 'Back')}</button>
-        <div class="tr-card"><div class="tr-head"><div class="tr-name"><b>${esc(S[0])}</b><span>駅</span></div>
-          <div class="tr-meta">${on ? '<small>Transfer Information</small>' : ''}${statusBadge(w, 'car')}</div>
-          <button class="star${fav ? ' on' : ''}" data-stn="${esc(S[0])}" aria-pressed="${fav}" aria-label="マイ駅に登録"><span class="material-symbols-outlined">star</span></button></div>
+        <div class="tr-card">
+          <div class="tr-head"><div class="tr-name"><b>${esc(this.cur)}</b><span>駅</span></div>
+            <div class="tr-meta">${on ? '<small>Transfer Information</small>' : ''}${statusBadge(w, 'car')}</div>
+            <button class="star${fav ? ' on' : ''}" data-stn="${esc(this.cur)}" aria-pressed="${fav}" aria-label="マイ駅に登録"><span class="material-symbols-outlined">star</span></button></div>
           <div class="lcd-sub">${on ? '乗り換え案内　Transfer Information' : '乗り換え案内'}</div>
-          <div class="tr-lines">${lines.map(n => { const L = lineByName(n), s = Store.of(n).status;
+          <div class="tr-lines">${lines.length ? lines.map(n => {
+            const L = lineByName(n), s = Store.of(n).status;
             return `<div class="line-row s-${s}" style="--lc:${L.color}"><button class="lr-main" data-line="${L.ja}"><span class="badge">${L.code}</span>
-              <span class="lr-name"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</span>${statusBadge(s)}</button></div>`; }).join('')}</div></div>`;
+              <span class="lr-name"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</span>${statusBadge(s)}</button></div>`;
+          }).join('') : '<div class="empty">この駅の路線情報は推定できませんでした。路線図上の位置は表示できます。</div>'}</div>
+          <div class="tr-act"><button class="sp-btn" data-zoomstn><span class="material-symbols-outlined">zoom_in_map</span>路線図でこの駅へ移動</button></div>
+        </div>`;
       return;
     }
+    const row = name => {
+      const ls = Stations.lines(name), w = this.worst(ls), fav = Stn.has(name);
+      return `<div class="line-row s-${w}"><button class="lr-main" data-stn="${esc(name)}"><span class="badge stn-ic"><span class="material-symbols-outlined">train</span></span>
+          <span class="lr-name"><b>${esc(name)}駅</b><small>${ls.length}路線</small></span>${statusBadge(w)}</button>
+        <button class="star${fav ? ' on' : ''}" data-stn="${esc(name)}" aria-pressed="${fav}" aria-label="マイ駅に登録"><span class="material-symbols-outlined">star</span></button></div>`;
+    };
     const q = Search.norm(this.q);
-    const list = STATIONS.filter(S => !q || Search.norm(S[0]).includes(q))
-      .sort((a, b) => (Stn.has(b[0]) - Stn.has(a[0])));
-    const chips = Stn.list.length && !q ? `<div class="stn-chips"><span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myStation')}</span>` +
-      Stn.list.map(n => `<button class="fav-chip s-${this.worst(stationByName(n)[3])}" data-stn="${esc(n)}"><b>${esc(n)}</b></button>`).join('') + '</div>' : '';
-    el.innerHTML = chips + (list.length ? list.map(S => {
-      const w = this.worst(S[3]), fav = Stn.has(S[0]);
-      return `<div class="line-row s-${w}"><button class="lr-main" data-stn="${esc(S[0])}"><span class="badge stn-ic"><span class="material-symbols-outlined">train</span></span>
-        <span class="lr-name"><b>${esc(S[0])}駅</b><small>${S[3].length}路線</small></span>${statusBadge(w)}</button>
-        <button class="star${fav ? ' on' : ''}" data-stn="${esc(S[0])}" aria-pressed="${fav}" aria-label="マイ駅に登録"><span class="material-symbols-outlined">star</span></button></div>`;
-    }).join('') : `<div class="empty">${I18n.text('none')}</div>`);
+    const chips = (!q && Stn.list.length) ? `<div class="stn-chips"><span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myStation')}</span>` +
+      Stn.list.map(n => `<button class="fav-chip s-${this.worst(Stations.lines(n))}" data-stn="${esc(n)}"><b>${esc(n)}</b></button>`).join('') + '</div>' : '';
+    const names = q ? Stations.search(q).map(e => e.name) : STATIONS.map(S => S[0]).sort((a, b) => Stn.has(b) - Stn.has(a));
+    el.innerHTML = chips + (names.length ? names.map(row).join('') : `<div class="empty">${I18n.text('none')}</div>`);
   }
 };
 
@@ -1178,14 +1194,15 @@ const Detour = {
   show(name) {
     const L = lineByName(name); if (!L) return;
     Cycle.toMap();
-    const alts = L.alt.map(lineByName).filter(Boolean); this.active = name;
+    const alts = L.alt.map(lineByName).filter(Boolean);
+    this.active = name;
     ViewState.set({ detour: true }); DynStyle.request();
     Frame.once('fx', () => { if (MapView.fx) MapView.fx.rebuild(); });
     const bar = document.getElementById('detourBar');
     bar.innerHTML = `<span class="material-symbols-outlined">alt_route</span><span><b>${esc(name)}</b>　振替・代替ルート：${esc(alts.map(a => a.ja).join('・'))}</span><button id="detourOff">解除</button>`;
     bar.hidden = false; document.getElementById('detourOff').onclick = () => this.clear();
     const src = MapView.groupsOf(name)[0], c = src && MapView.rootCenter(src);
-    if (c) Zoom.animateTo(c.x, c.y, Math.min(Zoom.MAX_K, Zoom.fitK() * 2.2));
+    if (c) Zoom.animateTo(c.x, c.y, Zoom.maxVw() / 2.2);
     else UI.toast('この路線は路線図上に描画がありません（代替路線のみ強調します）');
   },
   clear(keepBar) {
@@ -1298,6 +1315,8 @@ const Cycle = {
 const OPT_INTERVAL = [[60000, '1分ごと', 'Every 1 min'], [180000, '3分ごと', 'Every 3 min'], [300000, '5分ごと', 'Every 5 min'], [0, '手動のみ', 'Manual only']];
 const OPT_SPEED = [['slow', '遅い', 'Slow'], ['normal', '標準', 'Normal'], ['fast', '速い', 'Fast']];
 const OPT_FILTER = COMPANIES.map(c => [c.id, c.ja, c.en]);
+const OPT_CHIME = [['std', '標準2音', 'Standard'], ['jr', 'JR車内案内風', 'JR style'], ['alarm', '見合わせ警報風', 'Alarm']];
+const OPT_TOP = [[42, '標準 42px', 'Standard'], [56, '広め 56px', 'Wide'], [0, 'なし 0px', 'None']];
 const SETTING_DEFS = [
   { key: 'bilingual', cat: 'display', ja: '日英バイリンガル表記', en: 'Bilingual display', type: 'bool' },
   { key: 'ticker', cat: 'display', ja: '下部ニュースティッカー', en: 'News ticker', type: 'bool' },
@@ -1306,8 +1325,9 @@ const SETTING_DEFS = [
   { key: 'carNo', cat: 'display', ja: '号車表示番号', en: 'Car number', type: 'car' },
   { key: 'initFilter', cat: 'display', ja: '起動時の会社フィルター', en: 'Initial company filter', type: 'cycle', opts: OPT_FILTER },
   { key: 'nightDim', cat: 'display', ja: '画面の明るさ（夜間減光）', en: 'Night dimming', type: 'bool' },
-  { key: 'topOffset', cat: 'display', ja: '上部余白（PWAバー回避）', en: 'Top offset (PWA bar)', type: 'cycle', opts: [[42, '標準 42px', 'Standard'], [56, '広め 56px', 'Wide'], [0, 'なし 0px', 'None']] },
+  { key: 'topOffset', cat: 'display', ja: '上部余白（PWAバー回避）', en: 'Top offset (PWA bar)', type: 'cycle', opts: OPT_TOP },
   { key: 'chime', cat: 'audio', ja: '新規遅延のチャイム通知', en: 'Chime on new delays', type: 'bool' },
+  { key: 'chimeType', cat: 'audio', ja: 'チャイム音色（タップで試聴）', en: 'Chime tone (tap to preview)', type: 'cycle', opts: OPT_CHIME },
   { key: 'speech', cat: 'audio', ja: '車内放送風の音声読み上げ', en: 'Voice announcement', type: 'bool' },
   { key: 'beep', cat: 'audio', ja: '券売機タッチ音（ピッ）', en: 'Touch beep', type: 'bool' },
   { key: 'autoLocate', cat: 'comm', ja: '起動時に現在地へ自動移動', en: 'Auto-locate on launch', type: 'bool' },
@@ -1315,47 +1335,69 @@ const SETTING_DEFS = [
   { key: 'interval', cat: 'comm', ja: '自動更新間隔', en: 'Auto refresh interval', type: 'cycle', opts: OPT_INTERVAL }
 ];
 const MV_CATS = [['display', '表示・LCD', 'Display'], ['audio', '音声・通知', 'Sound'], ['comm', '通信・動作', 'System'], ['all', 'すべて表示', 'Show all']];
+const MV_DEFAULT_MSG = 'ご希望の設定項目をタッチしてください';
 const MV = {
   cat: 'all', armTimer: null,
   init() {
     document.getElementById('btnSettings').onclick = () => this.open();
     document.getElementById('modalSettings').addEventListener('click', e => {
+      if (e.target.closest('#mvHelp')) { HelpUI.open(); Chime.beep(); return; }
       const t = e.target.closest('.mv-screen button, .mv-cancel'); if (!t) return;
       const cat = e.target.closest('[data-cat]'), key = e.target.closest('[data-key]'), act = e.target.closest('[data-act]');
       if (cat) { this.cat = cat.dataset.cat; this.render(); }
       else if (key) this.activate(key.dataset.key);
       else if (act) this.act(act.dataset.act, act);
-      else if (e.target.closest('#mvBright')) Settings.set('nightDim', !Settings.get('nightDim'));
-      if (Settings.get('beep')) Chime.beep(); // 券売機タッチ音（操作後の設定に従う）
+      else if (e.target.closest('#mvBright')) {
+        Settings.set('nightDim', !Settings.get('nightDim'));
+        this.say(`設定を変更しました：夜間減光 ${Settings.get('nightDim') ? 'ON' : 'OFF'}`);
+      }
+      if (Settings.get('beep')) Chime.beep(); // 券売機タッチ音
     });
   },
-  open() { Modals.open('modalSettings'); this.render(); this.tickTime(); },
+  open() { Modals.open('modalSettings'); this.say(MV_DEFAULT_MSG); this.render(); this.tickTime(); },
   isOpen() { return !document.getElementById('modalSettings').hidden; },
+  /* 案内メッセージバー：変更のたびに文言を差し替え、点滅で知らせる */
+  say(t) {
+    const el = document.getElementById('mvMsg'); if (!el) return;
+    el.textContent = t; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  },
+  valText(d) {
+    const v = Settings.get(d.key);
+    if (d.type === 'bool') return v ? 'ON' : 'OFF';
+    if (d.type === 'car') return v + '号車';
+    const o = d.opts.find(x => x[0] === v); return o ? o[1] : String(v);
+  },
   def(key) { return SETTING_DEFS.find(d => d.key === key); },
   activate(key) {
-    if (key === 'demo') { Settings.set('demo', !Settings.get('demo')); return; }
+    if (key === 'demo') {
+      Settings.set('demo', !Settings.get('demo'));
+      this.say(`設定を変更しました：デモモード ${Settings.get('demo') ? 'ON' : 'OFF'}`); return;
+    }
     const d = this.def(key); if (!d) return;
     const v = Settings.get(key);
     if (d.type === 'bool') {
       Settings.set(key, !v);
-      if (!v && key === 'chime') Chime.play();
+      if (!v && key === 'chime') Chime.play(null, true);
       if (!v && key === 'speech') Speech.say('音声案内をオンにしました。');
     } else if (d.type === 'cycle') {
-      const i = d.opts.findIndex(o => o[0] === v);
-      Settings.set(key, d.opts[(i + 1) % d.opts.length][0]);
-    } else if (d.type === 'car') Settings.set(key, (Number(v) % 15) + 1); // 1〜15号車を循環
+      const i = d.opts.findIndex(o => o[0] === v), nv = d.opts[(i + 1) % d.opts.length][0];
+      Settings.set(key, nv);
+      if (key === 'chimeType') Chime.play(nv, true); // 切り替えた音色を試聴
+    } else if (d.type === 'car') Settings.set(key, (Number(v) % 15) + 1);
+    this.say(`設定を変更しました：${d.ja}　${this.valText(d)}`);
   },
   /* 破壊的な操作は「もう一度タップで実行」の2段階確認 */
   act(name, btn) {
     if (name === 'links') { LinksUI.open(); return; }
     if (btn.dataset.armed !== '1') {
       btn.dataset.armed = '1'; btn.classList.add('armed');
+      this.say('もう一度タップで実行します');
       clearTimeout(this.armTimer);
-      this.armTimer = setTimeout(() => { btn.dataset.armed = ''; btn.classList.remove('armed'); }, 3000);
+      this.armTimer = setTimeout(() => { btn.dataset.armed = ''; btn.classList.remove('armed'); this.say(MV_DEFAULT_MSG); }, 3000);
       return;
     }
     btn.dataset.armed = ''; btn.classList.remove('armed');
-    if (name === 'resetLog') { History.clear(); Memos.clear(); UI.toast('履歴ログとマイメモを初期化しました'); if (Detail.isOpen()) Detail.render(); }
+    if (name === 'resetLog') { History.clear(); Memos.clear(); Routes.list = []; Routes.save(); UI.toast('履歴ログ・メモ・マイルートを初期化しました'); this.say('履歴ログを初期化しました'); }
     if (name === 'clearCache') this.clearCache();
   },
   async clearCache() {
@@ -1390,6 +1432,303 @@ const MV = {
   }
 };
 
+/* ---------- 全駅インデックス：路線図SVG内の駅名テキストを自動抽出（路線名・凡例などは除外） ---------- */
+const NOISE_NAMES = new Set(['皇居', '国際', '国内', '東京都', '本線', '車庫']);
+const Stations = {
+  list: null, byName: null, grid: null,
+  BAD: /線|ライン|ライナー|モノレール|ゆりかもめ|行|方面|号車|大学|公園|空港|ターミナル|ディズニー|病院|球場|競馬|JR|メトロ|都営|東急|小田急|京王|西武|東武|京成|京急|相鉄|つくば|ＪＲ/,
+  /* 初回のみ走査（以後はメモリ上の辞書を使う）。日本語のみ・2〜8文字の駅名だけを採用 */
+  ensure() {
+    if (this.list) return this.list;
+    const svg = MapView.svg; if (!svg) return [];
+    this.list = []; this.byName = new Map();
+    const seen = new Map(), pt = svg.createSVGPoint();
+    const add = (raw, b, m) => {
+      const name = raw.replace(/駅$/, '');
+      if (name.length < 2 || name.length > 8 || this.BAD.test(name) || NOISE_NAMES.has(name) || lineByName(name)) return;
+      if (!/[\u3040-\u30ff\u4e00-\u9fff]/.test(name) || /[A-Za-z0-9]/.test(name)) return;
+      const c = [[b.x, b.y], [b.x + b.width, b.y + b.height]].map(([x, y]) => { pt.x = x; pt.y = y; return pt.matrixTransform(m); });
+      const x0 = Math.min(c[0].x, c[1].x), x1 = Math.max(c[0].x, c[1].x), y0 = Math.min(c[0].y, c[1].y), y1 = Math.max(c[0].y, c[1].y);
+      const area = (x1 - x0) * (y1 - y0);
+      let e = seen.get(name);
+      if (!e) { e = { name, x: (x0 + x1) / 2, y: (y0 + y1) / 2, area: 0, parts: [], lines: null }; seen.set(name, e); }
+      e.parts.push({ x0, y0, x1, y1 });
+      if (area > e.area) { e.area = area; e.x = (x0 + x1) / 2; e.y = (y0 + y1) / 2; }
+    };
+    svg.querySelectorAll('text').forEach(t => {
+      let b, m;
+      try { b = t.getBBox(); m = t.getCTM(); } catch (_) { return; }
+      if (!m || !b || !b.width) return;
+      const tsp = [...t.querySelectorAll('tspan')];
+      const names = tsp.length ? tsp.map(p => p.textContent.replace(/\s+/g, '')) : [t.textContent.replace(/\s+/g, '')];
+      names.forEach(raw => { if (raw) add(raw, b, m); });
+    });
+    this.list = [...seen.values()];
+    this.list.forEach(e => this.byName.set(e.name, e));
+    return this.list;
+  },
+  get(name) { this.ensure(); return this.byName ? (this.byName.get(name) || null) : null; },
+  /* 指定の路線図座標（SVG単位）が駅名ラベルの上にあれば、その駅を返す */
+  at(x, y, pad) {
+    for (const e of (this.ensure() || [])) for (const p of e.parts) {
+      if (x >= p.x0 - pad && x <= p.x1 + pad && y >= p.y0 - pad && y <= p.y1 + pad) return e;
+    }
+    return null;
+  },
+  /* 部分一致（前方一致を優先）。q は正規化済みの文字列 */
+  search(q) {
+    const hits = [];
+    (this.ensure() || []).forEach(e => { const n = Search.norm(e.name); if (n.includes(q)) hits.push({ e, r: n.startsWith(q) ? 0 : 1 }); });
+    return hits.sort((a, b) => a.r - b.r || a.e.name.length - b.e.name.length).slice(0, 60).map(h => h.e);
+  },
+  /* 駅の乗り入れ路線：主要駅はマスターを使い、それ以外は路線図上の位置から推定 */
+  lines(name) {
+    const M = stationByName(name); if (M) return M[3].filter(lineByName);
+    const e = this.get(name); if (!e) return [];
+    if (!e.lines) e.lines = this.nearLines(e.x, e.y);
+    return e.lines;
+  },
+  /* 路線の描画線を一定間隔でサンプリングし、100単位のマス目に登録（1回だけ） */
+  sampleRails() {
+    if (this.grid) return;
+    this.grid = new Map();
+    const svg = MapView.svg; if (!svg) return;
+    const pt = svg.createSVGPoint(), CELL = 100;
+    MapView.lines().forEach(g => {
+      (g.__rails || []).forEach(el => {
+        let len = 0, m = null;
+        try { len = el.getTotalLength(); m = el.getCTM(); } catch (_) { return; }
+        if (!m || !len) return;
+        const n = Math.min(500, Math.max(8, Math.ceil(len / 12)));
+        for (let i = 0; i <= n; i++) {
+          let p; try { p = el.getPointAtLength(len * i / n); } catch (_) { break; }
+          pt.x = p.x; pt.y = p.y; const q = pt.matrixTransform(m);
+          const k = Math.floor(q.x / CELL) + ',' + Math.floor(q.y / CELL);
+          if (!this.grid.has(k)) this.grid.set(k, []);
+          this.grid.get(k).push({ x: q.x, y: q.y, l: g.dataset.line });
+        }
+      });
+    });
+  },
+  nearLines(x, y) {
+    this.sampleRails();
+    const CELL = 100, thr = Math.max(40, Zoom.VW * 0.009), out = new Set();
+    const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      (this.grid.get((cx + i) + ',' + (cy + j)) || []).forEach(s => { if (Math.hypot(s.x - x, s.y - y) <= thr) out.add(s.l); });
+    }
+    return [...out];
+  }
+};
+
+/* ---------- 駅ポップアップ：路線図の駅名タップ／駅検索からの移動時に表示 ---------- */
+const StationPop = {
+  el: null, name: null,
+  init() {
+    this.el = document.getElementById('stnPop');
+    this.el.addEventListener('click', e => {
+      if (e.target.closest('[data-pop-close]')) { this.close(); return; }
+      if (e.target.closest('[data-pop-fav]')) { Stn.toggle(this.name); return; }
+      if (e.target.closest('[data-pop-zoom]')) { Locate.jumpTo(this.name); return; }
+      if (e.target.closest('[data-pop-detail]')) { const n = this.name; this.close(); StationUI.open(n); return; }
+      const l = e.target.closest('[data-line]'); if (l) Detail.open(l.dataset.line);
+    });
+    document.addEventListener('stn:change', () => { if (this.isOpen()) this.render(); });
+  },
+  isOpen() { return !!this.el && !this.el.hidden; },
+  open(name, cx, cy) {
+    this.name = name; this.render();
+    const W = window.innerWidth, H = window.innerHeight, pw = 300;
+    let left = cx != null ? cx - pw / 2 : 16, top = cy != null ? cy - 60 : H * 0.3;
+    const topH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--top-h')) || 0;
+    left = Math.min(W - pw - 12, Math.max(12, left));
+    top = Math.min(H - 260, Math.max(topH + 12, top));
+    this.el.style.left = left + 'px'; this.el.style.top = top + 'px';
+    this.el.hidden = false;
+  },
+  close() { if (this.el) this.el.hidden = true; this.name = null; },
+  render() {
+    if (!this.name) return;
+    const lines = Stations.lines(this.name), on = I18n.bi(), fav = Stn.has(this.name), w = StationUI.worst(lines);
+    this.el.innerHTML = `<div class="sp-head"><span class="material-symbols-outlined">place</span><b>${esc(this.name)}駅</b>
+        <button class="sp-x" data-pop-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+      <div class="sp-st">${statusBadge(w)}<small>${lines.length}路線${on ? ' / lines' : ''}</small></div>
+      <div class="sp-lines">${lines.length ? lines.slice(0, 10).map(n => {
+        const L = lineByName(n), st = Store.of(n).status;
+        return `<button class="sp-line s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span>${L.ja}</span>${statusBadge(st)}</button>`;
+      }).join('') : '<span class="muted">路線情報を推定できませんでした</span>'}</div>
+      <div class="sp-act">
+        <button class="sp-btn${fav ? ' on' : ''}" data-pop-fav aria-pressed="${fav}"><span class="material-symbols-outlined">star</span>${fav ? 'マイ駅を解除' : 'マイ駅に登録'}</button>
+        <button class="sp-btn" data-pop-zoom><span class="material-symbols-outlined">zoom_in_map</span>この駅にズーム</button>
+        <button class="sp-btn" data-pop-detail><span class="material-symbols-outlined">list</span>詳細</button>
+      </div>`;
+  }
+};
+
+/* ---------- マイルート（通勤・通学の経路）と迂回アラート ---------- */
+const Routes = {
+  KEY: 'tokyo-lcd:routes', list: [],
+  load() {
+    try {
+      const a = JSON.parse(localStorage.getItem(this.KEY) || '[]');
+      if (Array.isArray(a)) this.list = a.filter(r => r && r.name && Array.isArray(r.lines)).map(r => ({
+        id: String(r.id || Date.now()), name: String(r.name).slice(0, 20),
+        stations: Array.isArray(r.stations) ? r.stations.slice(0, 3).map(String) : [],
+        lines: r.lines.filter(n => lineByName(n)).slice(0, 4)
+      }));
+    } catch (_) {}
+  },
+  save() {
+    try { localStorage.setItem(this.KEY, JSON.stringify(this.list)); } catch (_) {}
+    document.dispatchEvent(new CustomEvent('routes:change'));
+  },
+  add(r) { this.list = [...this.list, { id: Date.now().toString(36), ...r }]; this.save(); },
+  remove(id) { this.list = this.list.filter(r => r.id !== id); this.save(); },
+  status(r) {
+    const bad = r.lines.map(n => ({ n, st: Store.of(n).status })).filter(x => x.st !== 'normal')
+      .sort((a, b) => STATUS[a.st].rank - STATUS[b.st].rank);
+    return { bad, worst: bad.length ? bad[0].st : 'normal' };
+  },
+  affected() { return this.list.filter(r => this.status(r).bad.length); }
+};
+const RouteUI = {
+  editing: false,
+  init() {
+    document.getElementById('routeBody').addEventListener('click', e => {
+      const del = e.target.closest('[data-del]');
+      if (del) { if (confirm('このマイルートを削除しますか？')) Routes.remove(del.dataset.del); return; }
+      if (e.target.closest('[data-route-add]')) { this.editing = true; this.render(); return; }
+      if (e.target.closest('[data-route-cancel]')) { this.editing = false; this.render(); return; }
+      if (e.target.closest('[data-route-save]')) { this.save(); return; }
+      const pick = e.target.closest('[data-pick]');
+      if (pick) {
+        const n = document.querySelectorAll('#routeBody [data-pick].on').length;
+        if (!pick.classList.contains('on') && n >= 4) { UI.toast('利用路線は最大4本までです'); return; }
+        pick.classList.toggle('on'); return;
+      }
+      const line = e.target.closest('[data-line]');
+      if (line) { Modals.closeAll(); Detail.open(line.dataset.line); }
+    });
+    document.addEventListener('routes:change', () => { if (this.isOpen()) this.render(); UI.renderFavBar(); });
+  },
+  open() { Modals.open('modalRoute'); this.editing = false; this.render(); },
+  isOpen() { return !document.getElementById('modalRoute').hidden; },
+  save() {
+    const name = (document.getElementById('routeName').value || '').trim();
+    const lines = [...document.querySelectorAll('#routeBody [data-pick].on')].map(b => b.dataset.pick);
+    const stations = ['routeFrom', 'routeVia', 'routeTo'].map(id => (document.getElementById(id).value || '').trim()).filter(Boolean);
+    if (!name || !lines.length) { UI.toast('ルート名と利用路線（1本以上）を入力してください'); return; }
+    Routes.add({ name, stations, lines: lines.slice(0, 4) });
+    this.editing = false; this.render(); UI.toast('マイルートを登録しました');
+  },
+  render() {
+    const el = document.getElementById('routeBody');
+    if (this.editing) { el.innerHTML = this.formHtml(); return; }
+    el.innerHTML = `<div class="route-top"><button class="btn-yahoo" data-route-add><span class="material-symbols-outlined">add</span>${bi('マイルートを追加', 'Add route')}</button></div>` +
+      (Routes.list.length ? Routes.list.map(r => this.card(r)).join('')
+        : '<div class="empty">まだマイルートがありません。通勤・通学の経路を登録すると、利用路線の遅延・見合わせをまとめて確認できます。</div>');
+  },
+  card(r) {
+    const { bad, worst } = Routes.status(r);
+    const alts = [...new Set(bad.flatMap(x => lineByName(x.n).alt))].filter(n => lineByName(n) && Store.of(n).status === 'normal').slice(0, 6);
+    const head = worst === 'normal' ? '平常運転' : (worst === 'suspend' ? '運転見合わせの影響あり' : '遅延の影響あり');
+    return `<div class="route-card s-${worst}">
+      <div class="rc-head"><b>${esc(r.name)}</b><span class="rc-state ${worst}">${bad.length ? 'マイルート影響あり（代替ルート確認）' : '正常'}</span></div>
+      ${r.stations.length ? `<div class="rc-path">${r.stations.map(s => `<span>${esc(s)}</span>`).join('<i class="material-symbols-outlined">arrow_forward</i>')}</div>` : ''}
+      <div class="rc-lines">${r.lines.map(n => {
+        const L = lineByName(n), st = Store.of(n).status;
+        return `<button class="rc-line s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span>${L.ja}</span>${statusBadge(st)}</button>`;
+      }).join('')}</div>
+      ${bad.length ? `<div class="rc-alt"><small>代替ルート候補（平常運転）</small><div class="rc-lines">${alts.length ? alts.map(n => {
+        const L = lineByName(n);
+        return `<button class="rc-line s-normal" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span>${L.ja}</span></button>`;
+      }).join('') : '<span class="muted">該当なし</span>'}</div></div>` : ''}
+      <div class="rc-foot"><span class="muted">${head}</span><button class="rc-del" data-del="${esc(r.id)}"><span class="material-symbols-outlined">delete</span>削除</button></div>
+    </div>`;
+  },
+  formHtml() {
+    return `<div class="route-form">
+      <label class="rf-row"><span>ルート名</span><input id="routeName" maxlength="20" placeholder="例：通勤（自宅→会社）"></label>
+      <div class="rf-row"><span>経路駅（任意）</span>
+        <div class="rf-st"><input id="routeFrom" maxlength="12" placeholder="出発駅"><i class="material-symbols-outlined">arrow_forward</i><input id="routeVia" maxlength="12" placeholder="乗換駅"><i class="material-symbols-outlined">arrow_forward</i><input id="routeTo" maxlength="12" placeholder="目的駅"></div></div>
+      <div class="rf-row"><span>利用路線（タップで選択・最大4本）</span>
+        <div class="rf-picks">${LINES.map(L => `<button class="rf-pick" data-pick="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span>${L.ja}</button>`).join('')}</div></div>
+      <div class="route-top"><button class="mv-silver" data-route-cancel><span class="ms-lbl"><b>戻る</b></span></button><button class="btn-yahoo" data-route-save><span class="material-symbols-outlined">save</span>保存</button></div>
+    </div>`;
+  }
+};
+
+/* ---------- 情報案内LCD（2画面モードの右画面）：異常路線・マイ路線・マイルートを自動スライド ---------- */
+const InfoLcd = {
+  el: null, i: 0, timer: 0, slides: [],
+  init() {
+    this.el = document.getElementById('infoLcd');
+    this.el.addEventListener('click', () => {
+      const s = this.slides[this.i];
+      if (s && (s.kind === 'line' || s.kind === 'fav')) { Detail.open(s.L.ja); return; }
+      this.next();
+    });
+  },
+  build() {
+    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal')
+      .sort((a, b) => STATUS[Store.of(a.ja).status].rank - STATUS[Store.of(b.ja).status].rank);
+    const sl = abn.map(L => ({ kind: 'line', L }));
+    if (!abn.length) sl.push({ kind: 'ok' });
+    Favs.list.map(lineByName).filter(L => L && !abn.includes(L)).forEach(L => sl.push({ kind: 'fav', L }));
+    Routes.affected().forEach(r => sl.push({ kind: 'route', r }));
+    return sl;
+  },
+  render() {
+    if (!this.el || !Settings.get('dual')) return;
+    this.slides = this.build();
+    if (this.i >= this.slides.length) this.i = 0;
+    this.draw();
+  },
+  draw() {
+    const s = this.slides[this.i] || { kind: 'ok' }, d = new Date(), p = n => String(n).padStart(2, '0'), on = I18n.bi();
+    let body;
+    if (s.kind === 'line' || s.kind === 'fav') {
+      const L = s.L, st = Store.of(L.ja);
+      body = `<div class="lcd" style="--lc:${L.color}">
+        <div class="lcd-head">
+          <div class="co">${L.op.ja}${on ? `<small>${L.op.en}</small>` : ''}</div>
+          <span class="cbar"></span><span class="sym">${L.code}</span>
+          <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>
+          <div class="rside"><div class="rtop"><span class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></span><time>${p(d.getHours())}:${p(d.getMinutes())}</time></div>${statusBadge(st.status, 'car')}</div>
+        </div>
+        <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
+        <div class="lcd-body"><p class="h">【${L.ja}　${STATUS[st.status].ja}】</p><p>${Detail.highlight(st.status === 'normal' ? STRINGS.normalTxt.ja : (st.detail || ''))}</p></div>
+      </div>`;
+    } else if (s.kind === 'route') {
+      const { bad, worst } = Routes.status(s.r);
+      body = `<div class="lcd">
+        <div class="lcd-head"><div class="lname"><b>${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="rside">${statusBadge(worst, 'car')}</div></div>
+        <div class="lcd-sub">${on ? 'マイルート　My Route' : 'マイルート'}</div>
+        <div class="lcd-body">${bad.map(x => `<p class="h">【${x.n}　${STATUS[x.st].ja}】</p><p>${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div>
+      </div>`;
+    } else {
+      body = `<div class="lcd"><div class="lcd-head"><div class="lname"><b>運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
+        <div class="lcd-body"><p class="h">現在の運行状況</p><p>現在、関東エリアの主要路線は平常通り運転しています。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div>`;
+    }
+    const n = this.slides.length || 1;
+    this.el.innerHTML = `<div class="info-head"><b>情報案内${on ? '　Info' : ''}</b><span class="info-dots">${this.slides.map((_, k) => `<i class="${k === this.i ? 'on' : ''}"></i>`).join('')}</span></div>
+      <div class="info-body">${body}</div>
+      <div class="info-foot">${this.i + 1} / ${n}　<small>タップで次の情報${on ? ' / Tap for next' : ''}</small></div>`;
+  },
+  next() { if (!this.slides.length) return; this.i = (this.i + 1) % this.slides.length; this.draw(); },
+  start() { clearInterval(this.timer); this.timer = setInterval(() => this.next(), 6000); },
+  stop() { clearInterval(this.timer); this.timer = 0; },
+  setOn(on) {
+    document.body.classList.toggle('dual', !!on);
+    if (on) { this.render(); this.start(); } else this.stop();
+  }
+};
+
+/* ---------- 係員呼出（操作ガイド）：券売機の下部ボタンから開く。内容は index.html に記載 ---------- */
+const HelpUI = {
+  open() { const m = document.getElementById('modalHelp'); if (m) m.hidden = false; }
+};
+
 /* ---------- 共通：HTML部品 ---------- */
 const bi = (ja, en) => I18n.bi() && en ? `${ja}<small class="en">${en}</small>` : ja;
 const statusBadge = (st, cls = 'st') => `<span class="${cls} ${st}">${bi(STATUS[st].ja, STATUS[st].en)}</span>`;
@@ -1410,11 +1749,12 @@ const Detail = {
   },
   render() {
     const memoEl = document.getElementById('memoText');
-    if (memoEl && document.activeElement === memoEl) return; // メモ入力中は再描画しない（入力が途切れないように）
+    if (memoEl && document.activeElement === memoEl) return; // メモ入力中は再描画しない
     const L = lineByName(this.name); if (!L) return;
     const s = Store.of(L.ja), st = STATUS[s.status], on = I18n.bi();
     const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : this.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
     const url = /^https:\/\/transit\.yahoo\.co\.jp\//.test(s.url || '') ? s.url : YAHOO_URL;
+    const rt = 'https://search.yahoo.co.jp/realtime/search?p=' + encodeURIComponent(L.ja + ' 遅延');
     const fav = Favs.has(L.ja);
     document.getElementById('detailBody').innerHTML = `
       <div class="lcd" style="--lc:${L.color}">
@@ -1432,6 +1772,7 @@ const Detail = {
           <textarea id="memoText" rows="2" maxlength="300" placeholder="例：西船橋から東西線に振替">${esc(Memos.get(L.ja))}</textarea></div>
         <div class="lcd-foot">
           <button class="btn-alt" data-act="detour"><span class="material-symbols-outlined">alt_route</span>${bi('振替・代替ルートを路線図で表示', 'Show alternative routes')}</button>
+          <a class="btn-rt" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>${bi('現場のリアルタイム状況を検索', 'Realtime search')}</a>
           <a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a>
         </div>
       </div>`;
@@ -1449,7 +1790,7 @@ const Search = {
   norm: s => String(s).toLowerCase().replace(/[\s　・]/g, ''),
   open(focus) {
     Modals.open('modalSearch'); this.render();
-    if (focus) setTimeout(() => document.getElementById('searchInput').focus(), 30); // PCのショートカット時はすぐ入力できるように
+    if (focus) setTimeout(() => document.getElementById('searchInput').focus(), 30);
   },
   isOpen() { return !document.getElementById('modalSearch').hidden; },
   filtered() {
@@ -1464,21 +1805,12 @@ const Search = {
       .sort((a, b) => Store.rank(a.L.ja) - Store.rank(b.L.ja) || a.i - b.i)
       .map(x => x.L);
   },
-  /* 駅：マスターの60駅を先頭に、路線図SVG内の駅名テキストも検索対象にする */
-  stations(q) {
-    if (!q) return [];
-    const out = [], seen = new Set();
-    STATIONS.forEach(S => { if (this.norm(S[0]).includes(q)) { out.push({ name: S[0], master: S }); seen.add(S[0]); } });
-    Locate.textKeys().forEach(k => {
-      if (out.length < 40 && !seen.has(k) && this.norm(k).includes(q)) { out.push({ name: k, master: null }); seen.add(k); }
-    });
-    return out;
-  },
   render() {
-    const list = this.filtered(), el = document.getElementById('searchList'), q = this.norm(this.q), stns = this.stations(q);
+    const q = this.norm(this.q), list = this.filtered(), el = document.getElementById('searchList');
+    const stns = q ? Stations.search(q) : [];
     const comp = COMPANIES.find(c => c.id === UI.company);
     document.getElementById('searchMeta').textContent =
-      `${list.length}路線` + (stns.length ? `・${stns.length}駅` : '') + (UI.company !== 'all' ? `　絞り込み：${comp.ja}` : '');
+      `${list.length}路線` + (q ? `・${stns.length}駅（路線図の全駅から検索）` : '') + (UI.company !== 'all' ? `　絞り込み：${comp.ja}` : '');
     document.getElementById('searchClear').hidden = !this.q;
     const lines = list.map(L => {
       const s = Store.of(L.ja).status, fav = Favs.has(L.ja);
@@ -1492,13 +1824,13 @@ const Search = {
         <button class="star${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
       </div>`;
     }).join('');
-    const stations = stns.length ? `<div class="sec-title">駅<small>タップで路線図の駅へジャンプ</small></div>` + stns.map(({ name, master }) => {
-      const w = master ? StationUI.worst(master[3]) : 'normal';
+    const stations = stns.length ? `<div class="sec-title">駅<small>タップで路線図の駅へジャンプ</small></div>` + stns.map(e => {
+      const ls = Stations.lines(e.name), w = StationUI.worst(ls), fav = Stn.has(e.name);
       return `<div class="line-row s-${w}">
-        <button class="lr-main" data-jump="${esc(name)}"><span class="badge stn-ic"><span class="material-symbols-outlined">train</span></span>
-          <span class="lr-name"><b>${esc(name)}</b><small>${master ? master[3].length + '路線が乗り入れ' : '路線図内の駅名'}</small></span>
-          <span class="co-tag">路線図で表示</span>${master ? statusBadge(w) : ''}</button>
-        ${master ? `<button class="star" data-stnview="${esc(name)}" aria-label="乗り入れ路線を見る"><span class="material-symbols-outlined">list</span></button>` : ''}
+        <button class="lr-main" data-jump="${esc(e.name)}"><span class="badge stn-ic"><span class="material-symbols-outlined">train</span></span>
+          <span class="lr-name"><b>${esc(e.name)}駅</b><small>${ls.length ? ls.length + '路線が乗り入れ' : '路線図上の駅'}</small></span>
+          <span class="co-tag">路線図で表示</span>${ls.length ? statusBadge(w) : ''}</button>
+        <button class="star${fav ? ' on' : ''}" data-stnfav="${esc(e.name)}" aria-pressed="${fav}" aria-label="マイ駅に登録"><span class="material-symbols-outlined">star</span></button>
       </div>`;
     }).join('') : '';
     el.innerHTML = (lines || stations) ? lines + stations : `<div class="empty">${I18n.text('none')}</div>`;
@@ -1510,7 +1842,7 @@ const Search = {
     document.getElementById('searchList').addEventListener('click', e => {
       const star = e.target.closest('.star');
       if (star) {
-        if (star.dataset.stnview) { Modals.closeAll(); StationUI.open(star.dataset.stnview); }
+        if (star.dataset.stnfav) Stn.toggle(star.dataset.stnfav);
         else if (star.dataset.fav) Favs.toggle(star.dataset.fav);
         return;
       }
@@ -1538,12 +1870,15 @@ const UI = {
   company: 'all',
   init() {
     this.company = Settings.get('initFilter') || 'all';
+    InfoLcd.init();
     this.applyFlags(); Layout.init();
-    Favs.load(); Memos.load(); History.load(); Stn.load(); Chime.init();
-    Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init();
+    Favs.load(); Memos.load(); History.load(); Stn.load(); Routes.load(); Chime.init();
+    Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init(); RouteUI.init(); StationPop.init();
     Detail.el = document.getElementById('modalDetail');
     document.getElementById('btnRefresh').onclick = () => this.refresh(true);
     document.getElementById('btnSearch').onclick = () => Search.open();
+    document.getElementById('btnRoute').onclick = () => RouteUI.open();
+    document.getElementById('btnDual').onclick = () => Settings.set('dual', !Settings.get('dual'));
     document.getElementById('btnFocus').onclick = () => Settings.set('focus', !Settings.get('focus'));
     document.getElementById('btnCycle').onclick = () => Settings.set('autoCycle', !Settings.get('autoCycle'));
     /* PC向けキーボードショートカット（入力欄にフォーカスが無いときのみ） */
@@ -1558,8 +1893,12 @@ const UI = {
       else if (k === '+' || k === '=') { e.preventDefault(); Zoom.step(1.4); }
       else if (k === '-' || k === '_') { e.preventDefault(); Zoom.step(1 / 1.4); }
       else if (k === '0') { e.preventDefault(); Zoom.home(); }
+      else if (k === '?') { e.preventDefault(); HelpUI.open(); }
     });
-    document.getElementById('favBar').addEventListener('click', e => { const c = e.target.closest('.fav-chip'); if (c) Detail.open(c.dataset.line); });
+    document.getElementById('favBar').addEventListener('click', e => {
+      if (e.target.closest('#routeAlert')) { RouteUI.open(); return; }
+      const c = e.target.closest('.fav-chip'); if (c) Detail.open(c.dataset.line);
+    });
     const body = document.getElementById('detailBody');
     body.addEventListener('click', e => {
       const f = e.target.closest('.fav-btn'); if (f) { Favs.toggle(f.dataset.fav); return; }
@@ -1581,7 +1920,7 @@ const UI = {
       }
       if (k === 'initFilter') { this.company = e.detail.value; MapView.applyFilter(this.company); }
       if (k === 'autoCycle') Cycle.start();
-      Frame.once('render', () => this.renderAll()); // 連打しても再描画は1フレームに1回
+      Frame.once('render', () => this.renderAll());
       if (k === 'demo') this.refresh();
       if (k === 'interval') this.schedule();
     });
@@ -1596,11 +1935,13 @@ const UI = {
     I18n.apply(); this.buildTabs(); this.buildLegend();
     document.getElementById('demoChip').hidden = !Settings.get('demo');
     this.renderSync(); this.applyFlags(); this.renderFavBar(); this.renderMeter(); Ticker.render(); MV.render();
+    InfoLcd.render();
     if (Cycle.view === 'board') Board.render();
     if (Search.isOpen()) Search.render();
     if (StationUI.isOpen()) StationUI.render();
     if (HistoryUI.isOpen()) HistoryUI.render();
     if (Detail.isOpen()) Detail.render();
+    if (RouteUI.isOpen()) RouteUI.render();
   },
   /* 設定に応じた表示状態 */
   applyFlags() {
@@ -1613,18 +1954,20 @@ const UI = {
     document.documentElement.style.setProperty('--top-offset', (standalone ? Number(Settings.get('topOffset')) || 0 : 0) + 'px');
     document.getElementById('btnFocus').setAttribute('aria-pressed', String(!!Settings.get('focus')));
     document.getElementById('btnCycle').setAttribute('aria-pressed', String(!!Settings.get('autoCycle')));
+    document.getElementById('btnDual').setAttribute('aria-pressed', String(!!Settings.get('dual')));
+    InfoLcd.setOn(!!Settings.get('dual'));
   },
-  /* マイ路線クイックバー（登録がなければ非表示） */
+  /* マイ路線クイックバー＋マイルートの迂回アラート（どちらも未登録なら非表示） */
   renderFavBar() {
-    const bar = document.getElementById('favBar'), list = Favs.list.map(lineByName).filter(Boolean);
-    bar.hidden = !list.length;
-    bar.innerHTML = `<span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myLines')}</span>` +
-      list.map(L => {
-        const st = Store.of(L.ja).status;
-        return `<button class="fav-chip s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span class="fc-name">${L.ja}</span><span class="fc-st ${st}">${STATUS[st].ja}</span></button>`;
-      }).join('');
+    const bar = document.getElementById('favBar'), list = Favs.list.map(lineByName).filter(Boolean), aff = Routes.affected();
+    bar.hidden = !list.length && !Routes.list.length;
+    const chips = list.length ? `<span class="fav-title"><span class="material-symbols-outlined">star</span>${I18n.label('myLines')}</span>` + list.map(L => {
+      const st = Store.of(L.ja).status;
+      return `<button class="fav-chip s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span class="fc-name">${L.ja}</span><span class="fc-st ${st}">${STATUS[st].ja}</span></button>`;
+    }).join('') : '';
+    const alertBtn = Routes.list.length ? `<button class="route-alert ${aff.length ? 'warn' : 'ok'}" id="routeAlert"><span class="material-symbols-outlined">alt_route</span>${aff.length ? 'マイルート影響あり（代替ルート確認）' : 'マイルート 正常'}</button>` : '';
+    bar.innerHTML = chips + '<span class="fav-spacer"></span>' + alertBtn;
   },
-  /* 関東鉄道ネットワーク正常稼働率（マスター全路線のうち平常運転の割合） */
   counts() {
     let s = 0, d = 0;
     LINES.forEach(L => { const st = Store.of(L.ja).status; if (st === 'suspend') s++; else if (st !== 'normal') d++; });
@@ -1651,7 +1994,7 @@ const UI = {
     const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
     clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
   },
-  /* データ更新後：履歴ログ・チャイム・音声読み上げ・ティッカー・稼働率・ボードを更新 */
+  /* データ更新後：履歴ログ・チャイム・音声読み上げ・ティッカー・稼働率・ボード・情報案内を更新 */
   afterData() {
     const cur = new Set(LINES.filter(L => Store.of(L.ja).status !== 'normal').map(L => L.ja));
     const now = {}; LINES.forEach(L => { now[L.ja] = Store.of(L.ja).status; });
@@ -1665,9 +2008,11 @@ const UI = {
       }
     }
     this.prevAbn = cur; this.prevSt = now;
-    Ticker.render(); this.renderFavBar(); this.renderMeter();
+    Ticker.render(); this.renderFavBar(); this.renderMeter(); InfoLcd.render();
     if (Cycle.view === 'board') Board.render();
     if (StationUI.isOpen()) StationUI.render();
+    if (RouteUI.isOpen()) RouteUI.render();
+    if (StationPop.isOpen()) StationPop.render();
   },
   prevAbn: null, prevSt: null, toastTimer: null,
   buildTabs() {
@@ -1695,9 +2040,8 @@ const UI = {
   },
   busy: false, again: false, timer: null, lastOk: 0, spinStart: 0,
   sync: { time: null, ok: true, text: '未同期' },
-  /* 券売機設定画面に「最終同期時刻」と「取得ステータス」を表示（ランプのツールチップにも反映） */
   setSync(ok, text) {
-    if (ok) this.sync.time = new Date();   // 最終同期時刻は「成功した時刻」
+    if (ok) this.sync.time = new Date();
     this.sync.ok = ok; this.sync.text = text;
     this.renderSync();
   },
@@ -1708,7 +2052,7 @@ const UI = {
     if (stEl) { stEl.textContent = this.sync.text; stEl.className = 'sync-val ' + (this.sync.ok ? 'ok' : 'err'); }
     const lamp = document.getElementById('lamp'); if (lamp) lamp.title = this.sync.text;
   },
-  /* 自動更新：デモOFFかつ間隔が「手動のみ」でないとき、前回の取得完了から設定間隔後に次を予約（カウントダウン表示なし） */
+  /* 自動更新：デモOFFかつ間隔が「手動のみ」でないとき、前回の取得完了から設定間隔後に次を予約 */
   schedule() {
     clearTimeout(this.timer);
     const ms = Settings.get('interval');
@@ -1717,12 +2061,12 @@ const UI = {
   async refresh(spin = false) {
     const btn = document.getElementById('btnRefresh'), lamp = document.getElementById('lamp');
     if (spin && !btn.classList.contains('spin')) { btn.classList.add('spin'); this.spinStart = Date.now(); }
-    if (this.busy) { this.again = true; return; } // 取得中なら完了後にもう一度
+    if (this.busy) { this.again = true; return; }
     this.busy = true; clearTimeout(this.timer);
     const provider = Providers.current;
     try {
       const data = await provider.fetchStatus();
-      if (provider !== Providers.current) return; // 取得中にデモ設定が切り替わった場合は破棄
+      if (provider !== Providers.current) return;
       Store.data = data; this.lastOk = Date.now();
       lamp.classList.remove('err');
       this.setSync(true, provider === LiveProvider ? Yahoo.reportText() : 'デモモード：ダミーデータを表示中');
@@ -1730,12 +2074,12 @@ const UI = {
       if (Search.isOpen()) Search.render();
       if (Detail.isOpen()) Detail.render();
     } catch (e) {
-      console.error('fetchStatus failed', e); // 失敗時は前回のデータを保持してランプを赤に
+      console.error('fetchStatus failed', e);
       lamp.classList.add('err');
       this.setSync(false, '取得エラー：' + (e && e.message ? e.message : e));
     } finally {
       this.busy = false;
-      const wait = Math.max(0, 800 - (Date.now() - this.spinStart)); // 回転アニメを最低1周は見せる
+      const wait = Math.max(0, 800 - (Date.now() - this.spinStart));
       setTimeout(() => btn.classList.remove('spin'), wait);
       if (this.again) { this.again = false; this.refresh(); } else this.schedule();
     }

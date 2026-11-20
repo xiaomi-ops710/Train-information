@@ -40,8 +40,10 @@
     <div class="actions">
       <button class="cbtn" id="btnSearch"><span class="material-symbols-outlined">search</span><span class="lbl-l" data-i18n="search"></span><span class="lbl-s">検索</span></button>
       <button class="cbtn" id="btnStation"><span class="material-symbols-outlined">pin_drop</span><span class="lbl-l" data-i18n="myStation"></span><span class="lbl-s">マイ駅</span></button>
+      <button class="cbtn" id="btnRoute"><span class="material-symbols-outlined">alt_route</span><span class="lbl-l" data-i18n="route"></span><span class="lbl-s">ルート</span></button>
       <button class="cbtn" id="btnFocus" aria-pressed="false"><span class="material-symbols-outlined">warning</span><span class="lbl-l" data-i18n="focus"></span><span class="lbl-s">異常</span></button>
       <button class="cbtn" id="btnCycle" aria-pressed="false"><span class="material-symbols-outlined">autorenew</span><span class="lbl-l" data-i18n="cycle"></span><span class="lbl-s">自動</span></button>
+      <button class="cbtn" id="btnDual" aria-pressed="false"><span class="material-symbols-outlined">view_sidebar</span><span class="lbl-l" data-i18n="dual"></span><span class="lbl-s">2画面</span></button>
       <button class="cbtn" id="btnHistory"><span class="material-symbols-outlined">history</span><span class="lbl-l" data-i18n="history"></span><span class="lbl-s">履歴</span></button>
       <button class="cbtn" id="btnClock" aria-pressed="false"><span class="material-symbols-outlined">schedule</span><span class="lbl-l">LCD時計<small class="en">Clock</small></span><span class="lbl-s">時計</span></button>
     </div>
@@ -57,6 +59,7 @@
   <div class="legend" id="legend"></div>
   <div class="detour-bar" id="detourBar" hidden></div>
   <div class="loc-chip" id="locChip" hidden></div>
+  <div class="stn-pop" id="stnPop" hidden></div>
   <div class="toast" id="toast" hidden></div>
   <div class="zoom">
     <button class="icon-btn" id="btnLocate" aria-label="現在地へ移動"><span class="material-symbols-outlined">my_location</span></button>
@@ -65,6 +68,9 @@
     <button class="icon-btn" id="zoomReset" aria-label="リセット"><span class="material-symbols-outlined">center_focus_strong</span></button>
   </div>
 </main>
+
+<aside class="info-lcd" id="infoLcd"></aside>
+
 <footer class="ticker" id="ticker">
   <div class="ticker-label">運行情報</div>
   <div class="ticker-view"><div class="ticker-track" id="tickerTrack"></div></div>
@@ -79,6 +85,7 @@
         <div class="mv-title"><b>運行情報システム設定</b><small>System Settings</small></div>
         <span class="mv-ic">LCD</span>
       </div>
+      <div class="mv-msg" id="mvMsg">ご希望の設定項目をタッチしてください</div>
       <div class="mv-cats" id="mvCats"></div>
       <div class="mv-body">
         <div id="mvMain"></div>
@@ -90,12 +97,13 @@
       </div>
       <div class="mv-maint">
         <button class="mv-silver" data-act="clearCache"><span class="material-symbols-outlined">cleaning_services</span><span class="ms-lbl"><b>キャッシュ強制クリア</b><small>タップ2回で実行</small></span></button>
-        <button class="mv-silver" data-act="resetLog"><span class="material-symbols-outlined">delete_sweep</span><span class="ms-lbl"><b>履歴ログ・メモの初期化</b><small>タップ2回で実行</small></span></button>
+        <button class="mv-silver" data-act="resetLog"><span class="material-symbols-outlined">delete_sweep</span><span class="ms-lbl"><b>履歴ログ・メモ・ルートの初期化</b><small>タップ2回で実行</small></span></button>
         <button class="mv-silver" data-act="links"><span class="material-symbols-outlined">receipt_long</span><span class="ms-lbl"><b>公式遅延証明書リンク集</b><small>各社の公式ページへ</small></span></button>
       </div>
       <div class="mv-foot">
         <button class="mv-cancel" data-close aria-label="閉じる"><b>取消</b><small>閉じる</small></button>
         <div class="mv-footinfo">
+          <button class="mv-help" id="mvHelp"><span class="material-symbols-outlined">support_agent</span><span class="ms-lbl"><b>係員呼出</b><small>操作ガイド</small></span></button>
           <button class="mv-bright" id="mvBright"><span class="material-symbols-outlined">brightness_medium</span><span class="ms-lbl"><b>明るさ調整</b><small>夜間減光 <span id="mvBrightState">OFF</span></small></span></button>
           <time class="mv-time" id="mvTime"></time>
         </div>
@@ -104,7 +112,42 @@
   </div>
 </div>
 
-<!-- 路線検索モーダル -->
+<!-- 係員呼出（操作ガイド） -->
+<div class="modal" id="modalHelp" hidden>
+  <div class="sheet sheet-search" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2>係員呼出<span class="en">Help / Guide</span></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="list help-list">
+      <div class="help-sec"><b>路線図の操作</b>
+        <p>1本指でドラッグして移動、2本指のピンチで拡大・縮小します。拡大は全体表示の5倍まで、縮小は全体表示までです。</p>
+        <p>駅名をタップすると駅の情報（マイ駅登録・この駅にズーム・周辺路線）を開きます。路線の線をタップすると路線の詳細を開きます。</p></div>
+      <div class="help-sec"><b>キーボード（入力欄以外で有効）</b>
+        <table class="help-keys">
+          <tr><td><kbd>/</kbd> または <kbd>f</kbd></td><td>路線・駅検索</td></tr>
+          <tr><td><kbd>r</kbd></td><td>運行情報を手動更新</td></tr>
+          <tr><td><kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>拡大 / 縮小 / 全体表示へリセット</td></tr>
+          <tr><td><kbd>?</kbd></td><td>この操作ガイド</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>開いている画面を閉じる</td></tr>
+        </table></div>
+      <div class="help-sec"><b>2画面LCD</b>
+        <p>ヘッダーの「2画面」をONにすると、右側に情報案内の画面が出ます。異常路線・マイ路線・マイルートを6秒ごとに切り替えて表示します。</p></div>
+      <div class="help-sec"><b>マイルート</b>
+        <p>「ルート」から通勤・通学の経路を登録できます。利用路線に遅延や見合わせが出ると、マイ路線バーに警告が表示されます。</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- マイルート -->
+<div class="modal" id="modalRoute" hidden>
+  <div class="sheet sheet-search" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2>マイルート<span class="en">My Routes</span></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="search-meta">通勤・通学の経路の運行状況をまとめて確認できます</div>
+    <div class="list" id="routeBody"></div>
+  </div>
+</div>
+
+<!-- 路線・駅検索 -->
 <div class="modal" id="modalSearch" hidden>
   <div class="sheet sheet-search" role="dialog" aria-modal="true">
     <div class="sheet-head"><h2 data-i18n="search"></h2>
@@ -126,7 +169,7 @@
       <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
     <div class="searchbar" id="stnSearch">
       <span class="material-symbols-outlined">search</span>
-      <input type="text" id="stnInput" placeholder="駅名で検索（★でマイ駅に登録）" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <input type="text" id="stnInput" placeholder="駅名で検索（路線図の全駅）" autocomplete="off" autocapitalize="off" spellcheck="false">
       <button class="clear" id="stnClear" aria-label="クリア" hidden><span class="material-symbols-outlined">cancel</span></button>
     </div>
     <div class="list" id="stnList"></div>
