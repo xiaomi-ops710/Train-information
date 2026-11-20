@@ -521,51 +521,71 @@ const pathD = el => {
  * 静止中：描画要求がない限り何も描かない（requestAnimationFrame を回し続けない）。 */
 const LINE_PATHS = [];   // 起動時に作る路線パスの索引（Path2D付き）。描画のたびに作り直さない
 
+/* ---------- 描画エンジン（iPad 第10世代 / RAM 4GB 向け：Canvas枚数を固定し、メモリを一定に保つ） ----------
+ * 基礎地図   ：長辺 3072px のCanvas（起動時に1回だけ作る。以後は作り直さない）
+ * 高精細バッファ：表示Canvasと同じ画素数のCanvasを1枚だけ作り、以後は描き直して再利用する（新しいCanvasは作らない）
+ * 高精細描画  ：静止後、表示範囲だけを元のSVGのviewBoxで画素ぴったりに描き直す（ベクター品質）。操作中は使わない
+ * 重ね描き    ：異常路線・振替・現在地ピンは、表示Canvasへ2Dベクターとして描く
+ * 静止中      ：描画要求がなければ何も描かない（rAFを回し続けない） */
+
+/* SVG文字列のルート要素の属性（viewBox・width・height）だけを書き換える（解析しない＝軽い） */
+const setRootAttrs = (xml, attrs) => {
+  const i = xml.indexOf('<svg'), j = xml.indexOf('>', i);
+  let tag = xml.slice(i, j + 1);
+  Object.entries(attrs).forEach(([k, v]) => {
+    const re = new RegExp(`\\s${k}="[^"]*"`);
+    tag = re.test(tag) ? tag.replace(re, ` ${k}="${v}"`) : tag.replace(/>$/, ` ${k}="${v}">`);
+  });
+  return xml.slice(0, i) + tag + xml.slice(j + 1);
+};
+
 const Engine = {
-  BW: 3072, VW: 7300, VH: 5400,
+  BW: 3072, VW: 7300, VH: 5400, HI_RATIO: 1.3, SETTLE_MS: 180,
   stage: null, canvas: null, ctx: null, dpr: 1, W: 1, H: 1, ready: false,
-  base: null, baseDoc: null, svgText: '',
+  base: null, svgText: '',
+  patch: null, patchCtx: null, patchView: null, patchValid: false,
+  hiImg: null, hiUrl: null, hiGen: 0, hiTimer: 0, hiMs: 0, moving: false,
   state: { company: 'all', alert: false, detour: null },
   blinkOn: true, marker: null, lastDraw: 0, drawCount: 0, pin: null, raf: 0,
 
   init(stage, canvas) {
     this.stage = stage; this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.patch = document.createElement('canvas');           // 高精細バッファ：起動時の1回だけ作る
+    this.patchCtx = this.patch.getContext('2d');
+    this.hiImg = new Image();                                // 高精細描画用のImageも1つだけ
     this.resize();
     if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(stage);
     window.addEventListener('resize', () => this.resize());
   },
-  /* 表示用Canvasを画面サイズ×1.5（上限）に合わせる。サイズが変わったときだけ確保し直す */
+  /* 表示Canvasと高精細バッファを、画面サイズ×DPR（上限2.0）に合わせる。サイズが変わったときだけ確保し直す */
   resize() {
     if (!this.stage || !this.canvas) return;
     const r = this.stage.getBoundingClientRect();
     this.W = Math.max(1, r.width); this.H = Math.max(1, r.height);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2.0);
     const w = Math.round(this.W * this.dpr), h = Math.round(this.H * this.dpr);
-    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
+    if (this.canvas.width !== w || this.canvas.height !== h) {
+      this.canvas.width = w; this.canvas.height = h;
+      this.patch.width = w; this.patch.height = h;
+      this.patchValid = false;                               // 大きさが変わったら高精細の結果は使わない
+    }
     this.requestDraw();
   },
-  /* 描画要求：同じフレーム内の要求は1回にまとめる。要求がなければ何もしない */
   requestDraw() { if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.draw(); }); },
   setState(p) { Object.assign(this.state, p); this.requestDraw(); },
   setBlink(on) { if (this.blinkOn === on) return; this.blinkOn = on; this.requestDraw(); },
   onStatus() { this.requestDraw(); },
 
-  /* 起動時に1回だけ：SVG → 長辺3072pxの基礎地図Canvas。完了後はSVGの解析結果を解放する */
+  /* 起動時に1回だけ：元のSVG → 長辺3072pxの基礎地図。SVG文字列は高精細描画のために保持する */
   async buildBase() {
-    if (!this.baseDoc) return;
+    if (!this.svgText) return;
     const BH = Math.round(this.BW * this.VH / this.VW);
-    const cv = await this.rasterize({ x: 0, y: 0, w: this.VW, h: this.VH }, this.BW, BH);
+    const cv = await this.rasterize(setRootAttrs(this.svgText, { viewBox: `0 0 ${this.VW} ${this.VH}`, width: String(this.BW), height: String(BH) }), this.BW, BH);
     if (cv) this.base = cv;
-    this.baseDoc = null; this.svgText = '';
     this.requestDraw();
   },
-  /* 指定範囲を pw×ph のCanvasへラスタライズする（起動時の一度だけ使う） */
-  async rasterize(vb, pw, ph) {
-    const root = this.baseDoc.documentElement;
-    root.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-    root.setAttribute('width', String(pw)); root.setAttribute('height', String(ph));
-    const str = new XMLSerializer().serializeToString(root);
-    const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml' }));
+  async rasterize(xml, pw, ph) {
+    const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml' }));
     try {
       const img = new Image();
       img.src = url;
@@ -579,8 +599,43 @@ const Engine = {
     } finally { URL.revokeObjectURL(url); }
   },
 
+  /* 操作の開始・終了：操作中は高精細結果を捨て、静止後に描き直す */
+  beginMove() {
+    this.moving = true; clearTimeout(this.hiTimer);
+    this.patchValid = false; this.hiGen++;                   // 作成中の結果も無効にする
+  },
+  endMove() { this.moving = false; this.scheduleHi(); },
+  scheduleHi() { clearTimeout(this.hiTimer); this.hiTimer = setTimeout(() => this.renderHi(), this.SETTLE_MS); },
+  /* 表示範囲が、高精細バッファの描いた範囲と一致しているか */
+  viewMatches() {
+    const p = this.patchView; if (!p) return false;
+    return Math.abs(Zoom.vx - p.vx) < 0.5 && Math.abs(Zoom.vy - p.vy) < 0.5 && Math.abs(Zoom.vw - p.vw) < 0.5;
+  },
+  /* 高精細描画：表示範囲だけを、表示と同じ画素数で元のSVGから描き直し、高精細バッファへ入れる */
+  renderHi() {
+    if (!this.svgText || this.moving || !this.patchCtx) return;
+    if (Zoom.maxVw() / Zoom.vw < this.HI_RATIO) { this.patchValid = false; this.requestDraw(); return; }
+    const v = { vx: Zoom.vx, vy: Zoom.vy, vw: Zoom.vw, vh: Zoom.vh() };
+    const gen = ++this.hiGen, pw = this.patch.width, ph = this.patch.height, t0 = performance.now();
+    const xml = setRootAttrs(this.svgText, { viewBox: `${v.vx} ${v.vy} ${v.vw} ${v.vh}`, width: String(pw), height: String(ph) });
+    if (this.hiUrl) { URL.revokeObjectURL(this.hiUrl); this.hiUrl = null; }   // 前回の未使用URLは即解放
+    const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml' }));
+    this.hiUrl = url;
+    const img = this.hiImg;
+    img.onload = () => {
+      if (gen !== this.hiGen) { this.releaseHi(url); return; }             // 操作が再開されていたら破棄
+      this.patchCtx.clearRect(0, 0, pw, ph);
+      this.patchCtx.drawImage(img, 0, 0, pw, ph);
+      this.patchView = v; this.patchValid = true;
+      this.hiMs = performance.now() - t0;
+      this.releaseHi(url); this.requestDraw();
+    };
+    img.onerror = () => { this.releaseHi(url); console.error('高精細描画に失敗しました'); };
+    img.src = url;
+  },
+  releaseHi(url) { URL.revokeObjectURL(url); if (this.hiUrl === url) this.hiUrl = null; },
+
   pathOf(r) { return r.path || (r.path = new Path2D(r.d)); },
-  /* 路線を指定色で描く（薄い基礎地図の上に、本来の色で鮮明に出す） */
   strokeSolid(c, r, color) {
     const m = r.m;
     c.save();
@@ -600,25 +655,15 @@ const Engine = {
     c.globalAlpha = alpha; c.lineWidth = r.sw * 1.15; c.setLineDash(dash ? [28, 16] : []); c.stroke(this.pathOf(r));
     c.restore();
   },
-  /* 基礎地図：会社絞り込みは 0.18、異常強調は 0.16、通常は 1.0（新しいCanvasは作らない） */
-  drawBase(c, alpha) {
-    if (!this.base) return;
-    c.globalAlpha = alpha;
-    c.drawImage(this.base, 0, 0, this.base.width, this.base.height, 0, 0, this.VW, this.VH);
-    c.globalAlpha = 1;
-  },
-  /* 会社絞り込み：選ばれた会社の路線を、本来の色で上から描き直す */
   drawCompanyLines(c) {
     const co = this.state.company; if (co === 'all') return;
     LINE_PATHS.forEach(r => { if (r.company === co) this.strokeSolid(c, r); });
   },
-  /* 振替ルート表示中：地図全体を薄くし、対象路線と代替路線を元の色で描き直す */
   drawDetour(c, det) {
     const L = lineByName(det), alts = new Set(L ? L.alt : []);
     c.save(); c.fillStyle = 'rgba(244,245,248,0.86)'; c.fillRect(0, 0, this.VW, this.VH); c.restore();
     LINE_PATHS.forEach(r => { if (r.line === det || alts.has(r.line)) this.strokeSolid(c, r); });
   },
-  /* 異常路線：強調のときは本来の色で描き直してから発光を重ねる。会社フィルター外は光らせない */
   drawGlow(c, det) {
     const s = this.state, alts = det ? new Set((lineByName(det) || { alt: [] }).alt) : null;
     const a = this.blinkOn ? 1 : 0.3, emph = s.alert || s.company !== 'all';
@@ -638,7 +683,6 @@ const Engine = {
       this.strokeRail(c, r, color, a, false);
     });
   },
-  /* 運転見合わせ路線のターミナルに赤い警告点 */
   drawPulses(c, unit) {
     if (!LINES.some(L => Store.of(L.ja).status === 'suspend')) return;
     c.save(); c.globalAlpha = this.blinkOn ? 1 : 0.3;
@@ -651,7 +695,6 @@ const Engine = {
     });
     c.restore();
   },
-  /* 現在地ピン（画面上で同じ大きさに見えるよう、単位を補正して描く） */
   drawMarker(c, unit) {
     const m = this.marker; if (!m) return;
     if (!this.pin) this.pin = new Path2D('M0 0 C-4 -12 -17 -22 -17 -34 A17 17 0 1 1 17 -34 C17 -22 4 -12 0 0Z');
@@ -663,17 +706,25 @@ const Engine = {
     c.beginPath(); c.arc(0, -34, 6.5, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
     c.restore();
   },
-  /* 1回の描画：背景 → 基礎地図 → 会社・強調・振替 → 発光 → 警告 → 現在地 */
+  /* 1回の描画：背景 → 地図（高精細バッファ or 基礎地図）→ 会社・強調・振替 → 発光 → 警告 → 現在地 */
   draw() {
     if (!this.ctx || !this.ready || !this.canvas.width) return;
     const t0 = performance.now(), c = this.ctx, vw = Zoom.vw, unit = vw / this.W, s = this.state, det = s.detour;
     const scale = this.dpr * this.W / vw;
+    const alpha = det ? 1 : (s.company !== 'all' ? 0.18 : (s.alert ? 0.16 : 1));
+    const usePatch = !this.moving && this.patchValid && this.viewMatches();
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalAlpha = 1; c.fillStyle = '#f4f5f8'; c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    if (usePatch) {                                           // 高精細バッファは表示と画素が一致するので、そのまま描く
+      c.globalAlpha = alpha; c.drawImage(this.patch, 0, 0); c.globalAlpha = 1;
+    }
     c.setTransform(scale, 0, 0, scale, -Zoom.vx * scale, -Zoom.vy * scale);
     c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
-    const alpha = det ? 1 : (s.company !== 'all' ? 0.18 : (s.alert ? 0.16 : 1));
-    this.drawBase(c, alpha);
+    if (!usePatch && this.base) {                             // 操作中・高精細なし：基礎地図を切り出して描く
+      c.globalAlpha = alpha;
+      c.drawImage(this.base, 0, 0, this.base.width, this.base.height, 0, 0, this.VW, this.VH);
+      c.globalAlpha = 1;
+    }
     if (det) this.drawDetour(c, det); else this.drawCompanyLines(c);
     this.drawGlow(c, det);
     this.drawPulses(c, unit);
@@ -698,7 +749,7 @@ const MapView = {
       this.dom = { before: root.getElementsByTagName('*').length };
       this.dom.removed = Sanitize.run(root);
       this.dom.after = root.getElementsByTagName('*').length;
-      Engine.baseDoc = doc;
+      Engine.svgText = Engine.svgText || txt.slice(txt.indexOf('<svg'));
       const vb = (root.getAttribute('viewBox') || '0 0 7300 5400').trim().split(/[\s,]+/).map(Number);
       Engine.VW = vb[2]; Engine.VH = vb[3];
       const holder = document.createElement('div');
@@ -849,12 +900,14 @@ const Zoom = {
   beginInteract() {
     clearTimeout(this.endTimer);
     if (!this.stage.classList.contains('is-zooming')) this.stage.classList.add('is-zooming');
+    Engine.beginMove();
   },
   endInteractLater() { clearTimeout(this.endTimer); this.endTimer = setTimeout(() => this.finish(), 150); },
   /* 操作終了：表示範囲を確定し、静止後の精細化を予約する */
   finish() {
     this.writeView();
     this.stage.classList.remove('is-zooming');
+    Engine.endMove();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
   mid() { const [a, b] = [...this.pts.values()]; return [(a.x + b.x) / 2, (a.y + b.y) / 2]; },
@@ -1674,7 +1727,7 @@ const Guard = {
   }
 };
 
-/* ---------- 性能診断HUD：基礎地図のメモリ・表示Canvasのメモリ・描画回数・直近の描画時間（1秒ごとに更新、rAFは使わない） ---------- */
+/* ---------- 性能診断HUD：画質の状態・固定メモリ・描画回数・描画時間（1秒ごとに更新、rAFは使わない） ---------- */
 const Hud = {
   el: null, on: false, timer: 0, lastCount: 0,
   setOn(v) {
@@ -1687,8 +1740,9 @@ const Hud = {
   render() {
     const n = Engine.drawCount, per = n - this.lastCount; this.lastCount = n;
     const mb = cv => (cv ? cv.width * cv.height * 4 / 1048576 : 0);
-    const base = Engine.base ? `${Engine.base.width}×${Engine.base.height}（${mb(Engine.base).toFixed(1)}MB固定）` : '未作成';
-    this.el.textContent = `基礎地図 ${base} ／ 表示 ${mb(Engine.canvas).toFixed(1)}MB ／ 描画 ${per}回/秒 ・直近 ${Engine.lastDraw.toFixed(2)}ms ／ DOM ${document.getElementsByTagName('*').length}`;
+    const total = mb(Engine.base) + mb(Engine.canvas) + mb(Engine.patch);
+    const hi = Engine.patchValid && Engine.viewMatches() ? '高精細ベクター描画済' : '標準描画';
+    this.el.textContent = `${hi} ／ 固定メモリ 約${total.toFixed(1)}MB（基礎 ${mb(Engine.base).toFixed(1)}・表示 ${mb(Engine.canvas).toFixed(1)}・高精細 ${mb(Engine.patch).toFixed(1)}） ／ 描画 ${per}回/秒・直近 ${Engine.lastDraw.toFixed(2)}ms ／ 高精細 ${Engine.hiMs.toFixed(0)}ms ／ DOM ${document.getElementsByTagName('*').length}`;
   }
 };
 
