@@ -1471,7 +1471,7 @@ const SETTING_DEFS = [
 const MV_CATS = [['display', '表示・LCD', 'Display'], ['audio', '音声・通知', 'Sound'], ['comm', '通信・動作', 'System'], ['all', 'すべて表示', 'Show all']];
 const MV_DEFAULT_MSG = 'ご希望の設定項目をタッチしてください';
 const MV = {
-  cat: 'all', armTimer: null,
+  cat: 'display', armTimer: null,
   init() {
     document.getElementById('btnSettings').onclick = () => this.open();
     document.getElementById('modalSettings').addEventListener('click', e => {
@@ -1910,35 +1910,28 @@ const InfoLcd = {
     this.draw();
   },
   draw() {
-    const s = this.slides[this.i] || { kind: 'ok' }, d = new Date(), p = n => String(n).padStart(2, '0'), on = I18n.bi();
+    const s = this.slides[this.i] || { kind: 'ok' }, on = I18n.bi();
     let body;
     if (s.kind === 'line' || s.kind === 'fav') {
       const L = s.L, st = Store.of(L.ja);
-      body = `<div class="lcd" style="--lc:${L.color}">
-        <div class="lcd-head">
-          <div class="co">${L.op.ja}${on ? `<small>${L.op.en}</small>` : ''}</div>
-          <span class="cbar"></span><span class="sym">${L.code}</span>
-          <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>
-          <div class="rside"><div class="rtop"><span class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></span><time>${p(d.getHours())}:${p(d.getMinutes())}</time></div>${statusBadge(st.status, 'car')}</div>
-        </div>
+      body = `<div class="lcd e235" style="--lc:${L.color}">${Lcd.headHtml(L, st, {})}
         <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
-        <div class="lcd-body"><p class="h">【${L.ja}　${STATUS[st.status].ja}】</p><p>${Detail.highlight(st.status === 'normal' ? STRINGS.normalTxt.ja : (st.detail || ''))}</p></div>
-      </div>`;
+        <div class="lcd-screen" data-pager="info">${Lcd.pages(L, st).map((p, k) => `<div class="lcd-page${k ? '' : ' on'}">${p}</div>`).join('')}<span class="pg-badge">1/${Lcd.pages(L, st).length}</span></div></div>`;
     } else if (s.kind === 'route') {
       const { bad, worst } = Routes.status(s.r);
-      body = `<div class="lcd">
-        <div class="lcd-head"><div class="lname"><b>${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="rside">${statusBadge(worst, 'car')}</div></div>
+      body = `<div class="lcd e235">
+        <div class="lcd-head plain"><div class="lh-name"><b>${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="lh-right">${statusBadge(worst, 'car')}</div></div>
         <div class="lcd-sub">${on ? 'マイルート　My Route' : 'マイルート'}</div>
-        <div class="lcd-body">${bad.map(x => `<p class="h">【${x.n}　${STATUS[x.st].ja}】</p><p>${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div>
-      </div>`;
+        <div class="lcd-screen"><div class="lcd-page on">${bad.map(x => `<p class="jp-h">【${x.n}　${STATUS[x.st].ja}】</p><p class="jp-b">${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div></div></div>`;
     } else {
-      body = `<div class="lcd"><div class="lcd-head"><div class="lname"><b>運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
-        <div class="lcd-body"><p class="h">現在の運行状況</p><p>現在、関東エリアの主要路線は平常通り運転しています。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div>`;
+      body = `<div class="lcd e235"><div class="lcd-head plain"><div class="lh-name"><b>運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
+        <div class="lcd-screen"><div class="lcd-page on"><p class="jp-h">現在の運行状況</p><p class="jp-b">現在、関東エリアの主要路線は平常通り運転しています。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div></div>`;
     }
-    const n = this.slides.length || 1;
-    this.el.innerHTML = `<div class="info-head"><b>情報案内${on ? '　Info' : ''}</b><span class="info-dots">${this.slides.map((_, k) => `<i class="${k === this.i ? 'on' : ''}"></i>`).join('')}</span></div>
+    const n = this.slides.length || 1, p = x => String(x).padStart(2, '0'), d = new Date();
+    this.el.innerHTML = `<div class="info-head"><b>情報案内${on ? '　Info' : ''}</b><span class="info-dots">${this.slides.map((_, k) => `<i class="${k === this.i ? 'on' : ''}"></i>`).join('')}</span><time>${p(d.getHours())}:${p(d.getMinutes())}</time></div>
       <div class="info-body">${body}</div>
       <div class="info-foot">${this.i + 1} / ${n}　<small>タップで次の情報${on ? ' / Tap for next' : ''}</small></div>`;
+    Lcd.mount(this.el.querySelector('[data-pager="info"]'), 'info', 5000, false);
   },
   next() { if (!this.slides.length) return; this.i = (this.i + 1) % this.slides.length; this.draw(); },
   start() { clearInterval(this.timer); this.timer = setInterval(() => this.next(), 6000); },
@@ -1959,8 +1952,87 @@ const bi = (ja, en) => I18n.bi() && en ? `${ja}<small class="en">${en}</small>` 
 const statusBadge = (st, cls = 'st') => `<span class="${cls} ${st}">${bi(STATUS[st].ja, STATUS[st].en)}</span>`;
 const pad = n => String(n).padStart(2, '0');
 
-/* ---------- E235系 異常時案内風ポップアップ ---------- */
+/* ---------- E235系 車内LCD風の共通部品（詳細ポップアップ・2画面LCD・異常ボードで共通） ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const Lcd = {
+  timers: {},
+  /* 遅延理由（日本語）→ 英語の原因。対応のない語は「調査中」にする */
+  CAUSE: [
+    [/人身事故|人身/, 'Person on tracks'], [/車両点検|施設点検|点検/, 'Inspection'], [/強風/, 'Strong winds'],
+    [/大雨|豪雨|雨/, 'Heavy rain'], [/信号/, 'Signal trouble'], [/車両故障|故障/, 'Train breakdown'],
+    [/線路内|立入/, 'Obstruction on tracks'], [/停電/, 'Power outage'], [/踏切/, 'Level crossing trouble'],
+    [/架線/, 'Overhead line trouble'], [/火災|煙/, 'Smoke or fire'], [/救護/, 'Passenger assistance'],
+    [/改良工事|工事/, 'Construction work'], [/事故/, 'Accident']
+  ],
+  causeEn(text) { const t = String(text || ''); const hit = this.CAUSE.find(([re]) => re.test(t)); return hit ? hit[1] : 'Under investigation'; },
+  dirEn(text) {
+    const t = String(text || '');
+    if (/内回り/.test(t)) return 'Inbound';
+    if (/外回り/.test(t)) return 'Outbound';
+    if (/上り/.test(t)) return 'Up direction';
+    if (/下り/.test(t)) return 'Down direction';
+    return 'Both directions';
+  },
+  statusEn(st) { return { normal: 'Normal service', delay: 'Delay', partial: 'Partial suspension', suspend: 'Suspended' }[st] || 'Unknown'; },
+  companyCode(L) {
+    if (L.co === 'JR') return 'JRE';
+    if (L.co === 'Metro') return 'TM';
+    if (L.co === 'Toei') return 'TOEI';
+    return String(L.op.en || '').split(/\s+/)[0].slice(0, 6).toUpperCase();
+  },
+  /* 1ページ目（日本語）と、異常時のみの2ページ目（英語の4行表） */
+  pages(L, s) {
+    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : Detail.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
+    const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>`;
+    if (s.status === 'normal') return [ja];
+    const rows = [['Line', L.en], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', this.causeEn(s.detail)]];
+    const en = `<table class="en-tbl">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
+    return [ja, en];
+  },
+  /* 上段ダークヘッダー：会社バッジ・路線カラー帯・路線記号・路線名・時刻・号車 */
+  headHtml(L, s, o = {}) {
+    const on = I18n.bi(), d = new Date(), p = n => String(n).padStart(2, '0');
+    const fav = o.fav === undefined ? '' : `<button class="fav-btn${o.fav ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${!!o.fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>`;
+    const time = o.dtime ? '<time id="dTime">--:--</time>' : `<time>${p(d.getHours())}:${p(d.getMinutes())}</time>`;
+    return `<div class="lcd-head">
+      <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><span class="lh-dir">方面</span></div>
+      <span class="cbar"></span>
+      <div class="lh-sym"><span class="lh-status">運行状況</span><div class="sym-box"><span class="sym-co">${esc(this.companyCode(L))}</span><span class="sym-code">${esc(L.code)}</span></div></div>
+      <div class="lh-name"><b>${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : ''}${fav}</div>
+      <div class="lh-right">${time}<div class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></div>${statusBadge(s.status, 'car')}</div>
+    </div>`;
+  },
+  /* ページ送り：2ページ以上のときだけ、パネルのタップと5秒ごとに切り替える */
+  mount(root, key, ms, tapToNext) {
+    clearInterval(this.timers[key]); this.timers[key] = 0;
+    if (!root) return;
+    const pages = [...root.querySelectorAll('.lcd-page')], badge = root.querySelector('.pg-badge');
+    let i = 0;
+    const show = n => {
+      i = n % pages.length;
+      pages.forEach((pg, k) => pg.classList.toggle('on', k === i));
+      if (badge) badge.textContent = `${i + 1}/${pages.length}`;
+    };
+    show(0);
+    if (pages.length < 2) return;
+    if (tapToNext) root.onclick = () => show(i + 1);
+    this.timers[key] = setInterval(() => {
+      if (!root.getClientRects().length) { clearInterval(this.timers[key]); this.timers[key] = 0; return; } // 画面から消えたら止める
+      show(i + 1);
+    }, ms);
+  },
+  /* 詳細ポップアップ本体（ページ送りつき） */
+  bodyHtml(L, s, on, o = {}) {
+    const pages = this.pages(L, s);
+    return `<div class="lcd e235" style="--lc:${L.color}">
+      ${this.headHtml(L, s, o)}
+      <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
+      <div class="lcd-screen" data-pager="${o.key || 'x'}">${pages.map((p, k) => `<div class="lcd-page${k ? '' : ' on'}">${p}</div>`).join('')}<span class="pg-badge">1/${pages.length}</span></div>
+      ${o.extra || ''}
+    </div>`;
+  }
+};
+
 const Detail = {
   el: null, name: null,
   open(name) { this.name = name; this.render(); this.el.hidden = false; this.tickTime(); },
@@ -1976,31 +2048,18 @@ const Detail = {
     const memoEl = document.getElementById('memoText');
     if (memoEl && document.activeElement === memoEl) return; // メモ入力中は再描画しない
     const L = lineByName(this.name); if (!L) return;
-    const s = Store.of(L.ja), st = STATUS[s.status], on = I18n.bi();
-    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : this.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
+    const s = Store.of(L.ja), on = I18n.bi();
     const url = /^https:\/\/transit\.yahoo\.co\.jp\//.test(s.url || '') ? s.url : YAHOO_URL;
     const rt = 'https://search.yahoo.co.jp/realtime/search?p=' + encodeURIComponent(L.ja + ' 遅延');
-    const fav = Favs.has(L.ja);
-    document.getElementById('detailBody').innerHTML = `
-      <div class="lcd" style="--lc:${L.color}">
-        <div class="lcd-head">
-          <div class="co">${L.op.ja}${on ? `<small>${L.op.en}</small>` : ''}</div>
-          <span class="cbar"></span>
-          <span class="sym">${L.code}</span>
-          <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>
-          <button class="fav-btn${fav ? ' on' : ''}" data-fav="${L.ja}" aria-pressed="${fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>
-          <div class="rside"><div class="rtop"><span class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></span><time id="dTime">--:--</time></div>${statusBadge(s.status, 'car')}</div>
-        </div>
-        <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
-        <div class="lcd-body"><p class="h">【${L.ja}　${st.ja}】</p><p>${body}</p></div>
-        <div class="lcd-memo"><label for="memoText">${bi('マイメモ', 'My Memo')}</label>
+    const extra = `<div class="lcd-memo"><label for="memoText">${bi('マイメモ', 'My Memo')}</label>
           <textarea id="memoText" rows="2" maxlength="300" placeholder="例：西船橋から東西線に振替">${esc(Memos.get(L.ja))}</textarea></div>
         <div class="lcd-foot">
           <button class="btn-alt" data-act="detour"><span class="material-symbols-outlined">alt_route</span>${bi('振替・代替ルートを路線図で表示', 'Show alternative routes')}</button>
           <a class="btn-rt" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>${bi('現場のリアルタイム状況を検索', 'Realtime search')}</a>
           <a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a>
-        </div>
-      </div>`;
+        </div>`;
+    document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { fav: Favs.has(L.ja), dtime: true, key: 'detail', extra });
+    Lcd.mount(document.querySelector('#detailBody .lcd-screen'), 'detail', 5000, true);
     this.tickTime();
   },
   tickTime() {

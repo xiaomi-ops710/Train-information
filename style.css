@@ -545,3 +545,111 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 
 /* ================= 連打防止ロック中の見た目 ================= */
 .cool{opacity:.65!important;transition:opacity .15s}
+
+/* ================= v14：E235系 車内LCD風（詳細・2画面・共通） ================= */
+.lcd.e235{background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 0 0 3px #0b0c0e,0 10px 24px rgba(0,0,0,.45)}
+.lcd.e235 .lcd-head{display:flex;align-items:stretch;gap:0;height:auto;min-height:128px;padding:0;background:linear-gradient(180deg,#2d3033 0%,#1c1e20 45%,#141517 100%);color:#fff;box-shadow:none}
+.lcd-head .lh-left{flex:none;width:170px;display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px 10px}
+.co-pill{align-self:flex-start;background:#b8ccf0;color:#0d1b3a;border-radius:4px;padding:3px 9px;font:700 .85rem 'Noto Sans JP',sans-serif;white-space:nowrap}
+.lh-dir{align-self:flex-end;font:500 .75rem 'Noto Sans JP',sans-serif;opacity:.85}
+.lcd.e235 .cbar{flex:none;width:20px;height:auto;align-self:stretch;background:var(--lc);border-radius:0;box-shadow:none}
+.lcd.e235 .lh-sym{flex:none;width:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 8px}
+.lh-status{font:700 .8rem 'Noto Sans JP',sans-serif;color:#fff;letter-spacing:.1em}
+.sym-box{width:118px;background:#111;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px #000 inset}
+.sym-co{display:block;text-align:center;font:800 .72rem Inter,sans-serif;color:#fff;padding:3px 0;letter-spacing:.12em;background:#111}
+.sym-code{display:flex;align-items:center;justify-content:center;height:50px;margin:0 8px 8px;background:#fff;border:5px solid var(--lc);border-radius:8px;font:900 1.7rem Inter,sans-serif;color:#000;letter-spacing:-.02em}
+.lcd.e235 .lh-name{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:12px 18px}
+.lcd.e235 .lh-name b{font:900 clamp(2rem,4.4vw,3rem)/1.1 'Noto Sans JP',sans-serif;letter-spacing:.18em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcd.e235 .lh-name small{font:600 .95rem Inter,sans-serif;letter-spacing:.14em;opacity:.85;margin-top:4px}
+.lcd.e235 .lh-name .fav-btn{align-self:flex-start;margin-top:6px}
+.lcd.e235 .lh-right{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;padding:10px 16px}
+.lcd.e235 .lh-right time{font:600 1.5rem Inter,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.lcd.e235 .carno{display:flex;flex-direction:column;align-items:flex-end;line-height:1}
+.lcd.e235 .carno b{font:800 3.2rem/1 Inter,sans-serif;font-variant-numeric:tabular-nums}
+.lcd.e235 .carno small{font:600 .8rem 'Noto Sans JP',sans-serif;margin-top:2px}
+.lcd.e235 .lcd-sub{height:44px;display:flex;align-items:center;justify-content:center;background:#eceff4;color:#000;font:900 1.05rem 'Noto Sans JP',sans-serif;letter-spacing:.14em;border-top:1px solid #b0b5bd;border-bottom:1px solid #b0b5bd}
+.lcd-screen{position:relative;margin:0;min-height:260px;padding:26px 34px 40px;background:linear-gradient(180deg,#dce1ea 0%,#c8cfd9 100%);border:4px solid #111;color:#111}
+.lcd-page{display:none}
+.lcd-page.on{display:block}
+.jp-h{margin:0 0 .45em;font:900 1.45rem/1.4 'Noto Sans JP',sans-serif;letter-spacing:.08em}
+.jp-b{margin:0;font:700 1.22rem/1.95 'Noto Sans JP',sans-serif;letter-spacing:.04em}
+.en-tbl{width:100%;border-collapse:collapse;border:1px solid #555;background:#fff;font:600 1.1rem/1.4 Inter,sans-serif}
+.en-tbl th{width:26%;background:#8ca7ce;color:#111;text-align:left;padding:10px 14px;border:1px solid #555;font-weight:700}
+.en-tbl td{width:74%;background:#fff;color:#111;padding:10px 14px;border:1px solid #555}
+.pg-badge{position:absolute;right:12px;bottom:10px;background:#fff;color:#111;border-radius:999px;padding:3px 12px;font:800 .95rem Inter,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.lcd.e235 .lcd-memo,.lcd.e235 .lcd-foot{background:#fff}
+.lcd.e235 .lcd-head.plain .lh-name{padding-left:18px}
+.lcd.e235 .lcd-head.plain{min-height:96px}
+
+/* ================= v14：MV50系風 設定UI（オリジナルの配色・比率） ================= */
+.mv{width:min(860px,96vw);max-height:96vh;padding:0;border-radius:14px;background:#080808;box-shadow:0 24px 60px #000d;display:flex;flex-direction:column}
+.mv-screen{display:flex;flex-direction:column;min-height:0;flex:1;background:#fff;border-radius:14px;overflow:hidden}
+.mv-head{flex:none;display:flex;align-items:center;gap:18px;padding:12px 18px;background:#080808;color:#fff}
+.mv-badge{flex:none;width:66px;height:66px;background:#fff;border-radius:6px;display:grid;place-items:center}
+.mv-badge-dot{width:52px;height:52px;border-radius:50%;background:#008b38;display:grid;place-items:center}
+.mv-badge-dot .material-symbols-outlined{color:#fff;font-size:30px}
+.mv-title{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.mv-title b{font:900 1.75rem/1.2 'Noto Sans JP',sans-serif;letter-spacing:.1em}
+.mv-rule{display:block;width:100%;height:0;border-top:1px solid #666;margin:6px 0 4px}
+.mv-title small{font:600 .95rem Inter,sans-serif;letter-spacing:.14em;opacity:.9}
+.mv-ic{flex:none;width:78px;height:64px;background:#fff;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.mv-ic-bar{position:absolute;left:12px;top:16px;width:6px;height:24px;background:#8a5a2b;border-radius:2px}
+.mv-ic b{font:800 1rem Inter,sans-serif;color:#d1181f;margin-left:12px}
+.mv-bar{flex:none;display:flex;align-items:center;gap:14px;padding:12px 16px;background:#f7f4e4;border-bottom:1px solid #d9d4b8}
+.mv-msg{flex:none;max-width:250px;font:700 1rem/1.5 'Noto Sans JP',sans-serif;color:#111}
+.mv-msg.flash{animation:msgflash .5s ease-out}
+.mv-cats{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;justify-content:flex-end}
+.mv-tab{padding:7px 14px;border:1.5px solid #8a8a8a;border-radius:999px;background:linear-gradient(180deg,#fff,#e6e6e6);color:#111;font:700 .9rem 'Noto Sans JP',sans-serif;box-shadow:0 2px 0 #8a8a8a;cursor:pointer}
+.mv-tab small{display:none}
+.mv-tab[aria-pressed="true"]{background:linear-gradient(180deg,#44474c,#111);color:#fff;border-color:#000;box-shadow:0 1px 0 #000;transform:translateY(1px)}
+.mv-body{flex:1;min-height:0;overflow-y:auto;background:#fff;padding:16px}
+.mv-main-btn{width:100%;padding:16px 16px 14px;border:3px solid #000;border-radius:12px;background:linear-gradient(180deg,#44474c 0%,#15171a 100%);color:#fff;text-align:center;box-shadow:0 4px 0 #000}
+.mv-main-btn b{display:block;font:900 1.5rem 'Noto Sans JP',sans-serif;letter-spacing:.06em}
+.mv-main-btn small{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #b9bdc6;font:500 .9rem/1.5 'Noto Sans JP',sans-serif;opacity:.92}
+.mv-main-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #000}
+.mv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.mv-btn.tile{min-height:76px;padding:10px 14px;border:3px solid #111;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#d9dce2 100%);color:#111;box-shadow:0 3px 0 #111}
+.mv-btn.tile:active{transform:translateY(3px);box-shadow:0 0 0 #111}
+.mv-maint{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 16px;background:#ebe6ce}
+.mv-silver{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 8px;border:3px solid #111;border-radius:10px;background:linear-gradient(180deg,#ffffff,#d0d0d0);color:#111;box-shadow:0 3px 0 #111;cursor:pointer}
+.mv-silver:active{transform:translateY(3px);box-shadow:none}
+.mv-silver.armed{background:linear-gradient(180deg,#fff1b8,#f5c21c)}
+.mv-foot{flex:none;display:flex;align-items:center;gap:14px;padding:12px 16px;background:#e2dca8}
+.mv-cancel{flex:none;width:80px;height:80px;border-radius:50%;border:4px solid #fff;color:#fff;cursor:pointer;background:radial-gradient(circle at 38% 30%,#ff9c9c 0%,#e30613 52%,#8c0008 100%);box-shadow:0 0 0 3px #8c0008,0 0 0 7px #d9d28f,0 6px 10px rgba(0,0,0,.35)}
+.mv-cancel b{font:900 1.1rem 'Noto Sans JP',sans-serif;letter-spacing:.06em}
+.mv-cancel:active{transform:translateY(3px)}
+.mv-status{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#fff;border:2px solid #111;border-radius:999px;white-space:nowrap;overflow:hidden}
+.mv-status-tag{font:800 .8rem Inter,sans-serif;letter-spacing:.1em;color:#111}
+.mv-status-txt{display:flex;gap:12px;font:600 .8rem 'Noto Sans JP',sans-serif;color:#222;min-width:0;overflow:hidden}
+.mv-footinfo{flex:none;display:flex;align-items:center;gap:10px}
+.mv-bright{display:flex;align-items:center;gap:8px;padding:8px 14px;border:2px solid #7a6a2f;border-radius:999px;background:linear-gradient(180deg,#fff6d9,#f1dc9a);color:#111;cursor:pointer}
+.mv-bright.on{background:linear-gradient(180deg,#44474c,#15171a);color:#fff;border-color:#000}
+.mv-help{display:flex;align-items:center;gap:8px;padding:8px 14px;border:2px solid #000;border-radius:999px;background:linear-gradient(180deg,#2c2f35,#000);color:#fff;cursor:pointer}
+.mv-help:active{transform:translateY(2px)}
+.mv-time{font:700 .95rem 'Noto Sans JP',sans-serif;font-variant-numeric:tabular-nums;color:#111;white-space:nowrap}
+.mv .ms-lbl b{font:800 .9rem 'Noto Sans JP',sans-serif}
+.mv .ms-lbl small{font:500 .7rem 'Noto Sans JP',sans-serif}
+@media (max-width:640px){.mv-maint{grid-template-columns:1fr}.mv-grid{grid-template-columns:1fr}.mv-foot{flex-wrap:wrap}.mv-status{order:5;flex-basis:100%}.lcd.e235 .lh-left,.lcd.e235 .lh-right{width:auto}}
+
+/* ================= v14 補正：アイコンの幅を固定（フォント未読込時も崩れない）・フッターの折り返し ================= */
+.material-symbols-outlined{width:1em;height:1em;overflow:hidden;white-space:nowrap;flex:none;display:inline-block}
+.mv-foot{flex-wrap:wrap;row-gap:10px}
+.mv-status{flex:1 1 260px;min-width:0}
+.mv-footinfo{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+.mv-silver .ms-lbl{min-width:0}
+
+/* ================= v14 補正：2画面LCD（狭いパネル）の詰め ================= */
+.info-body .lcd.e235 .lcd-head .lh-left{width:112px}
+.info-body .lcd.e235 .lh-sym{width:112px;padding:8px 4px}
+.info-body .sym-box{width:92px}
+.info-body .sym-code{height:40px;font-size:1.3rem;margin:0 6px 6px}
+.info-body .lcd.e235 .lh-name{padding:10px 12px;min-width:0}
+.info-body .lcd.e235 .lh-name b{font-size:1.75rem;letter-spacing:.1em}
+.info-body .lcd.e235 .lh-name small{display:none}
+.info-body .lcd.e235 .lh-right{padding:8px 10px}
+.info-body .lcd.e235 .lh-right time{font-size:1.1rem}
+.info-body .lcd.e235 .carno b{font-size:2.3rem}
+.info-body .lcd.e235 .car{min-width:0;font-size:.9rem;padding:4px 8px}
+.info-body .lcd.e235 .car small{display:none}
+.info-body .jp-h{font-size:1.2rem}
+.info-body .jp-b{font-size:1.05rem}

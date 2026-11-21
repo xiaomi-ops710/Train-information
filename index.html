@@ -14,7 +14,7 @@
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Inter:wght@600;700;800&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
 </head>
@@ -78,35 +78,37 @@
   <div class="ticker-view"><div class="ticker-track" id="tickerTrack"></div></div>
 </footer>
 
-<!-- 設定：JR指定席券売機（MV50系）風タッチパネル -->
+<!-- 設定：JR指定席券売機（MV50系）風タッチパネル（オリジナルのレイアウト・配色で再現。ロゴ類は使わない） -->
 <div class="modal" id="modalSettings" hidden>
   <div class="mv" role="dialog" aria-modal="true" aria-label="運行情報システム設定">
     <div class="mv-screen">
       <div class="mv-head">
-        <span class="mv-badge"><span class="material-symbols-outlined">train</span><i class="material-symbols-outlined gear">settings</i></span>
-        <div class="mv-title"><b>運行情報システム設定</b><small>System Settings</small></div>
-        <span class="mv-ic">LCD</span>
+        <span class="mv-badge"><span class="mv-badge-dot"><span class="material-symbols-outlined">airline_seat_recline_normal</span></span></span>
+        <div class="mv-title"><b>運行情報システム設定</b><i class="mv-rule"></i><small>System Settings</small></div>
+        <span class="mv-ic"><i class="mv-ic-bar"></i><b>LCD</b></span>
       </div>
-      <div class="mv-msg" id="mvMsg">ご希望の設定項目をタッチしてください</div>
-      <div class="mv-cats" id="mvCats"></div>
+      <div class="mv-bar">
+        <div class="mv-msg" id="mvMsg">ご希望の設定項目をタッチしてください</div>
+        <div class="mv-cats" id="mvCats"></div>
+      </div>
       <div class="mv-body">
         <div id="mvMain"></div>
         <div class="mv-grid" id="mvGrid"></div>
-        <div class="mv-sync">
-          <div class="row sync"><div>最終同期時刻 <small class="en">Last sync</small></div><div class="sync-val" id="syncTime">--</div></div>
-          <div class="row sync"><div>取得ステータス <small class="en">Sync status</small></div><div class="sync-val" id="syncState">未同期</div></div>
-        </div>
       </div>
       <div class="mv-maint">
         <button class="mv-silver" data-act="clearCache"><span class="material-symbols-outlined">cleaning_services</span><span class="ms-lbl"><b>キャッシュ強制クリア</b><small>タップ2回で実行</small></span></button>
-        <button class="mv-silver" data-act="resetLog"><span class="material-symbols-outlined">delete_sweep</span><span class="ms-lbl"><b>履歴ログ・メモ・ルートの初期化</b><small>タップ2回で実行</small></span></button>
+        <button class="mv-silver" data-act="resetLog"><span class="material-symbols-outlined">delete_sweep</span><span class="ms-lbl"><b>履歴ログ・メモ初期化</b><small>タップ2回で実行</small></span></button>
         <button class="mv-silver" data-act="links"><span class="material-symbols-outlined">receipt_long</span><span class="ms-lbl"><b>公式遅延証明書リンク集</b><small>各社の公式ページへ</small></span></button>
       </div>
       <div class="mv-foot">
-        <button class="mv-cancel" data-close aria-label="閉じる"><b>取消</b><small>閉じる</small></button>
+        <button class="mv-cancel" data-close aria-label="閉じる"><b>取消</b></button>
+        <div class="mv-status">
+          <span class="mv-status-tag">TRAIN INFO LCD SYSTEM</span>
+          <span class="mv-status-txt"><span>最終同期 <b id="syncTime">--</b></span><span>状態 <b id="syncState" class="sync-val">未同期</b></span></span>
+        </div>
         <div class="mv-footinfo">
-          <button class="mv-help" id="mvHelp"><span class="material-symbols-outlined">support_agent</span><span class="ms-lbl"><b>係員呼出</b><small>操作ガイド</small></span></button>
           <button class="mv-bright" id="mvBright"><span class="material-symbols-outlined">brightness_medium</span><span class="ms-lbl"><b>明るさ調整</b><small>夜間減光 <span id="mvBrightState">OFF</span></small></span></button>
+          <button class="mv-help" id="mvHelp"><span class="material-symbols-outlined">support_agent</span><span class="ms-lbl"><b>係員呼出</b><small>操作ガイド</small></span></button>
           <time class="mv-time" id="mvTime"></time>
         </div>
       </div>
