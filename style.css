@@ -700,3 +700,61 @@ button,.tab,.cbtn,.icon-btn,.btn-search,.abn-badge,.mv-tab,.fav-chip,.rc-line,.s
 .bezel{width:min(92vw,960px);max-height:88dvh;overflow:auto}
 .mv{width:min(92vw,960px);max-height:88dvh}
 .sheet{max-height:88dvh}
+
+/* ================= v16：LCDのフォント・配色（オリジナルの組み方）・フラットな表示 ================= */
+:root{--lcd-jp:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;--lcd-en:"Roboto Condensed","DIN Alternate","Helvetica Neue",sans-serif}
+.lcd.e235{border:5px solid #111;border-radius:4px;background:#e5e1d5;box-shadow:0 8px 20px rgba(0,0,0,.4);font-family:var(--lcd-jp)}
+.lcd.e235 .lcd-head{background:linear-gradient(180deg,#27292b 0%,#34373a 48%,#222426 52%,#1d1f21 100%)}
+.lcd.e235 .lcd-head::after{display:none}
+.lcd.e235 .lh-left{width:auto;min-width:150px;padding:12px 16px}
+.co-pill{background:none;color:#fff;padding:0;border-radius:0;font:500 1rem var(--lcd-jp);letter-spacing:.06em}
+.lh-dir{font:400 .8rem var(--lcd-jp)}
+.lcd.e235 .cbar{width:22px;box-shadow:none;background:var(--lc)}
+.lcd.e235 .lh-sym{width:auto;padding:10px 12px;gap:6px}
+.lh-status{font:400 .92rem var(--lcd-jp);letter-spacing:.04em}
+.sym-box{width:auto;min-width:96px;background:#111;border-radius:8px}
+.sym-co{font:500 .7rem var(--lcd-en);letter-spacing:.14em;padding:3px 10px;background:#111}
+.sym-code{background:#fff;border:4px solid var(--lc);height:46px;margin:0 6px 6px;font:700 1.7rem var(--lcd-en);color:#000}
+.lcd.e235 .lh-name{padding:10px 18px}
+.lcd.e235 .lh-name b.fit{font-weight:500;font-size:clamp(2.3rem,4.8vw,3.2rem);line-height:1.1}
+.lcd.e235 .lh-name b.ls-s{letter-spacing:.25em}
+.lcd.e235 .lh-name b.ls-m{letter-spacing:.08em}
+.lcd.e235 .lh-name b.ls-l{letter-spacing:.01em}
+.lcd.e235 .lh-name small{font:400 .9rem var(--lcd-en);letter-spacing:.12em}
+.lcd.e235 .lh-right{padding:10px 16px;align-items:flex-end}
+.lcd.e235 .lh-right time{font:400 1.4rem var(--lcd-en);color:#fff}
+.lcd.e235 .carno b{font:500 3.4rem/1 var(--lcd-en)}
+.lcd.e235 .carno small{font:400 .8rem var(--lcd-jp)}
+.car{background:#8a8f96 !important;box-shadow:none !important;border:none !important;border-radius:4px !important;color:#fff !important;font:500 .95rem var(--lcd-jp) !important;padding:4px 10px !important;min-width:0 !important}
+.car small{display:none !important}
+.car.normal{background:#008b38 !important}
+.car.delay,.car.partial{background:#e67e00 !important}
+.car.suspend{background:#d91e18 !important}
+.lcd.e235 .lcd-sub{background:#eff2f6;color:#1a1a1a;font:500 1rem var(--lcd-jp);letter-spacing:.1em;height:40px;border-top:1px solid #666;border-bottom:1px solid #666}
+.lcd-screen{background:linear-gradient(180deg,#d3d9e3 0%,#c1c8d4 100%);border:4px solid #111;color:#141619;min-height:240px}
+.jp-h{font:500 1.35rem var(--lcd-jp);letter-spacing:.06em;color:#141619}
+.jp-b{font:500 1.18rem/1.65 var(--lcd-jp);color:#141619;letter-spacing:.02em}
+.jp-meta{font:500 .9rem var(--lcd-jp)}
+.cause-chip{background:#141619;font:500 .9rem var(--lcd-jp)}
+.en-tbl{font:400 1.05rem/1.4 var(--lcd-en);border:1px solid #555}
+.en-tbl th{background:#8ca7ce;color:#111;font-weight:500;border:1px solid #555}
+.en-tbl td{background:#fff;color:#111;font-weight:400;border:1px solid #555}
+.pg-badge{border-radius:6px;font:500 .95rem var(--lcd-en);padding:2px 12px;box-shadow:none;border:1px solid #888}
+.lcd-favrow{padding:8px 14px 0;background:#fff}
+.fav-btn.wide{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #888;background:#fff;color:#111;font:500 .95rem var(--lcd-jp);cursor:pointer}
+.fav-btn.wide.on{background:#ffd23a;border-color:#b58b00}
+.fav-btn.wide .material-symbols-outlined{font-size:20px}
+
+/* ================= v16：上部ボタンの整理（ドロップダウン）・ジャンプ・シミュレーター ================= */
+.drop-wrap{position:relative;flex:none}
+.drop{position:absolute;top:calc(100% + 8px);right:0;z-index:14;min-width:230px;padding:8px;display:flex;flex-direction:column;gap:6px;background:#16181c;border:1px solid #3a3e46;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.55)}
+.drop[hidden]{display:none}
+.drop button{width:100%;justify-content:flex-start;min-height:44px;border-radius:8px}
+.jump{position:relative;flex:none}
+.jump-list{position:absolute;right:66px;bottom:0;display:flex;flex-direction:column;gap:6px;background:#0a1230ee;border-radius:10px;padding:8px}
+.jump-list[hidden]{display:none}
+.jump-btn{min-height:44px;min-width:92px;border:0;border-radius:8px;background:#fff;color:#111;font:700 .95rem 'Noto Sans JP',sans-serif;cursor:pointer}
+.sim-body{padding:14px 18px;display:flex;flex-direction:column;gap:12px;color:#111}
+.sim-row{display:flex;align-items:center;gap:10px;font-weight:700}
+.sim-row select{min-height:44px;font:500 1rem 'Noto Sans JP',sans-serif;padding:0 10px;border-radius:8px;border:1px solid #b0b5bd;background:#fff;color:#111}
+.sim-btns{display:flex;flex-wrap:wrap;gap:10px}

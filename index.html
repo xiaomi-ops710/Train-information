@@ -14,7 +14,7 @@
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Inter:wght@600;700;800&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Roboto+Condensed:wght@400;700&family=Inter:wght@600;700;800&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
 </head>
@@ -39,13 +39,24 @@
     <nav class="tabs" id="companyTabs" aria-label="鉄道会社"></nav>
     <div class="actions">
       <button class="cbtn" id="btnSearch"><span class="material-symbols-outlined">search</span><span class="lbl-l" data-i18n="search"></span><span class="lbl-s">検索</span></button>
-      <button class="cbtn" id="btnStation"><span class="material-symbols-outlined">pin_drop</span><span class="lbl-l" data-i18n="myStation"></span><span class="lbl-s">マイ駅</span></button>
-      <button class="cbtn" id="btnRoute"><span class="material-symbols-outlined">alt_route</span><span class="lbl-l" data-i18n="route"></span><span class="lbl-s">ルート</span></button>
       <button class="cbtn" data-guard="focus" id="btnFocus" aria-pressed="false"><span class="material-symbols-outlined">warning</span><span class="lbl-l" data-i18n="focus"></span><span class="lbl-s">異常</span></button>
-      <button class="cbtn" data-guard="cycle" id="btnCycle" aria-pressed="false"><span class="material-symbols-outlined">autorenew</span><span class="lbl-l" data-i18n="cycle"></span><span class="lbl-s">自動</span></button>
-      <button class="cbtn" data-guard="dual" id="btnDual" aria-pressed="false"><span class="material-symbols-outlined">view_sidebar</span><span class="lbl-l" data-i18n="dual"></span><span class="lbl-s">2画面</span></button>
-      <button class="cbtn" id="btnHistory"><span class="material-symbols-outlined">history</span><span class="lbl-l" data-i18n="history"></span><span class="lbl-s">履歴</span></button>
-      <button class="cbtn" id="btnClock" aria-pressed="false"><span class="material-symbols-outlined">schedule</span><span class="lbl-l">LCD時計<small class="en">Clock</small></span><span class="lbl-s">時計</span></button>
+      <div class="drop-wrap">
+        <button class="cbtn" id="btnDisplayMenu" aria-haspopup="true"><span class="material-symbols-outlined">view_sidebar</span><span class="lbl-l">表示切替</span><span class="lbl-s">表示</span></button>
+        <div class="drop" id="displayMenu" hidden>
+          <button class="cbtn" data-guard="dual" id="btnDual" aria-pressed="false"><span class="material-symbols-outlined">view_sidebar</span><span class="lbl-l" data-i18n="dual"></span></button>
+          <button class="cbtn" data-guard="cycle" id="btnCycle" aria-pressed="false"><span class="material-symbols-outlined">autorenew</span><span class="lbl-l" data-i18n="cycle"></span></button>
+          <button class="cbtn" id="btnClock" aria-pressed="false"><span class="material-symbols-outlined">schedule</span><span class="lbl-l">LCD時計</span></button>
+        </div>
+      </div>
+      <div class="drop-wrap">
+        <button class="cbtn" id="btnMyMenu" aria-haspopup="true"><span class="material-symbols-outlined">menu</span><span class="lbl-l">マイメニュー</span><span class="lbl-s">メニュー</span></button>
+        <div class="drop" id="myMenu" hidden>
+          <button class="cbtn" id="btnStation"><span class="material-symbols-outlined">pin_drop</span><span class="lbl-l" data-i18n="myStation"></span></button>
+          <button class="cbtn" id="btnRoute"><span class="material-symbols-outlined">alt_route</span><span class="lbl-l" data-i18n="route"></span></button>
+          <button class="cbtn" id="btnHistory"><span class="material-symbols-outlined">history</span><span class="lbl-l" data-i18n="history"></span></button>
+          <button class="cbtn" id="btnSim"><span class="material-symbols-outlined">science</span><span class="lbl-l">異常時シミュレーター</span></button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -64,6 +75,7 @@
   <div class="toast" id="toast" hidden></div>
   <div class="hud" id="hud" hidden></div>
   <div class="zoom">
+    <div class="jump"><button class="icon-btn" id="jumpToggle" aria-label="主要駅へジャンプ"><span class="material-symbols-outlined">pin_drop</span></button><div class="jump-list" id="jumpList" hidden></div></div>
     <button class="icon-btn" id="btnLocate" aria-label="現在地へ移動"><span class="material-symbols-outlined">my_location</span></button>
     <button class="icon-btn" id="zoomIn" aria-label="拡大"><span class="material-symbols-outlined">add</span></button>
     <button class="icon-btn" id="zoomOut" aria-label="縮小"><span class="material-symbols-outlined">remove</span></button>
@@ -209,6 +221,25 @@
       <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
     <div class="search-meta" id="abnMeta"></div>
     <div class="list" id="abnList"></div>
+  </div>
+</div>
+
+<!-- 異常時運行シミュレーター -->
+<div class="modal" id="modalSim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2>異常時運行シミュレーター<span class="en">Simulator</span></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="list sim-body">
+      <p class="backup-note">選んだ路線に模擬の遅延・運転見合わせを出し、路線図の発光・詳細・チャイム・音声案内の動きを確かめられます。模擬の表示は、次の運行情報の更新で実データに戻ります。</p>
+      <label class="sim-row">路線 <select id="simLine"></select></label>
+      <div class="sim-btns">
+        <button class="btn-yahoo" data-sim="delay">遅延を発生</button>
+        <button class="btn-yahoo" data-sim="suspend">運転見合わせ（振替あり）</button>
+        <button class="btn-yahoo plain" data-sim="resume">運転再開</button>
+        <button class="btn-yahoo plain" data-sim="refresh">実データに戻す</button>
+      </div>
+      <p class="backup-msg" id="simMsg"></p>
+    </div>
   </div>
 </div>
 

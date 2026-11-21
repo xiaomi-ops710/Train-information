@@ -1098,8 +1098,9 @@ const Locate = {
 };
 
 /* ---------- 車内チャイム風の通知音（Web Audio API）：音色は設定で選択 ---------- */
+/* ---------- 効果音（Web Audio API による合成。すべてオリジナルの音色・旋律） ---------- */
 const Chime = {
-  ctx: null,
+  ctx: null, verb: null, _b: 0, _p: 0,
   init() { ['pointerdown', 'touchend', 'keydown'].forEach(t => document.addEventListener(t, () => this.unlock(), { once: true, passive: true })); },
   unlock() { // iOSはユーザー操作の中でAudioContextを開始する必要がある
     try {
@@ -1108,37 +1109,68 @@ const Chime = {
       if (this.ctx.state === 'suspended') this.ctx.resume();
     } catch (_) {}
   },
-  tone(f, t, dur = 1.1) {
-    const c = this.ctx;
-    [[1, .5], [2, .12], [3, .05]].forEach(([m, a]) => {
+  /* 残響：短いノイズの減衰から作る1枚のインパルス応答（起動後に一度だけ作る） */
+  reverb() {
+    if (this.verb || !this.ctx) return this.verb;
+    const c = this.ctx, len = Math.floor(c.sampleRate * 1.3), buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    const conv = c.createConvolver(); conv.buffer = buf;
+    const wet = c.createGain(); wet.gain.value = 0.3;
+    conv.connect(wet); wet.connect(c.destination);
+    this.verb = conv; return conv;
+  },
+  /* 金属的な非整数倍音を重ねたベル音（倍音ごとに減衰を変える） */
+  bell(f, t, vol = 0.32, dur = 1.6) {
+    const c = this.ctx, out = c.createGain(); out.gain.value = vol; out.connect(c.destination);
+    const rv = this.reverb();
+    if (rv) { const send = c.createGain(); send.gain.value = 0.55; out.connect(send); send.connect(rv); }
+    [[1, 1, 1], [2.02, 0.42, 0.6], [2.76, 0.2, 0.35], [5.4, 0.08, 0.2]].forEach(([m, a, k]) => {
       const o = c.createOscillator(), g = c.createGain();
       o.type = 'sine'; o.frequency.value = f * m;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(a * 0.35, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+      g.gain.exponentialRampToValueAtTime(a, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur * k);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.1);
     });
   },
-  /* 券売機風のタッチ音「ピッ」（2000Hz・約70ms）。連打は間引く */
+  /* 券売機のタッチ音：2040Hzの短い電子音（60ms）。連打は間引く */
   beep() {
-    const nowMs = performance.now(); if (nowMs - (this._b || 0) < 80) return; this._b = nowMs;
+    const nowMs = performance.now(); if (nowMs - this._b < 80) return; this._b = nowMs;
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
     const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
-    o.type = 'square'; o.frequency.value = 2000;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.08);
+    o.type = 'square'; o.frequency.value = 2040;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.07);
   },
-  /* kind：std＝ミ→ド ／ jr＝4音アルペジオ ／ alarm＝見合わせ警報の反復。force＝間隔制限を外す（試聴用） */
-  play(kind, force) {
-    const nowMs = performance.now();
-    if (!force && nowMs - (this._p || 0) < 500) return; this._p = nowMs;
+  /* 操作の確認音（初期化など）：低く短い警告音 */
+  warn() {
     this.unlock();
     const c = this.ctx; if (!c || c.state !== 'running') return;
-    const k = kind || Settings.get('chimeType') || 'std', t0 = c.currentTime + 0.05;
-    if (k === 'jr') [[784, 0], [988, .22], [1175, .44], [1568, .66]].forEach(([f, d]) => this.tone(f, t0 + d, 0.9));
-    else if (k === 'alarm') for (let i = 0; i < 3; i++) { this.tone(880, t0 + i * 0.5, 0.25); this.tone(660, t0 + i * 0.5 + 0.25, 0.22); }
-    else { this.tone(659.25, t0); this.tone(523.25, t0 + 0.55); }
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+    o.type = 'square'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.3);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.34);
+  },
+  /* 音色：std＝3音のベル（上昇）／alert＝警報ベル（4音）／soft＝やわらかな4音（下降）。旧い設定値も読み替える */
+  KINDS: {
+    std: [[659.25, 0], [783.99, 0.42], [987.77, 0.84]],
+    alert: [[880, 0], [1046.5, 0.16], [1318.5, 0.32], [1046.5, 0.5]],
+    soft: [[1046.5, 0], [880, 0.5], [783.99, 1.0], [659.25, 1.5]]
+  },
+  play(kind, force) {
+    const nowMs = performance.now();
+    if (!force && nowMs - this._p < 500) return; this._p = nowMs;
+    this.unlock();
+    const c = this.ctx; if (!c || c.state !== 'running') return;
+    const alias = { alarm: 'alert', jr: 'soft' };
+    let k = kind || Settings.get('chimeType') || 'std';
+    k = alias[k] || k; if (!this.KINDS[k]) k = 'std';
+    const t0 = c.currentTime + 0.05;
+    this.KINDS[k].forEach(([f, d]) => this.bell(f, t0 + d, k === 'alert' ? 0.26 : 0.32, k === 'alert' ? 1.1 : 1.6));
   }
 };
 
@@ -1448,7 +1480,7 @@ const Cycle = {
 const OPT_INTERVAL = [[60000, '1分ごと', 'Every 1 min'], [180000, '3分ごと', 'Every 3 min'], [300000, '5分ごと', 'Every 5 min'], [0, '手動のみ', 'Manual only']];
 const OPT_SPEED = [['slow', '遅い', 'Slow'], ['normal', '標準', 'Normal'], ['fast', '速い', 'Fast']];
 const OPT_FILTER = COMPANIES.map(c => [c.id, c.ja, c.en]);
-const OPT_CHIME = [['std', '標準2音', 'Standard'], ['jr', 'JR車内案内風', 'JR style'], ['alarm', '見合わせ警報風', 'Alarm']];
+const OPT_CHIME = [['std', '標準ベル', 'Bell'], ['alert', '警報ベル', 'Alert'], ['soft', 'やわらか4音', 'Soft']];
 const OPT_TOP = [[42, '標準 42px', 'Standard'], [56, '広め 56px', 'Wide'], [0, 'なし 0px', 'None']];
 const SETTING_DEFS = [
   { key: 'bilingual', cat: 'display', ja: '日英バイリンガル表記', en: 'Bilingual display', type: 'bool' },
@@ -1526,7 +1558,7 @@ const MV = {
     if (name === 'links') { LinksUI.open(); return; }
     if (name === 'backup') { Backup.open(); return; }
     if (btn.dataset.armed !== '1') {
-      btn.dataset.armed = '1'; btn.classList.add('armed');
+      btn.dataset.armed = '1'; btn.classList.add('armed'); Chime.warn();
       this.say('もう一度タップで実行します');
       clearTimeout(this.armTimer);
       this.armTimer = setTimeout(() => { btn.dataset.armed = ''; btn.classList.remove('armed'); this.say(MV_DEFAULT_MSG); }, 3000);
@@ -2002,14 +2034,16 @@ const Elapsed = {
 };
 
 /* 長体（横幅の自動圧縮）：枠に収まらない文字列だけ scaleX で縮める。文字の高さは変えない */
+/* 長体（横幅の自動圧縮）：基準は scaleX(0.9)。枠に収まらないときは、収まる比率まで縮める。文字の高さは変えない */
 const Fit = {
   all(root) {
     if (!root) return;
     root.querySelectorAll('.fit').forEach(el => {
-      el.style.transform = 'none';
       const box = el.parentElement; if (!box) return;
+      el.style.transform = 'none';
       const avail = box.clientWidth, need = el.scrollWidth;
-      if (avail > 0 && need > avail) el.style.transform = `scaleX(${(avail / need).toFixed(3)})`;
+      const ratio = need > avail && avail > 0 ? Math.min(0.9, avail / need) : 0.9;
+      el.style.transform = `scaleX(${ratio.toFixed(3)})`;
     });
   }
 };
@@ -2120,7 +2154,9 @@ const Detail = {
           <a class="btn-rt" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>${bi('現場のリアルタイム状況を検索', 'Realtime search')}</a>
           <a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a>
         </div>`;
-    document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { fav: Favs.has(L.ja), dtime: true, key: 'detail', extra });
+    const fv = Favs.has(L.ja);
+    const favRow = `<div class="lcd-favrow"><button class="fav-btn wide${fv ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${fv}"><span class="material-symbols-outlined">star</span>${fv ? 'マイ路線から外す' : 'マイ路線に登録'}</button></div>`;
+    document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { dtime: true, key: 'detail', extra: favRow + extra });
     Lcd.mount(document.querySelector('#detailBody .lcd-screen'), 'detail', 5000, true);
     Fit.all(document.getElementById('detailBody'));
     this.tickTime();
@@ -2280,7 +2316,7 @@ const UI = {
     InfoLcd.init();
     this.applyFlags(); Layout.init();
     Favs.load(); Memos.load(); History.load(); Stn.load(); Routes.load(); Chime.init();
-    Backup.init(); Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init(); RouteUI.init(); StationPop.init();
+    Backup.init(); Menus.init(); Sim.init(); Jump.init(); Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init(); RouteUI.init(); StationPop.init();
     Detail.el = document.getElementById('modalDetail');
     document.getElementById('btnRefresh').onclick = () => this.refresh(true);
     document.getElementById('btnSearch').onclick = () => Search.open();
@@ -2492,6 +2528,64 @@ const UI = {
       setTimeout(() => btn.classList.remove('spin'), wait);
       if (this.again) { this.again = false; this.refresh(); } else this.schedule();
     }
+  }
+};
+
+/* ---------- 上部メニュー（表示切替・マイメニュー）：外側を押すと閉じる ---------- */
+const Menus = {
+  init() {
+    document.getElementById('btnDisplayMenu').onclick = () => this.toggle('displayMenu');
+    document.getElementById('btnMyMenu').onclick = () => this.toggle('myMenu');
+    document.addEventListener('click', e => {
+      if (e.target.closest('#btnDisplayMenu,#btnMyMenu')) return;
+      if (!e.target.closest('.drop') || e.target.closest('.drop button')) this.close();
+    });
+  },
+  toggle(id) { const el = document.getElementById(id), open = el.hidden; this.close(); el.hidden = !open; },
+  close() { ['displayMenu', 'myMenu'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; }); }
+};
+
+/* ---------- 異常時運行シミュレーター：模擬の運行情報を路線に出し、路線図・詳細・チャイム・音声案内を確かめる ---------- */
+const Sim = {
+  TEXT: {
+    delay: name => `（模擬）${name}は、車両の点検に伴い、列車に遅れが出ています。`,
+    suspend: name => `（模擬）${name}は、車両点検のため、一部区間で運転を見合わせています。振替輸送を実施しています。`
+  },
+  init() {
+    document.getElementById('simLine').innerHTML = LINES.map(L => `<option value="${esc(L.ja)}">${esc(L.ja)}</option>`).join('');
+    document.getElementById('btnSim').onclick = () => Modals.open('modalSim');
+    document.getElementById('modalSim').addEventListener('click', e => {
+      const b = e.target.closest('[data-sim]'); if (b) this.run(b.dataset.sim);
+    });
+  },
+  run(kind) {
+    const msg = document.getElementById('simMsg');
+    if (kind === 'refresh') { UI.refresh(true); msg.textContent = '実データを取得しています'; return; }
+    const name = document.getElementById('simLine').value;
+    const next = { ...Store.data };
+    if (kind === 'resume') delete next[name];
+    else next[name] = { status: kind === 'delay' ? 'delay' : 'suspend', detail: this.TEXT[kind](name) };
+    Store.data = next;
+    MapView.applyStatuses();
+    UI.afterData();                       // 新しい異常の検知・チャイム・音声案内・履歴をそのまま動かす
+    msg.textContent = kind === 'resume' ? `${name}を運転再開にしました` : `${name}に模擬の運行情報を出しました`;
+    if (kind !== 'resume') { Modals.closeAll(); Detail.open(name); }
+  }
+};
+
+/* ---------- 主要駅クイックジャンプ：押すと主要駅の一覧を開き、選ぶとその駅へズームする ---------- */
+const Jump = {
+  STATIONS: ['東京', '新宿', '渋谷', '池袋', '上野', '横浜', '大宮', '千葉'],
+  init() {
+    const list = document.getElementById('jumpList');
+    list.innerHTML = this.STATIONS.map(n => `<button class="jump-btn" data-jump-st="${esc(n)}">${esc(n)}</button>`).join('');
+    document.getElementById('jumpToggle').onclick = () => { list.hidden = !list.hidden; };
+    list.addEventListener('click', e => {
+      const b = e.target.closest('[data-jump-st]'); if (!b) return;
+      const p = Stations.get(b.dataset.jumpSt);
+      if (p) Zoom.focusOn(p.x, p.y); else UI.toast('路線図上でこの駅を見つけられませんでした');
+      list.hidden = true;
+    });
   }
 };
 
