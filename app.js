@@ -1356,7 +1356,7 @@ const Board = {
     return abn.length ? `<div class="board-list">${abn.map(({ L, s }) => `
         <button class="board-card" data-line="${L.ja}" style="--lc:${L.color}">
           <div class="bc-head"><span class="cbar"></span><span class="sym">${L.code}</span>
-            <div class="lname"><b>${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>${statusBadge(s.status, 'car')}</div>
+            <div class="lname"><b class="fit ${Lcd.lsClass(L.ja)}">${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>${statusBadge(s.status, 'car')}</div>
           <div class="bc-body"><p class="h">【${L.ja}　${STATUS[s.status].ja}】</p><p>${Detail.highlight(s.detail || '')}</p></div></button>`).join('')}</div>` : '';
   },
   okHtml() {
@@ -1365,6 +1365,7 @@ const Board = {
   render() {
     const el = document.getElementById('abnBoard'), on = I18n.bi(), d = new Date();
     el.innerHTML = `<div class="board-head"><span>運行情報${on ? '　Train Information' : ''}</span><time>${pad(d.getHours())}:${pad(d.getMinutes())}</time></div>` + (this.cards() || this.okHtml());
+    Fit.all(el);
   }
 };
 
@@ -1523,6 +1524,7 @@ const MV = {
   /* 破壊的な操作は「もう一度タップで実行」の2段階確認 */
   act(name, btn) {
     if (name === 'links') { LinksUI.open(); return; }
+    if (name === 'backup') { Backup.open(); return; }
     if (btn.dataset.armed !== '1') {
       btn.dataset.armed = '1'; btn.classList.add('armed');
       this.say('もう一度タップで実行します');
@@ -1914,17 +1916,15 @@ const InfoLcd = {
     let body;
     if (s.kind === 'line' || s.kind === 'fav') {
       const L = s.L, st = Store.of(L.ja);
-      body = `<div class="lcd e235" style="--lc:${L.color}">${Lcd.headHtml(L, st, {})}
-        <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
-        <div class="lcd-screen" data-pager="info">${Lcd.pages(L, st).map((p, k) => `<div class="lcd-page${k ? '' : ' on'}">${p}</div>`).join('')}<span class="pg-badge">1/${Lcd.pages(L, st).length}</span></div></div>`;
+      body = Lcd.bodyHtml(L, st, on, { key: 'info' });
     } else if (s.kind === 'route') {
       const { bad, worst } = Routes.status(s.r);
       body = `<div class="lcd e235">
-        <div class="lcd-head plain"><div class="lh-name"><b>${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="lh-right">${statusBadge(worst, 'car')}</div></div>
+        <div class="lcd-head plain"><div class="lh-name"><b class="fit ${Lcd.lsClass(s.r.name)}">${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="lh-right">${statusBadge(worst, 'car')}</div></div>
         <div class="lcd-sub">${on ? 'マイルート　My Route' : 'マイルート'}</div>
         <div class="lcd-screen"><div class="lcd-page on">${bad.map(x => `<p class="jp-h">【${x.n}　${STATUS[x.st].ja}】</p><p class="jp-b">${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div></div></div>`;
     } else {
-      body = `<div class="lcd e235"><div class="lcd-head plain"><div class="lh-name"><b>運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
+      body = `<div class="lcd e235"><div class="lcd-head plain"><div class="lh-name"><b class="fit ls-m">運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
         <div class="lcd-screen"><div class="lcd-page on"><p class="jp-h">現在の運行状況</p><p class="jp-b">現在、関東エリアの主要路線は平常通り運転しています。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div></div>`;
     }
     const n = this.slides.length || 1, p = x => String(x).padStart(2, '0'), d = new Date();
@@ -1932,6 +1932,7 @@ const InfoLcd = {
       <div class="info-body">${body}</div>
       <div class="info-foot">${this.i + 1} / ${n}　<small>タップで次の情報${on ? ' / Tap for next' : ''}</small></div>`;
     Lcd.mount(this.el.querySelector('[data-pager="info"]'), 'info', 5000, false);
+    Fit.all(this.el);
   },
   next() { if (!this.slides.length) return; this.i = (this.i + 1) % this.slides.length; this.draw(); },
   start() { clearInterval(this.timer); this.timer = setInterval(() => this.next(), 6000); },
@@ -1954,17 +1955,72 @@ const pad = n => String(n).padStart(2, '0');
 
 /* ---------- E235系 車内LCD風の共通部品（詳細ポップアップ・2画面LCD・異常ボードで共通） ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* 遅延理由の分類：アイコン・日本語・英語（英語テーブルの Cause にも使う） */
+const Cause = {
+  TABLE: [
+    { re: /人身事故|人身/, ja: '人身事故', en: 'Person on tracks', icon: 'emergency' },
+    { re: /車両故障|故障/, ja: '車両故障', en: 'Train breakdown', icon: 'build' },
+    { re: /信号/, ja: '信号トラブル', en: 'Signal trouble', icon: 'traffic' },
+    { re: /車両点検|施設点検|点検/, ja: '点検', en: 'Inspection', icon: 'build' },
+    { re: /強風/, ja: '強風', en: 'Strong winds', icon: 'air' },
+    { re: /大雨|豪雨|台風|雨/, ja: '大雨・台風', en: 'Heavy rain or typhoon', icon: 'rainy' },
+    { re: /大雪|雪/, ja: '雪', en: 'Snow', icon: 'ac_unit' },
+    { re: /地震/, ja: '地震', en: 'Earthquake', icon: 'vibration' },
+    { re: /停電|き電|饋電/, ja: '停電', en: 'Power outage', icon: 'bolt' },
+    { re: /火災|煙/, ja: '火災・煙', en: 'Fire or smoke', icon: 'local_fire_department' },
+    { re: /工事|改良/, ja: '工事', en: 'Construction work', icon: 'construction' },
+    { re: /事故/, ja: '事故', en: 'Accident', icon: 'warning' }
+  ],
+  classify(text) {
+    const t = String(text || '');
+    return this.TABLE.find(c => c.re.test(t)) || { ja: '原因調査中', en: 'Under investigation', icon: 'help' };
+  },
+  chipHtml(text) {
+    const c = this.classify(text);
+    return `<span class="cause-chip"><span class="material-symbols-outlined">${c.icon}</span>${esc(c.ja)}</span>`;
+  }
+};
+
+/* 異常になってからの経過時間（履歴ログから算出。履歴の範囲内のみ） */
+const Elapsed = {
+  since(name) {
+    let start = null;
+    for (const h of History.list) {                 // 新しい順に遡る
+      if (h.line !== name) continue;
+      if (h.to === 'normal') break;                  // 平常に戻った直前で止める
+      start = h.t;
+    }
+    return start;
+  },
+  text(name) {
+    const t = this.since(name); if (!t) return '';
+    const min = Math.max(0, Math.floor((Date.now() - t) / 60000)), d = new Date(t), p = n => String(n).padStart(2, '0');
+    const span = min < 1 ? '1分未満' : min < 60 ? `約${min}分` : `約${Math.floor(min / 60)}時間${min % 60}分`;
+    return `発生から${span}経過（${p(d.getHours())}:${p(d.getMinutes())}検知）`;
+  }
+};
+
+/* 長体（横幅の自動圧縮）：枠に収まらない文字列だけ scaleX で縮める。文字の高さは変えない */
+const Fit = {
+  all(root) {
+    if (!root) return;
+    root.querySelectorAll('.fit').forEach(el => {
+      el.style.transform = 'none';
+      const box = el.parentElement; if (!box) return;
+      const avail = box.clientWidth, need = el.scrollWidth;
+      if (avail > 0 && need > avail) el.style.transform = `scaleX(${(avail / need).toFixed(3)})`;
+    });
+  }
+};
+
 const Lcd = {
   timers: {},
-  /* 遅延理由（日本語）→ 英語の原因。対応のない語は「調査中」にする */
-  CAUSE: [
-    [/人身事故|人身/, 'Person on tracks'], [/車両点検|施設点検|点検/, 'Inspection'], [/強風/, 'Strong winds'],
-    [/大雨|豪雨|雨/, 'Heavy rain'], [/信号/, 'Signal trouble'], [/車両故障|故障/, 'Train breakdown'],
-    [/線路内|立入/, 'Obstruction on tracks'], [/停電/, 'Power outage'], [/踏切/, 'Level crossing trouble'],
-    [/架線/, 'Overhead line trouble'], [/火災|煙/, 'Smoke or fire'], [/救護/, 'Passenger assistance'],
-    [/改良工事|工事/, 'Construction work'], [/事故/, 'Accident']
-  ],
-  causeEn(text) { const t = String(text || ''); const hit = this.CAUSE.find(([re]) => re.test(t)); return hit ? hit[1] : 'Under investigation'; },
+  /* 字間：短い路線名は広く、長い路線名は詰める（JR流の組み方） */
+  lsClass(name) {
+    const n = [...String(name)].length;
+    return n <= 3 ? 'ls-s' : n <= 5 ? 'ls-m' : 'ls-l';
+  },
   dirEn(text) {
     const t = String(text || '');
     if (/内回り/.test(t)) return 'Inbound';
@@ -1974,6 +2030,7 @@ const Lcd = {
     return 'Both directions';
   },
   statusEn(st) { return { normal: 'Normal service', delay: 'Delay', partial: 'Partial suspension', suspend: 'Suspended' }[st] || 'Unknown'; },
+  /* 会社の略号（上段の黒帯に表示） */
   companyCode(L) {
     if (L.co === 'JR') return 'JRE';
     if (L.co === 'Metro') return 'TM';
@@ -1982,14 +2039,17 @@ const Lcd = {
   },
   /* 1ページ目（日本語）と、異常時のみの2ページ目（英語の4行表） */
   pages(L, s) {
-    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : Detail.highlight(s.detail || `${L.ja}は、運行情報をお知らせします。`);
-    const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>`;
+    const detail = s.detail || `${L.ja}は、運行情報をお知らせします。`;
+    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : Detail.highlight(detail);
+    const meta = s.status === 'normal' ? '' :
+      `<p class="jp-meta">${Cause.chipHtml(s.detail)}<span class="elapsed" data-elapsed="${esc(L.ja)}">${esc(Elapsed.text(L.ja))}</span></p>`;
+    const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>${meta}`;
     if (s.status === 'normal') return [ja];
-    const rows = [['Line', L.en], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', this.causeEn(s.detail)]];
+    const rows = [['Line', L.en], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', Cause.classify(s.detail).en]];
     const en = `<table class="en-tbl">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
     return [ja, en];
   },
-  /* 上段ダークヘッダー：会社バッジ・路線カラー帯・路線記号・路線名・時刻・号車 */
+  /* 上段ダークヘッダー：会社・路線カラー帯・路線記号・路線名（長体つき）・時刻・号車 */
   headHtml(L, s, o = {}) {
     const on = I18n.bi(), d = new Date(), p = n => String(n).padStart(2, '0');
     const fav = o.fav === undefined ? '' : `<button class="fav-btn${o.fav ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${!!o.fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>`;
@@ -1998,30 +2058,32 @@ const Lcd = {
       <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><span class="lh-dir">方面</span></div>
       <span class="cbar"></span>
       <div class="lh-sym"><span class="lh-status">運行状況</span><div class="sym-box"><span class="sym-co">${esc(this.companyCode(L))}</span><span class="sym-code">${esc(L.code)}</span></div></div>
-      <div class="lh-name"><b>${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : ''}${fav}</div>
+      <div class="lh-name"><b class="fit ${this.lsClass(L.ja)}">${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : ''}${fav}</div>
       <div class="lh-right">${time}<div class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></div>${statusBadge(s.status, 'car')}</div>
     </div>`;
   },
-  /* ページ送り：2ページ以上のときだけ、パネルのタップと5秒ごとに切り替える */
+  /* ページ送り：スライドで切り替える。2ページ以上のときだけ、タップと5秒ごとに送る */
   mount(root, key, ms, tapToNext) {
     clearInterval(this.timers[key]); this.timers[key] = 0;
     if (!root) return;
     const pages = [...root.querySelectorAll('.lcd-page')], badge = root.querySelector('.pg-badge');
     let i = 0;
     const show = n => {
-      i = n % pages.length;
-      pages.forEach((pg, k) => pg.classList.toggle('on', k === i));
+      const prev = i; i = n % pages.length;
+      pages.forEach((pg, k) => {
+        pg.classList.toggle('on', k === i);
+        pg.classList.toggle('prev', k === prev && prev !== i);
+      });
       if (badge) badge.textContent = `${i + 1}/${pages.length}`;
     };
     show(0);
     if (pages.length < 2) return;
     if (tapToNext) root.onclick = () => show(i + 1);
     this.timers[key] = setInterval(() => {
-      if (!root.getClientRects().length) { clearInterval(this.timers[key]); this.timers[key] = 0; return; } // 画面から消えたら止める
+      if (!root.getClientRects().length) { clearInterval(this.timers[key]); this.timers[key] = 0; return; }
       show(i + 1);
     }, ms);
   },
-  /* 詳細ポップアップ本体（ページ送りつき） */
   bodyHtml(L, s, on, o = {}) {
     const pages = this.pages(L, s);
     return `<div class="lcd e235" style="--lc:${L.color}">
@@ -2060,11 +2122,72 @@ const Detail = {
         </div>`;
     document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { fav: Favs.has(L.ja), dtime: true, key: 'detail', extra });
     Lcd.mount(document.querySelector('#detailBody .lcd-screen'), 'detail', 5000, true);
+    Fit.all(document.getElementById('detailBody'));
     this.tickTime();
   },
   tickTime() {
-    const t = document.getElementById('dTime'); if (!t) return;
-    const d = new Date(); t.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const t = document.getElementById('dTime');
+    if (t) { const d = new Date(); t.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    document.querySelectorAll('[data-elapsed]').forEach(el => { el.textContent = Elapsed.text(el.dataset.elapsed); });
+  }
+};
+
+/* ---------- データの書き出し・復元（マイ路線・マイ駅・マイルート・メモ・設定） ---------- */
+const Backup = {
+  open() {
+    Modals.open('modalBackup');
+    document.getElementById('backupMsg').textContent = '';
+  },
+  payload() {
+    return { app: 'train-info-lcd', version: 1, exportedAt: new Date().toISOString(),
+      favs: Favs.list, stations: Stn.list, routes: Routes.list, memos: Memos.data, settings: Settings.data };
+  },
+  exportNow() {
+    const ta = document.getElementById('backupText'), msg = document.getElementById('backupMsg');
+    ta.value = JSON.stringify(this.payload(), null, 2);
+    ta.select();
+    try { navigator.clipboard && navigator.clipboard.writeText(ta.value).then(() => { msg.textContent = '書き出しました（クリップボードにもコピーしました）'; }, () => { msg.textContent = '書き出しました。内容を選択してコピーしてください'; }); }
+    catch (_) { msg.textContent = '書き出しました。内容を選択してコピーしてください'; }
+    if (!msg.textContent) msg.textContent = '書き出しました。内容を選択してコピーしてください';
+  },
+  /* 取り込み時は形式を一つずつ確認し、不正な値は捨てる */
+  sanitize(obj) {
+    const isStr = a => Array.isArray(a) && a.every(x => typeof x === 'string');
+    const out = {};
+    if (!obj || obj.app !== 'train-info-lcd' || obj.version !== 1) throw new Error('この端末の書き出しデータではありません');
+    out.favs = isStr(obj.favs) ? obj.favs.filter(n => lineByName(n)).slice(0, 40) : [];
+    out.stations = isStr(obj.stations) ? obj.stations.map(s => s.slice(0, 12)).slice(0, 80) : [];
+    out.routes = Array.isArray(obj.routes) ? obj.routes.filter(r => r && typeof r.name === 'string' && Array.isArray(r.lines)).slice(0, 30).map(r => ({
+      id: String(r.id || Date.now().toString(36)), name: String(r.name).slice(0, 20),
+      stations: Array.isArray(r.stations) ? r.stations.filter(x => typeof x === 'string').slice(0, 3) : [],
+      lines: r.lines.filter(n => typeof n === 'string' && lineByName(n)).slice(0, 4)
+    })) : [];
+    out.memos = {};
+    if (obj.memos && typeof obj.memos === 'object') Object.keys(obj.memos).forEach(k => { if (lineByName(k) && typeof obj.memos[k] === 'string') out.memos[k] = obj.memos[k].slice(0, 300); });
+    out.settings = {};
+    if (obj.settings && typeof obj.settings === 'object') Object.keys(Settings.data).forEach(k => {
+      if (k in obj.settings && typeof obj.settings[k] === typeof Settings.data[k]) out.settings[k] = obj.settings[k];
+    });
+    return out;
+  },
+  importNow() {
+    const msg = document.getElementById('backupMsg'), text = document.getElementById('backupText').value.trim();
+    try {
+      const data = this.sanitize(JSON.parse(text));
+      localStorage.setItem(Favs.KEY, JSON.stringify(data.favs));
+      localStorage.setItem(Stn.KEY, JSON.stringify(data.stations));
+      localStorage.setItem(Routes.KEY, JSON.stringify(data.routes));
+      localStorage.setItem(Memos.KEY, JSON.stringify(data.memos));
+      localStorage.setItem(Settings.KEY, JSON.stringify({ ...Settings.data, ...data.settings }));
+      msg.textContent = '復元しました。画面を読み込み直します';
+      setTimeout(() => location.reload(), 900);
+    } catch (e) {
+      msg.textContent = '復元できませんでした：' + (e && e.message ? e.message : '形式が正しくありません');
+    }
+  },
+  init() {
+    document.getElementById('backupExport').onclick = () => this.exportNow();
+    document.getElementById('backupImport').onclick = () => this.importNow();
   }
 };
 
@@ -2157,7 +2280,7 @@ const UI = {
     InfoLcd.init();
     this.applyFlags(); Layout.init();
     Favs.load(); Memos.load(); History.load(); Stn.load(); Routes.load(); Chime.init();
-    Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init(); RouteUI.init(); StationPop.init();
+    Backup.init(); Modals.init(); Search.init(); StationUI.init(); HistoryUI.init(); MV.init(); AbnUI.init(); ClockMode.init(); RouteUI.init(); StationPop.init();
     Detail.el = document.getElementById('modalDetail');
     document.getElementById('btnRefresh').onclick = () => this.refresh(true);
     document.getElementById('btnSearch').onclick = () => Search.open();

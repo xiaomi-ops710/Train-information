@@ -72,6 +72,7 @@
 </main>
 
 <aside class="info-lcd" id="infoLcd"></aside>
+<div class="dual-pillar" aria-hidden="true"></div>
 
 <footer class="ticker" id="ticker">
   <div class="ticker-label">運行情報</div>
@@ -99,6 +100,7 @@
         <button class="mv-silver" data-act="clearCache"><span class="material-symbols-outlined">cleaning_services</span><span class="ms-lbl"><b>キャッシュ強制クリア</b><small>タップ2回で実行</small></span></button>
         <button class="mv-silver" data-act="resetLog"><span class="material-symbols-outlined">delete_sweep</span><span class="ms-lbl"><b>履歴ログ・メモ初期化</b><small>タップ2回で実行</small></span></button>
         <button class="mv-silver" data-act="links"><span class="material-symbols-outlined">receipt_long</span><span class="ms-lbl"><b>公式遅延証明書リンク集</b><small>各社の公式ページへ</small></span></button>
+        <button class="mv-silver" data-act="backup"><span class="material-symbols-outlined">swap_horiz</span><span class="ms-lbl"><b>データ保存・復元</b><small>JSONで書き出し・取り込み</small></span></button>
       </div>
       <div class="mv-foot">
         <button class="mv-cancel" data-close aria-label="閉じる"><b>取消</b></button>
@@ -207,6 +209,23 @@
       <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
     <div class="search-meta" id="abnMeta"></div>
     <div class="list" id="abnList"></div>
+  </div>
+</div>
+
+<!-- データ保存・復元 -->
+<div class="modal" id="modalBackup" hidden>
+  <div class="sheet sheet-search" role="dialog" aria-modal="true">
+    <div class="sheet-head"><h2>データ保存・復元<span class="en">Backup</span></h2>
+      <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="list backup-body">
+      <p class="backup-note">マイ路線・マイ駅・マイルート・路線メモ・設定をJSONで書き出し、別の端末で貼り付けて復元できます。</p>
+      <textarea id="backupText" rows="10" spellcheck="false" placeholder="書き出し結果がここに入ります。復元するときは、保存しておいたJSONを貼り付けてください"></textarea>
+      <div class="backup-btns">
+        <button class="btn-yahoo" id="backupExport"><span class="material-symbols-outlined">file_download</span>書き出し</button>
+        <button class="btn-yahoo plain" id="backupImport"><span class="material-symbols-outlined">file_upload</span>復元</button>
+      </div>
+      <p class="backup-msg" id="backupMsg"></p>
+    </div>
   </div>
 </div>
 
