@@ -758,3 +758,62 @@ button,.tab,.cbtn,.icon-btn,.btn-search,.abn-badge,.mv-tab,.fav-chip,.rc-line,.s
 .sim-row{display:flex;align-items:center;gap:10px;font-weight:700}
 .sim-row select{min-height:44px;font:500 1rem 'Noto Sans JP',sans-serif;padding:0 10px;border-radius:8px;border:1px solid #b0b5bd;background:#fff;color:#111}
 .sim-btns{display:flex;flex-wrap:wrap;gap:10px}
+
+/* ================= v17：方面・影響度・再開見込み・タイムライン ================= */
+.lcd.e235 .lh-left{width:auto;min-width:150px;max-width:190px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px;padding:12px 14px 10px}
+.lh-route{font:500 .95rem/1.4 var(--lcd-jp);color:#fff;letter-spacing:.03em;word-break:keep-all}
+.lh-left .lh-dir{align-self:flex-end;font:400 .8rem var(--lcd-jp);opacity:.9}
+.res-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#eff2f6;color:#141619;font:500 .9rem var(--lcd-jp)}
+.res-chip .material-symbols-outlined{font-size:18px}
+.imp-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;color:#fff;font:500 .9rem var(--lcd-jp)}
+.imp-chip.sev1{background:#5d7a6a}
+.imp-chip.sev2{background:#e67e00}
+.imp-chip.sev3{background:#d91e18}
+.night-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid #6b5fc2;background:#241f4a;color:#dcd6ff;font:700 13px 'Noto Sans JP',sans-serif;white-space:nowrap}
+.night-chip .material-symbols-outlined{font-size:18px}
+.night-chip[hidden]{display:none}
+.sim-scn{margin-top:4px}
+/* 詳細ポップアップの下部操作：均等な4列 */
+.lcd-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 14px;background:#fff;border-top:1px solid #d6dae4}
+.act-btn{min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 8px;border-radius:8px;border:1px solid #8a8f96;background:#f4f5f8;color:#111;font:500 .9rem var(--lcd-jp);text-decoration:none;cursor:pointer;text-align:center;line-height:1.2}
+.act-btn span:last-child{overflow:hidden;text-overflow:ellipsis}
+.act-btn.on{background:#ffd23a;border-color:#b58b00}
+.act-btn .material-symbols-outlined{font-size:20px}
+.lcd-foot{padding:0 14px 12px;background:#fff}
+.rt-link{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#1f5fbf;font:500 .92rem var(--lcd-jp);text-decoration:underline;text-underline-offset:3px}
+.rt-link .material-symbols-outlined{font-size:20px}
+@media (max-width:640px){.lcd-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* マイルートの乗換タイムライン */
+.rt-timeline{display:flex;flex-direction:column;gap:0;padding:6px 4px 4px 6px;position:relative}
+.tl-node{position:relative;display:flex;align-items:center;gap:10px;padding:8px 0 8px 26px;min-height:44px}
+.tl-stop .tl-dot{position:absolute;left:4px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #111}
+.tl-stop b{font:500 1rem var(--lcd-jp)}
+.tl-line{background:#f7f8fb;border-radius:8px;padding:8px 10px 8px 16px;margin:2px 0}
+.tl-line .tl-bar{position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:6px 0 0 6px;background:var(--lc)}
+.tl-line{overflow:hidden}
+.tl-name{flex:1;min-width:0;display:flex;flex-direction:column}
+.tl-name b{font:500 1rem var(--lcd-jp)}
+.tl-name small{font:400 .75rem var(--lcd-jp);color:#555}
+.tl-alert{margin:4px 0 6px 26px;padding:10px 12px;border-left:3px solid #e67e00;background:#fff8ea;border-radius:0 8px 8px 0}
+.tl-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.tl-alt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tl-alt small{width:100%;font:500 .8rem var(--lcd-jp);color:#555}
+.rc-actions{display:flex;gap:8px;flex-wrap:wrap}
+.rc-share{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid #1f5fbf;background:#eef4ff;color:#1f5fbf;font:700 .9rem 'Noto Sans JP',sans-serif;cursor:pointer}
+.rc-share .material-symbols-outlined{font-size:20px}
+/* 地図まわりのフロートUIを統一（角丸・半透明の濃いパネル・同じ罫線） */
+.zoom .icon-btn,.legend,.loc-chip,.detour-bar,.hud,.jump-list,.toast,.stn-pop{background:rgba(14,18,28,.92);border:1px solid #3a3e46;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.legend{border-radius:12px}
+.hud{border-radius:12px;background:rgba(14,18,28,.92);border:1px solid #3a3e46}
+/* 診断HUDが出るときは、凡例を上へずらして重ならないようにする */
+body.hud-on .legend{bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 52px)}
+/* 縦持ち（ポートレート）：地図を上、2画面LCDを下の段に */
+@media (orientation:portrait){
+  body.dual #map-viewport{right:0;bottom:calc(46vh + 7px)}
+  body.dual .info-lcd{left:0;right:0;top:auto;bottom:var(--bot-h,0px);width:auto;height:46vh}
+  body.dual .dual-pillar{left:0;right:0;top:auto;bottom:calc(46vh);width:auto;height:14px;transform:none}
+}
+/* 2画面LCDの右パネル：車内のワイド液晶の比率（16:9）の枠に収め、アイボリーの化粧枠で囲む */
+body.dual .info-lcd{background:#e5e1d5;padding:10px}
+body.dual .info-lcd .info-body{padding:0;background:transparent}
+body.dual .info-lcd .info-body .lcd.e235{aspect-ratio:auto}

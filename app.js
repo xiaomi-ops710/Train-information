@@ -156,15 +156,106 @@ const MASTER_RAW = [
   ['横浜市営地下鉄グリーンライン', 'Yokohama Subway Green Line', 'Private', 'G', '#00a040', ['横浜市交通局', 'Yokohama Municipal Subway'], ['yokohama-green'], ['横浜線', '東急田園都市線', '横浜市営地下鉄ブルーライン']],
   ['埼玉高速鉄道線', 'Saitama Rapid Railway Line', 'Private', 'SR', '#0080c6', ['埼玉高速鉄道', 'Saitama Railway'], ['saitamakosoku'], ['南北線', '都営三田線', '京浜東北線', '宇都宮線']]
 ];
+const DIRECTION = {
+  '山手線': '東京・品川・渋谷・新宿・池袋・上野',
+  '京浜東北線': '大宮・赤羽・上野・東京・品川・横浜・大船',
+  '根岸線': '桜木町・横浜・磯子・大船',
+  '中央線快速': '東京・新宿・立川・八王子・高尾',
+  '中央・総武各駅停車': '三鷹・中野・御茶ノ水・錦糸町・千葉',
+  '中央本線': '新宿・立川・八王子・甲府',
+  '東海道線': '東京・品川・横浜・大船・小田原・熱海',
+  '横須賀線': '東京・品川・横浜・大船・横須賀',
+  '総武快速線': '東京・錦糸町・津田沼・千葉',
+  '総武本線': '千葉・銚子',
+  '湘南新宿ライン': '大宮・新宿・渋谷・大崎・大船・藤沢・小田原',
+  '上野東京ライン': '宇都宮・高崎・上野・東京・品川・熱海',
+  '宇都宮線': '宇都宮・小山・大宮・上野・東京',
+  '高崎線': '高崎・熊谷・大宮・上野・東京',
+  '埼京線': '大宮・池袋・新宿・恵比寿・新木場',
+  '川越線': '大宮・川越',
+  '常磐線快速': '上野・北千住・柏・取手',
+  '常磐線各駅停車': '綾瀬・北千住・松戸・我孫子・取手',
+  '常磐線': '上野・土浦・水戸・いわき',
+  '京葉線': '東京・新木場・舞浜・海浜幕張・蘇我',
+  '武蔵野線': '府中本町・南船橋・西船橋・新松戸・大宮',
+  '南武線': '川崎・登戸・立川',
+  '横浜線': '八王子・町田・橋本・新横浜・横浜',
+  '相模線': '茅ヶ崎・橋本・相模原',
+  '青梅線': '立川・青梅・奥多摩',
+  '五日市線': '武蔵五日市・拝島',
+  '外房線': '千葉・茂原・勝浦・安房鴨川',
+  '内房線': '蘇我・君津・館山',
+  '成田線': '成田・我孫子・銚子',
+  '鶴見線': '鶴見・扇町・浅野・海芝浦',
+  '銀座線': '渋谷・新橋・上野・浅草',
+  '丸ノ内線': '池袋・新宿・東京・荻窪・方南町',
+  '日比谷線': '北千住・上野・銀座・六本木・中目黒',
+  '東西線': '中野・大手町・西船橋',
+  '千代田線': '代々木上原・大手町・北綾瀬',
+  '有楽町線': '和光市・池袋・新木場',
+  '半蔵門線': '渋谷・大手町・押上',
+  '南北線': '目黒・赤羽岩淵・武蔵小杉',
+  '副都心線': '渋谷・新宿三丁目・池袋・小竹向原',
+  '都営浅草線': '押上・浅草・新橋・西馬込',
+  '都営三田線': '目黒・大手町・西高島平',
+  '都営新宿線': '新宿・大島・本八幡',
+  '都営大江戸線': '都庁前・新宿・六本木・両国・光が丘',
+  '日暮里・舎人ライナー': '日暮里・見沼代親水公園',
+  '東急東横線': '渋谷・自由が丘・武蔵小杉・横浜',
+  '東急目黒線': '目黒・大岡山・日吉・新横浜',
+  '東急田園都市線': '渋谷・二子玉川・長津田・中央林間',
+  '東急大井町線': '大井町・二子玉川・溝の口',
+  '東急池上線': '五反田・蒲田・池上',
+  '東急多摩川線': '蒲田・多摩川',
+  '東急新横浜線': '日吉・新横浜',
+  '小田急小田原線': '新宿・町田・海老名・小田原',
+  '小田急江ノ島線': '町田・藤沢・片瀬江ノ島',
+  '小田急多摩線': '新百合ヶ丘・唐木田',
+  '京王線': '新宿・府中・調布・高尾山口',
+  '京王相模原線': '調布・橋本',
+  '京王井の頭線': '渋谷・吉祥寺',
+  '西武池袋線': '池袋・飯能・西武秩父',
+  '西武新宿線': '西武新宿・高田馬場・東村山・本川越',
+  '西武拝島線': '小平・拝島',
+  '西武有楽町線': '池袋・小竹向原・所沢',
+  '東武東上線': '池袋・川越・寄居・森林公園',
+  '東武スカイツリーライン': '押上・浅草・北千住・春日部・久喜',
+  '東武伊勢崎線': '浅草・春日部・館林・伊勢崎',
+  '東武日光線': '東武動物公園・日光・鬼怒川温泉',
+  '東武アーバンパークライン': '大宮・春日部・柏・船橋',
+  '京成本線': '京成上野・京成津田沼・京成成田',
+  '京成押上線': '押上・京成高砂・青砥',
+  '京成千葉線': '京成津田沼・千葉中央',
+  '成田スカイアクセス線': '京成成田・成田空港',
+  '新京成線': '松戸・津田沼・鎌ヶ谷',
+  '北総線': '京成高砂・印旛日本医大・印西牧の原',
+  '東葉高速線': '西船橋・東葉勝田台',
+  '京急本線': '泉岳寺・品川・横浜・三崎口',
+  '京急空港線': '京急蒲田・羽田空港',
+  '京急逗子線': '金沢八景・京急逗子',
+  '京急久里浜線': '品川・京急久里浜',
+  '相鉄本線': '横浜・二俣川・海老名',
+  '相鉄いずみ野線': '二俣川・いずみ野',
+  '相鉄新横浜線': '新横浜・西谷・海老名',
+  'つくばエクスプレス': '秋葉原・守谷・つくば',
+  'りんかい線': '新木場・大井町・新宿・大崎',
+  'ゆりかもめ': '新橋・豊洲・新豊洲・お台場海浜公園',
+  '東京モノレール': '浜松町・羽田空港',
+  '多摩都市モノレール': '多摩センター・上北台',
+  'みなとみらい線': '横浜・みなとみらい・元町・中華街',
+  '横浜市営地下鉄ブルーライン': '湘南台・あざみ野・新横浜・上大岡',
+  '横浜市営地下鉄グリーンライン': '中山・日吉',
+  '埼玉高速鉄道線': '赤羽岩淵・浦和美園',
+};
 const LINES = MASTER_RAW.map(([ja, en, co, code, color, op, svg, alt]) =>
-  ({ ja, en, co, code, color, op: { ja: op[0], en: op[1] }, svg, alt: alt || [] }));
+  ({ ja, en, co, code, color, op: { ja: op[0], en: op[1] }, svg, alt: alt || [], direction: DIRECTION[ja] || '' }));
 const lineByName = name => LINES.find(l => l.ja === name);
 
 /* ---------- 設定（localStorage） ---------- */
 const Settings = {
   KEY: 'tokyo-lcd:settings',
   data: { demo: false, bilingual: true, autoLocate: false, chime: false, speech: false, autoCycle: false, ticker: true, tickerSpeed: 'normal',
-          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, hud: false, blink: true, focus: false }, // 保存値があればそちらを優先（load）
+          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, hud: false, blink: true, miniTags: true, nightWatch: false, focus: false }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -706,6 +797,31 @@ const Engine = {
     c.beginPath(); c.arc(0, -34, 6.5, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
     c.restore();
   },
+  /* 異常路線のミニタグ：路線の代表位置に「記号＋状態」を小さく描く。重なるものは省く（地図の拡大率に依らず読める） */
+  drawTags(c) {
+    if (!Settings.get('miniTags')) return;
+    const rows = LINES.filter(L => Store.of(L.ja).status !== 'normal' && (this.state.company === 'all' || L.co === this.state.company)).slice(0, 10);
+    if (!rows.length) return;
+    const k = this.W / Zoom.vw;                                  // css px / 地図単位
+    c.save(); c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    c.font = '700 12px "Roboto Condensed", "Helvetica Neue", sans-serif'; c.textBaseline = 'middle';
+    const placed = [];
+    rows.forEach(L => {
+      const cen = MapView.lineCenter(L.ja); if (!cen) return;
+      const x = (cen.x - Zoom.vx) * k, y = (cen.y - Zoom.vy) * k;
+      if (x < 8 || y < 8 || x > this.W - 8 || y > this.H - 8) return;
+      const st = Store.of(L.ja).status, label = `${L.code} ${STATUS[st].ja}`;
+      const w = c.measureText(label).width + 14, h = 20, rx = x - w / 2, ry = y - h / 2;
+      if (placed.some(p => rx < p.x + p.w && rx + w > p.x && ry < p.y + p.h && ry + h > p.y)) return;
+      placed.push({ x: rx, y: ry, w, h });
+      c.fillStyle = st === 'suspend' ? '#d91e18' : '#e67e00';
+      c.beginPath();
+      if (c.roundRect) c.roundRect(rx, ry, w, h, 6); else c.rect(rx, ry, w, h);
+      c.fill();
+      c.fillStyle = '#fff'; c.fillText(label, rx + 7, y + 1);
+    });
+    c.restore();
+  },
   /* 1回の描画：背景 → 地図（高精細バッファ or 基礎地図）→ 会社・強調・振替 → 発光 → 警告 → 現在地 */
   draw() {
     if (!this.ctx || !this.ready || !this.canvas.width) return;
@@ -728,6 +844,7 @@ const Engine = {
     if (det) this.drawDetour(c, det); else this.drawCompanyLines(c);
     this.drawGlow(c, det);
     this.drawPulses(c, unit);
+    this.drawTags(c);
     this.drawMarker(c, unit);
     this.lastDraw = performance.now() - t0; this.drawCount++;
   }
@@ -1498,6 +1615,8 @@ const SETTING_DEFS = [
   { key: 'autoLocate', cat: 'comm', ja: '起動時に現在地へ自動移動', en: 'Auto-locate on launch', type: 'bool' },
   { key: 'autoCycle', cat: 'comm', ja: '自動画面サイクル（8秒）', en: 'Auto screen cycle', type: 'bool' },
   { key: 'hud', cat: 'comm', ja: '性能診断HUD（FPS・DOM数）', en: 'Performance HUD', type: 'bool' },
+  { key: 'miniTags', cat: 'display', ja: '路線図の異常ミニタグ', en: 'Map status tags', type: 'bool' },
+  { key: 'nightWatch', cat: 'comm', ja: '深夜・終電ウォッチ（常時ON）', en: 'Late-night watch', type: 'bool' },
   { key: 'blink', cat: 'display', ja: '異常路線の点滅（省電力ならOFF）', en: 'Blinking alerts (off saves power)', type: 'bool' },
   { key: 'interval', cat: 'comm', ja: '自動更新間隔', en: 'Auto refresh interval', type: 'cycle', opts: OPT_INTERVAL }
 ];
@@ -1767,7 +1886,7 @@ const Hud = {
   setOn(v) {
     this.el = this.el || document.getElementById('hud');
     if (!this.el || this.on === !!v) return;
-    this.on = !!v; this.el.hidden = !this.on;
+    this.on = !!v; this.el.hidden = !this.on; document.body.classList.toggle('hud-on', this.on);
     clearInterval(this.timer); this.timer = 0;
     if (this.on) { this.lastCount = Engine.drawCount; this.timer = setInterval(() => this.render(), 1000); this.render(); }
   },
@@ -1854,6 +1973,8 @@ const RouteUI = {
   editing: false,
   init() {
     document.getElementById('routeBody').addEventListener('click', e => {
+      const srt = e.target.closest('[data-share-route]');
+      if (srt) { const rr = Routes.list.find(x => x.id === srt.dataset.shareRoute); if (rr) Share.send(Share.route(rr)); return; }
       const del = e.target.closest('[data-del]');
       if (del) { if (confirm('このマイルートを削除しますか？')) Routes.remove(del.dataset.del); return; }
       if (e.target.closest('[data-route-add]')) { this.editing = true; this.render(); return; }
@@ -1889,20 +2010,28 @@ const RouteUI = {
   },
   card(r) {
     const { bad, worst } = Routes.status(r);
-    const alts = [...new Set(bad.flatMap(x => lineByName(x.n).alt))].filter(n => lineByName(n) && Store.of(n).status === 'normal').slice(0, 6);
-    const head = worst === 'normal' ? '平常運転' : (worst === 'suspend' ? '運転見合わせの影響あり' : '遅延の影響あり');
+    const lines = r.lines.map(n => lineByName(n)).filter(Boolean);
+    const stops = r.stations;
+    const nodes = [];
+    nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops[0] || '出発')}</b></div>`);
+    lines.forEach((L, i) => {
+      const s = Store.of(L.ja), abn = s.status !== 'normal';
+      nodes.push(`<div class="tl-node tl-line s-${s.status}" style="--lc:${L.color}"><span class="tl-bar"></span>
+        <span class="badge sm">${esc(L.code)}</span><span class="tl-name"><b>${esc(L.ja)}</b><small>${esc(L.direction || '')}</small></span>${statusBadge(s.status)}</div>`);
+      if (abn) {
+        const rs = Insight.resume(s.detail), alts = (L.alt || []).map(lineByName).filter(a => a && Store.of(a.ja).status === 'normal').slice(0, 3);
+        nodes.push(`<div class="tl-alert"><div class="tl-meta">${rs ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${rs}頃</span>` : '<span class="muted">再開見込みは未発表</span>'}${Insight.chipsHtml(s)}</div>
+          <div class="tl-alt"><small>推奨される振替・代替路線</small>${alts.length ? alts.map(a => `<button class="rc-line s-normal" data-line="${esc(a.ja)}" style="--lc:${a.color}"><span class="badge sm">${esc(a.code)}</span><span>${esc(a.ja)}</span></button>`).join('') : '<span class="muted">該当なし</span>'}</div></div>`);
+      }
+      if (i < lines.length - 1) nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops[i + 1] || '乗換')}</b></div>`);
+    });
+    if (lines.length) nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops.length >= 2 ? stops[stops.length - 1] : '到着')}</b></div>`);
     return `<div class="route-card s-${worst}">
-      <div class="rc-head"><b>${esc(r.name)}</b><span class="rc-state ${worst}">${bad.length ? 'マイルート影響あり（代替ルート確認）' : '正常'}</span></div>
-      ${r.stations.length ? `<div class="rc-path">${r.stations.map(s => `<span>${esc(s)}</span>`).join('<i class="material-symbols-outlined">arrow_forward</i>')}</div>` : ''}
-      <div class="rc-lines">${r.lines.map(n => {
-        const L = lineByName(n), st = Store.of(n).status;
-        return `<button class="rc-line s-${st}" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span>${L.ja}</span>${statusBadge(st)}</button>`;
-      }).join('')}</div>
-      ${bad.length ? `<div class="rc-alt"><small>代替ルート候補（平常運転）</small><div class="rc-lines">${alts.length ? alts.map(n => {
-        const L = lineByName(n);
-        return `<button class="rc-line s-normal" data-line="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span><span>${L.ja}</span></button>`;
-      }).join('') : '<span class="muted">該当なし</span>'}</div></div>` : ''}
-      <div class="rc-foot"><span class="muted">${head}</span><button class="rc-del" data-del="${esc(r.id)}"><span class="material-symbols-outlined">delete</span>削除</button></div>
+      <div class="rc-head"><b class="fit ls-m">${esc(r.name)}</b><span class="rc-state ${worst}">${bad.length ? 'マイルート影響あり（代替ルート確認）' : '正常'}</span></div>
+      <div class="rt-timeline">${nodes.join('')}</div>
+      <div class="rc-foot"><span class="muted">${bad.length ? bad.map(x => esc(x.n)).join('・') + ' に影響' : '利用路線は平常どおり'}</span>
+        <div class="rc-actions"><button class="rc-share" data-share-route="${esc(r.id)}"><span class="material-symbols-outlined">ios_share</span>状況を共有</button>
+        <button class="rc-del" data-del="${esc(r.id)}"><span class="material-symbols-outlined">delete</span>削除</button></div></div>
     </div>`;
   },
   formHtml() {
@@ -2076,7 +2205,7 @@ const Lcd = {
     const detail = s.detail || `${L.ja}は、運行情報をお知らせします。`;
     const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : Detail.highlight(detail);
     const meta = s.status === 'normal' ? '' :
-      `<p class="jp-meta">${Cause.chipHtml(s.detail)}<span class="elapsed" data-elapsed="${esc(L.ja)}">${esc(Elapsed.text(L.ja))}</span></p>`;
+      `<p class="jp-meta">${Cause.chipHtml(s.detail)}${Insight.chipsHtml(s)}<span class="elapsed" data-elapsed="${esc(L.ja)}">${esc(Elapsed.text(L.ja))}</span></p>`;
     const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>${meta}`;
     if (s.status === 'normal') return [ja];
     const rows = [['Line', L.en], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', Cause.classify(s.detail).en]];
@@ -2089,7 +2218,7 @@ const Lcd = {
     const fav = o.fav === undefined ? '' : `<button class="fav-btn${o.fav ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${!!o.fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>`;
     const time = o.dtime ? '<time id="dTime">--:--</time>' : `<time>${p(d.getHours())}:${p(d.getMinutes())}</time>`;
     return `<div class="lcd-head">
-      <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><span class="lh-dir">方面</span></div>
+      <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><span class="lh-route">${esc(L.direction || '')}</span><span class="lh-dir">方面</span></div>
       <span class="cbar"></span>
       <div class="lh-sym"><span class="lh-status">運行状況</span><div class="sym-box"><span class="sym-co">${esc(this.companyCode(L))}</span><span class="sym-code">${esc(L.code)}</span></div></div>
       <div class="lh-name"><b class="fit ${this.lsClass(L.ja)}">${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : ''}${fav}</div>
@@ -2144,19 +2273,19 @@ const Detail = {
     const memoEl = document.getElementById('memoText');
     if (memoEl && document.activeElement === memoEl) return; // メモ入力中は再描画しない
     const L = lineByName(this.name); if (!L) return;
-    const s = Store.of(L.ja), on = I18n.bi();
+    const s = Store.of(L.ja), on = I18n.bi(), fv = Favs.has(L.ja);
     const url = /^https:\/\/transit\.yahoo\.co\.jp\//.test(s.url || '') ? s.url : YAHOO_URL;
     const rt = 'https://search.yahoo.co.jp/realtime/search?p=' + encodeURIComponent(L.ja + ' 遅延');
     const extra = `<div class="lcd-memo"><label for="memoText">${bi('マイメモ', 'My Memo')}</label>
           <textarea id="memoText" rows="2" maxlength="300" placeholder="例：西船橋から東西線に振替">${esc(Memos.get(L.ja))}</textarea></div>
-        <div class="lcd-foot">
-          <button class="btn-alt" data-act="detour"><span class="material-symbols-outlined">alt_route</span>${bi('振替・代替ルートを路線図で表示', 'Show alternative routes')}</button>
-          <a class="btn-rt" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>${bi('現場のリアルタイム状況を検索', 'Realtime search')}</a>
-          <a class="btn-yahoo" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span>${I18n.label('official')}</a>
-        </div>`;
-    const fv = Favs.has(L.ja);
-    const favRow = `<div class="lcd-favrow"><button class="fav-btn wide${fv ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${fv}"><span class="material-symbols-outlined">star</span>${fv ? 'マイ路線から外す' : 'マイ路線に登録'}</button></div>`;
-    document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { dtime: true, key: 'detail', extra: favRow + extra });
+        <div class="lcd-actions">
+          <button class="act-btn fav-btn${fv ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${fv}"><span class="material-symbols-outlined">star</span><span>${fv ? 'マイ路線から外す' : 'マイ路線に登録'}</span></button>
+          <button class="act-btn" data-act="detour"><span class="material-symbols-outlined">alt_route</span><span>振替ルート表示</span></button>
+          <button class="act-btn" data-share="${esc(L.ja)}"><span class="material-symbols-outlined">ios_share</span><span>状況を共有</span></button>
+          <a class="act-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span><span>${on ? '公式詳細' : '公式詳細'}</span></a>
+        </div>
+        <div class="lcd-foot"><a class="rt-link" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>現場のリアルタイム状況を検索</a></div>`;
+    document.getElementById('detailBody').innerHTML = Lcd.bodyHtml(L, s, on, { dtime: true, key: 'detail', extra });
     Lcd.mount(document.querySelector('#detailBody .lcd-screen'), 'detail', 5000, true);
     Fit.all(document.getElementById('detailBody'));
     this.tickTime();
@@ -2345,6 +2474,7 @@ const UI = {
     const body = document.getElementById('detailBody');
     body.addEventListener('click', e => {
       const f = e.target.closest('.fav-btn'); if (f) { Favs.toggle(f.dataset.fav); return; }
+      const sh = e.target.closest('[data-share]'); if (sh) { Share.send(Share.line(sh.dataset.share)); return; }
       if (e.target.closest('[data-act="detour"]')) { const n = Detail.name; Modals.closeAll(); Detour.show(n); }
     });
     body.addEventListener('input', e => { if (e.target.id === 'memoText') Memos.set(Detail.name, e.target.value); });
@@ -2377,7 +2507,7 @@ const UI = {
   renderAll() {
     I18n.apply(); this.buildTabs(); this.buildLegend();
     document.getElementById('demoChip').hidden = !Settings.get('demo');
-    this.renderSync(); this.applyFlags(); this.renderFavBar(); this.renderMeter(); Ticker.render(); MV.render();
+    this.renderSync(); this.applyFlags(); this.renderFavBar(); this.renderMeter(); Ticker.render(); MV.render(); Insight.nightCheck();
     InfoLcd.render();
     if (Cycle.view === 'board') Board.render();
     if (Search.isOpen()) Search.render();
@@ -2453,7 +2583,7 @@ const UI = {
       }
     }
     this.prevAbn = cur; this.prevSt = now;
-    Ticker.render(); this.renderFavBar(); this.renderMeter(); InfoLcd.render();
+    Ticker.render(); this.renderFavBar(); this.renderMeter(); InfoLcd.render(); Insight.nightCheck();
     if (Cycle.view === 'board') Board.render();
     if (StationUI.isOpen()) StationUI.render();
     if (RouteUI.isOpen()) RouteUI.render();
@@ -2551,25 +2681,47 @@ const Sim = {
     delay: name => `（模擬）${name}は、車両の点検に伴い、列車に遅れが出ています。`,
     suspend: name => `（模擬）${name}は、車両点検のため、一部区間で運転を見合わせています。振替輸送を実施しています。`
   },
+  /* 広域トラブルの一括シナリオ（路線名は主要路線のみ。模擬の表示は次の更新で実データに戻る） */
+  SCENARIOS: {
+    core: { label: '都心ターミナル大規模障害', text: '都心ターミナル付近の大規模障害の影響で', lines: { '山手線': 'suspend', '京浜東北線': 'delay', '中央線快速': 'suspend', '丸ノ内線': 'delay' } },
+    typhoon: { label: '台風・強風による湾岸・郊外線遅延', text: '台風による強風の影響で', lines: { '京葉線': 'suspend', '総武快速線': 'delay', '東海道線': 'delay', '常磐線快速': 'delay', 'ゆりかもめ': 'suspend' } },
+    through: { label: '東急・メトロ直通ネットワーク乱れ', text: '直通運転区間の車両遅れの影響で', lines: { '東急東横線': 'delay', '副都心線': 'delay', '西武池袋線': 'delay', '東武東上線': 'delay' } },
+    reset: { label: '全線一括復旧（平常運転に戻す）', lines: {}, reset: true }
+  },
   init() {
     document.getElementById('simLine').innerHTML = LINES.map(L => `<option value="${esc(L.ja)}">${esc(L.ja)}</option>`).join('');
     document.getElementById('btnSim').onclick = () => Modals.open('modalSim');
     document.getElementById('modalSim').addEventListener('click', e => {
       const b = e.target.closest('[data-sim]'); if (b) this.run(b.dataset.sim);
+      const c = e.target.closest('[data-scn]'); if (c) this.scenario(c.dataset.scn);
     });
   },
+  apply(next, msg, afterMsg) {
+    Store.data = next;
+    MapView.applyStatuses();
+    UI.afterData();                       // 新しい異常の検知・チャイム・音声案内・履歴をそのまま動かす
+    document.getElementById('simMsg').textContent = msg;
+    if (afterMsg) afterMsg();
+  },
   run(kind) {
-    const msg = document.getElementById('simMsg');
-    if (kind === 'refresh') { UI.refresh(true); msg.textContent = '実データを取得しています'; return; }
+    if (kind === 'refresh') { UI.refresh(true); document.getElementById('simMsg').textContent = '実データを取得しています'; return; }
     const name = document.getElementById('simLine').value;
     const next = { ...Store.data };
     if (kind === 'resume') delete next[name];
     else next[name] = { status: kind === 'delay' ? 'delay' : 'suspend', detail: this.TEXT[kind](name) };
-    Store.data = next;
-    MapView.applyStatuses();
-    UI.afterData();                       // 新しい異常の検知・チャイム・音声案内・履歴をそのまま動かす
-    msg.textContent = kind === 'resume' ? `${name}を運転再開にしました` : `${name}に模擬の運行情報を出しました`;
-    if (kind !== 'resume') { Modals.closeAll(); Detail.open(name); }
+    this.apply(next, kind === 'resume' ? `${name}を運転再開にしました` : `${name}に模擬の運行情報を出しました`,
+      kind === 'resume' ? null : () => { Modals.closeAll(); Detail.open(name); });
+  },
+  scenario(key) {
+    const sc = this.SCENARIOS[key]; if (!sc) return;
+    const next = sc.reset ? {} : { ...Store.data };
+    if (!sc.reset) Object.entries(sc.lines).forEach(([n, st]) => {
+      if (!lineByName(n)) return;
+      next[n] = { status: st, detail: st === 'suspend'
+        ? `（模擬）${n}は、${sc.text}一部区間で運転を見合わせています。振替輸送を実施しています。`
+        : `（模擬）${n}は、${sc.text}列車に遅れが出ています。` };
+    });
+    this.apply(next, `${sc.label}を表示しました（模擬）`, () => { Modals.closeAll(); });
   }
 };
 
@@ -2586,6 +2738,83 @@ const Jump = {
       if (p) Zoom.focusOn(p.x, p.y); else UI.toast('路線図上でこの駅を見つけられませんでした');
       list.hidden = true;
     });
+  }
+};
+
+/* ---------- 運行の読み取り：再開見込み・影響度・深夜ウォッチ ---------- */
+const Insight = {
+  /* 本文から再開見込みの時刻を探す（「再開」の近くの時刻、または「頃」の付いた時刻） */
+  resume(text) {
+    const t = String(text || ''), idx = t.indexOf('再開');
+    const re = /(\d{1,2})\s*(?:時|:|：)\s*(\d{1,2})?\s*分?/g;
+    let m, best = null, bestD = Infinity;
+    while ((m = re.exec(t))) {
+      const h = +m[1], mi = m[2] !== undefined ? +m[2] : 0;
+      if (h > 23 || mi > 59) continue;
+      const after = t.slice(m.index + m[0].length, m.index + m[0].length + 2);
+      if (idx < 0 && !after.includes('頃')) continue;
+      const d = idx < 0 ? 0 : Math.abs(m.index - idx);
+      if (idx >= 0 && d > 40) continue;
+      if (d < bestD) { bestD = d; best = `${pad(h)}:${pad(mi)}`; }
+    }
+    return best;
+  },
+  /* 影響度：3段階（軽微／注意／深刻・混雑警戒） */
+  impact(s) {
+    const t = String(s.detail || '');
+    if (s.status === 'suspend' || /人身事故|大規模|全線|終日|脱線|火災|停電|台風|架線/.test(t)) return { level: 3, ja: '深刻・混雑警戒', cls: 'sev3' };
+    if (s.status === 'delay' || s.status === 'partial' || /信号|車両故障|点検|強風|大雨|混雑|遅れ/.test(t)) return { level: 2, ja: '注意', cls: 'sev2' };
+    return { level: 1, ja: '軽微', cls: 'sev1' };
+  },
+  chipsHtml(s) {
+    if (!s || s.status === 'normal') return '';
+    const r = this.resume(s.detail), im = this.impact(s);
+    return `${r ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${r}頃</span>` : ''}<span class="imp-chip ${im.cls}">影響：${im.ja}</span>`;
+  },
+  /* 深夜・終電ウォッチ：22:30〜01:30、または設定でONのとき */
+  nightActive() { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m >= 1350 || m < 90; },
+  alertKey: '',
+  nightCheck() {
+    const on = !!Settings.get('nightWatch') || this.nightActive();
+    const chip = document.getElementById('nightBadge');
+    if (chip) chip.hidden = !on;
+    if (!on) { this.alertKey = ''; return; }
+    const mine = [...new Set([...Favs.list, ...Routes.list.flatMap(r => r.lines)])];
+    const bad = mine.filter(n => Store.of(n).status !== 'normal');
+    const key = bad.join(',');
+    if (bad.length && key !== this.alertKey) {
+      this.alertKey = key;
+      UI.toast(`深夜ウォッチ：${bad.slice(0, 3).join('・')}に影響が出ています。終電への接続に注意してください`);
+    }
+  }
+};
+
+/* ---------- 運行状況の共有（報告テキストの生成・共有シート／コピー） ---------- */
+const Share = {
+  line(name) {
+    const L = lineByName(name), s = Store.of(name), now = new Date();
+    if (s.status === 'normal') return `【鉄道運行情報】${L.ja}は平常どおり運転しています。（${pad(now.getHours())}:${pad(now.getMinutes())}時点）`;
+    const first = String(s.detail || '').split('。')[0].replace(/^（模擬）/, '');
+    const parts = [STATUS[s.status].ja];
+    const r = Insight.resume(s.detail); if (r) parts.push(`再開見込み ${r}頃`);
+    if (/振替輸送/.test(s.detail || '')) parts.push('振替輸送あり');
+    const el = Elapsed.text(name);
+    return `【鉄道運行情報】${first || `${L.ja}は${STATUS[s.status].ja}です`}。（${parts.join(' / ')}）${el ? ' ' + el : ''}`;
+  },
+  route(r) {
+    const bad = r.lines.map(n => ({ n, s: Store.of(n) })).filter(x => x.s.status !== 'normal');
+    if (!bad.length) return `【マイルート：${r.name}】利用路線は平常どおり運転しています。`;
+    return `【マイルート：${r.name}】` + bad.map(x => {
+      const r2 = Insight.resume(x.s.detail);
+      return `${x.n}：${STATUS[x.s.status].ja}${r2 ? `（再開見込み ${r2}頃）` : ''}`;
+    }).join('、');
+  },
+  async send(text) {
+    try {
+      if (navigator.share) { await navigator.share({ title: '鉄道運行情報', text }); UI.toast('共有しました'); return; }
+    } catch (_) { /* 共有を取り消した場合はコピーに切り替えない */ return; }
+    try { await navigator.clipboard.writeText(text); UI.toast('報告文をコピーしました'); }
+    catch (_) { UI.toast('コピーできませんでした。表示された文を手動で選んでください'); }
   }
 };
 

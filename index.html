@@ -26,6 +26,7 @@
       <h1 class="title" data-i18n="title"></h1>
       <span class="meter" id="meter"><i class="mdot"></i><span id="meterTxt">--</span></span>
       <button class="abn-badge" id="abnBadge" aria-label="異常路線の一覧を開く"><span class="material-symbols-outlined">warning</span><span id="abnTxt">--</span></button>
+      <span class="night-chip" id="nightBadge" hidden><span class="material-symbols-outlined">dark_mode</span>深夜ウォッチ</span>
     </div>
     <div class="hdr-r">
       <span class="demo-chip" id="demoChip" hidden>DEMO</span>
@@ -237,6 +238,12 @@
         <button class="btn-yahoo" data-sim="suspend">運転見合わせ（振替あり）</button>
         <button class="btn-yahoo plain" data-sim="resume">運転再開</button>
         <button class="btn-yahoo plain" data-sim="refresh">実データに戻す</button>
+      </div>
+      <div class="sim-btns sim-scn">
+        <button class="btn-yahoo" data-scn="core">都心ターミナル大規模障害</button>
+        <button class="btn-yahoo" data-scn="typhoon">台風・強風（湾岸・郊外）</button>
+        <button class="btn-yahoo" data-scn="through">直通ネットワーク乱れ</button>
+        <button class="btn-yahoo plain" data-scn="reset">全線一括復旧</button>
       </div>
       <p class="backup-msg" id="simMsg"></p>
     </div>
