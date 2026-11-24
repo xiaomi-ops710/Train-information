@@ -653,7 +653,7 @@ const Engine = {
     if (!this.stage || !this.canvas) return;
     const r = this.stage.getBoundingClientRect();
     this.W = Math.max(1, r.width); this.H = Math.max(1, r.height);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+    this.dpr = Math.min(window.devicePixelRatio || 1, document.body.classList.contains('is-phone') ? 1.5 : 2.0);
     const w = Math.round(this.W * this.dpr), h = Math.round(this.H * this.dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w; this.canvas.height = h;
@@ -975,7 +975,7 @@ const Zoom = {
   visXY() { return { x: this.vx + this.vw / 2, y: this.vy + (this.H / 2 + this.off()) * this.unit() }; },
   home() {
     this.stopAnim(); this.measure();
-    this.vw = this.clampVw(this.maxVw() / this.HOME_DIV);
+    this.vw = this.clampVw(this.maxVw() / (document.body.classList.contains('is-phone') ? 1.8 : this.HOME_DIV));
     this.centerOn(this.HOME_PT[0] * this.VW, this.HOME_PT[1] * this.VH);
     this.clampPos(); this.finish();
   },
@@ -2428,7 +2428,7 @@ const Search = {
 /* ---------- モーダル管理 ---------- */
 const Modals = {
   open(id) { this.closeAll(); document.getElementById(id).hidden = false; },
-  closeAll() { document.querySelectorAll('.modal').forEach(m => m.hidden = true); },
+  closeAll() { document.querySelectorAll('.modal').forEach(m => m.hidden = true); if (typeof Phone !== 'undefined' && Phone.on()) Phone.sync(); },
   init() {
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => {
       if (e.target === m || e.target.closest('[data-close]')) this.closeAll();
@@ -2818,6 +2818,98 @@ const Share = {
   }
 };
 
+/* ---------- スマホ版：下部バー（ホーム・検索・メニュー・設定）とメニューシート ---------- */
+const Phone = {
+  mq: null, sheetOpen: false,
+  ITEMS: [
+    { sec: '表示', items: [
+      { id: 'dual', ja: '2画面LCD', icon: 'view_sidebar', state: () => !!Settings.get('dual'), act: () => document.getElementById('btnDual').click() },
+      { id: 'cycle', ja: '自動切替', icon: 'autorenew', state: () => !!Settings.get('autoCycle'), act: () => document.getElementById('btnCycle').click() },
+      { id: 'focus', ja: '異常のみ強調', icon: 'warning', state: () => !!Settings.get('focus'), act: () => document.getElementById('btnFocus').click() },
+      { id: 'clock', ja: 'LCD時計', icon: 'schedule', state: () => ClockMode.isOpen(), act: () => document.getElementById('btnClock').click() },
+      { id: 'night', ja: '深夜・終電ウォッチ', icon: 'dark_mode', state: () => !!Settings.get('nightWatch'), act: () => Settings.set('nightWatch', !Settings.get('nightWatch')) }
+    ] },
+    { sec: '情報', items: [
+      { id: 'abn', ja: '異常路線一覧', icon: 'warning', act: () => AbnUI.open() },
+      { id: 'station', ja: 'マイ駅', icon: 'pin_drop', act: () => StationUI.open() },
+      { id: 'route', ja: 'マイルート', icon: 'alt_route', act: () => RouteUI.open() },
+      { id: 'history', ja: '履歴ログ', icon: 'history', act: () => HistoryUI.open() }
+    ] },
+    { sec: 'ツール', items: [
+      { id: 'sim', ja: '異常時シミュレーター', icon: 'science', act: () => Modals.open('modalSim') },
+      { id: 'backup', ja: 'データ保存・復元', icon: 'swap_horiz', act: () => Backup.open() },
+      { id: 'links', ja: '公式遅延証明書', icon: 'receipt_long', act: () => LinksUI.open() },
+      { id: 'help', ja: '係員呼出（操作ガイド）', icon: 'support_agent', act: () => HelpUI.open() }
+    ] }
+  ],
+  on() { return document.body.classList.contains('is-phone'); },
+  init() {
+    this.mq = window.matchMedia('(max-width: 640px)');
+    const upd = () => this.apply();
+    if (this.mq.addEventListener) this.mq.addEventListener('change', upd); else this.mq.addListener(upd);
+    document.querySelectorAll('#phoneNav [data-pn]').forEach(b => b.addEventListener('click', () => this.nav(b.dataset.pn)));
+    document.getElementById('pnScrim').addEventListener('click', () => this.closeSheet(true));
+    document.getElementById('pnList').addEventListener('click', e => {
+      const it = e.target.closest('[data-pn-id]'); if (it) this.item(it.dataset.pnId);
+    });
+    this.apply();
+  },
+  /* 画面幅に応じて切り替える（スマホ：640px以下） */
+  apply() {
+    document.body.classList.toggle('is-phone', this.mq.matches);
+    if (!this.mq.matches) this.closeSheet(false);
+    this.sync();
+    if (Engine.canvas) Engine.resize();
+  },
+  setActive(key) {
+    document.querySelectorAll('#phoneNav [data-pn]').forEach(b => {
+      const on = b.dataset.pn === key;
+      b.classList.toggle('on', on);
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+  },
+  /* 画面に何も出ていないときは「ホーム」を選んだ状態にする */
+  sync() {
+    if (!this.on()) return;
+    const open = document.querySelector('.modal:not([hidden])');
+    if (!open && !this.sheetOpen) this.setActive('home');
+  },
+  openSheet() {
+    this.renderSheet();
+    document.getElementById('pnSheet').hidden = false;
+    document.getElementById('pnScrim').hidden = false;
+    this.sheetOpen = true; this.setActive('menu');
+  },
+  closeSheet(reset) {
+    document.getElementById('pnSheet').hidden = true;
+    document.getElementById('pnScrim').hidden = true;
+    this.sheetOpen = false;
+    if (reset) this.sync();
+  },
+  nav(key) {
+    if (key === 'home') {
+      Modals.closeAll(); ClockMode.close(); this.closeSheet(false);
+      Zoom.home(); this.setActive('home'); return;
+    }
+    if (key === 'search') { this.closeSheet(false); Search.open(true); this.setActive('search'); return; }
+    if (key === 'menu') { if (this.sheetOpen) this.closeSheet(true); else this.openSheet(); return; }
+    if (key === 'settings') { this.closeSheet(false); document.getElementById('btnSettings').click(); this.setActive('settings'); }
+  },
+  renderSheet() {
+    document.getElementById('pnList').innerHTML = this.ITEMS.map(sec =>
+      `<div class="pn-sec">${esc(sec.sec)}</div>` + sec.items.map(it => {
+        const st = it.state ? it.state() : null;
+        return `<button class="pn-row" data-pn-id="${it.id}"><span class="material-symbols-outlined">${it.icon}</span><span class="pn-row-lbl">${esc(it.ja)}</span>${st === null ? '' : `<span class="pn-state${st ? ' on' : ''}">${st ? 'ON' : 'OFF'}</span>`}</button>`;
+      }).join('')).join('');
+  },
+  item(id) {
+    const it = this.ITEMS.flatMap(s => s.items).find(x => x.id === id); if (!it) return;
+    this.closeSheet(false);
+    it.act();
+    setTimeout(() => this.sync(), 0);
+  }
+};
+
 /* ---------- 起動 ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
   Settings.load();
@@ -2829,7 +2921,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Engine.setState({ company: UI.company, alert: !!Settings.get('focus') });
   Engine.requestDraw();
   Blink.sync();
-  Locate.init(); LinksUI.init();
+  Locate.init(); LinksUI.init(); Phone.init();
   if (Settings.get('autoLocate')) Locate.locate();
   await UI.refresh();
 });

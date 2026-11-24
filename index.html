@@ -275,6 +275,19 @@
   </div>
 </div>
 
+<!-- スマホ版：下部ナビゲーション（Material 3 の NavigationBar 相当。画面幅640px以下でのみ表示） -->
+<nav class="phone-nav" id="phoneNav" aria-label="メインメニュー">
+  <button class="pn-item on" data-pn="home" aria-current="page"><span class="pn-ind"><span class="material-symbols-outlined">home</span></span><span class="pn-lbl">ホーム</span></button>
+  <button class="pn-item" data-pn="search"><span class="pn-ind"><span class="material-symbols-outlined">search</span></span><span class="pn-lbl">検索</span></button>
+  <button class="pn-item" data-pn="menu"><span class="pn-ind"><span class="material-symbols-outlined">menu</span></span><span class="pn-lbl">メニュー</span></button>
+  <button class="pn-item" data-pn="settings"><span class="pn-ind"><span class="material-symbols-outlined">settings</span></span><span class="pn-lbl">設定</span></button>
+</nav>
+<div class="pn-scrim" id="pnScrim" hidden></div>
+<div class="pn-sheet" id="pnSheet" role="dialog" aria-label="メニュー" hidden>
+  <div class="pn-grip"></div>
+  <div class="pn-sheet-title">メニュー</div>
+  <div id="pnList"></div>
+</div>
 <div id="lcdOverlay"></div>
 <div id="dimOverlay"></div>
 <script src="./app.js"></script>
