@@ -64,6 +64,7 @@
 <div class="favbar" id="favBar" hidden></div>
 </div>
 
+<div class="dual-wall" id="dualWall" aria-hidden="true"></div>
 <main class="stage" id="map-viewport">
   <canvas class="map-canvas" id="map-canvas" aria-label="関東の路線図"></canvas>
   <div class="map-loading" id="mapLoading">路線図を準備中…</div>
@@ -148,10 +149,12 @@
           <tr><td><kbd>?</kbd></td><td>この操作ガイド</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>開いている画面を閉じる</td></tr>
         </table></div>
-      <div class="help-sec"><b>2画面LCD</b>
-        <p>ヘッダーの「2画面」をONにすると、右側に情報案内の画面が出ます。異常路線・マイ路線・マイルートを6秒ごとに切り替えて表示します。</p></div>
-      <div class="help-sec"><b>マイルート</b>
-        <p>「ルート」から通勤・通学の経路を登録できます。利用路線に遅延や見合わせが出ると、マイ路線バーに警告が表示されます。</p></div>
+      <div class="help-sec"><b>路線別「実車LCDマルチシステム」</b>
+        <p>詳細ポップアップ・2画面LCD・異常ボードは、選択した路線の鉄道会社に応じてJR（E235系セサミクロ）・東京メトロ（Tokyo Metro Vision）・都営（ワイドLCD）・東急（TOQビジョン）・小田急（TVOS）・京王・西武・京急・東武・京成・相鉄・TXの実車風デザインへ自動切替します。設定画面の「車内LCD表示テーマ」から特定社局への固定も可能です。</p></div>
+      <div class="help-sec"><b>2画面LCD（16:9 車内2連モニター）</b>
+        <p>「表示切替」→「2画面LCD」をONにすると、車内化粧板風のアイボリーフレームと中央ピラーを挟んで左右に16:9比率のモニターが並び、選択した路線や異常路線を実車LCDテーマで案内します。縦持ち時は自動で上下2段配置に切り替わります。</p></div>
+      <div class="help-sec"><b>マイルート乗換タイムライン＆状況共有</b>
+        <p>「マイメニュー」→「マイルート」から経路を登録すると、縦型の乗換タイムラインで各区間の状態・再開見込み・推奨振替路線を自動診断します。詳細画面やマイルートからワンタップで報告文を共有・コピーできます。</p></div>
     </div>
   </div>
 </div>
@@ -227,23 +230,37 @@
 
 <!-- 異常時運行シミュレーター -->
 <div class="modal" id="modalSim" hidden>
-  <div class="sheet" role="dialog" aria-modal="true">
+  <div class="sheet sheet-sim" role="dialog" aria-modal="true">
     <div class="sheet-head"><h2>異常時運行シミュレーター<span class="en">Simulator</span></h2>
       <button class="icon-btn" data-close aria-label="閉じる"><span class="material-symbols-outlined">close</span></button></div>
     <div class="list sim-body">
-      <p class="backup-note">選んだ路線に模擬の遅延・運転見合わせを出し、路線図の発光・詳細・チャイム・音声案内の動きを確かめられます。模擬の表示は、次の運行情報の更新で実データに戻ります。</p>
-      <label class="sim-row">路線 <select id="simLine"></select></label>
+      <p class="backup-note">路線図の発光・ミニラベル・再開見込み抽出・乗換タイムライン診断・チャイム・音声案内の動作を検証できます。模擬状態は次の自動/手動更新または「全線一括復旧リセット」で解除されます。</p>
+      <div class="sim-sec-title"><span class="material-symbols-outlined">tune</span>単一路線の模擬発生</div>
+      <label class="sim-row"><span>対象路線</span><select id="simLine"></select></label>
       <div class="sim-btns">
-        <button class="btn-yahoo" data-sim="delay">遅延を発生</button>
-        <button class="btn-yahoo" data-sim="suspend">運転見合わせ（振替あり）</button>
-        <button class="btn-yahoo plain" data-sim="resume">運転再開</button>
-        <button class="btn-yahoo plain" data-sim="refresh">実データに戻す</button>
+        <button class="btn-yahoo" data-sim="delay"><span class="material-symbols-outlined">schedule</span>遅延を発生</button>
+        <button class="btn-yahoo" data-sim="suspend"><span class="material-symbols-outlined">report</span>運転見合わせ（振替・再開見込み）</button>
+        <button class="btn-yahoo plain" data-sim="resume"><span class="material-symbols-outlined">check_circle</span>選択路線を復旧</button>
+        <button class="btn-yahoo plain" data-sim="refresh"><span class="material-symbols-outlined">sync</span>実データに戻す</button>
       </div>
-      <div class="sim-btns sim-scn">
-        <button class="btn-yahoo" data-scn="core">都心ターミナル大規模障害</button>
-        <button class="btn-yahoo" data-scn="typhoon">台風・強風（湾岸・郊外）</button>
-        <button class="btn-yahoo" data-scn="through">直通ネットワーク乱れ</button>
-        <button class="btn-yahoo plain" data-scn="reset">全線一括復旧</button>
+      <div class="sim-sec-title"><span class="material-symbols-outlined">hub</span>広域トラブル一括シナリオ（4種）</div>
+      <div class="scn-grid">
+        <button class="scn-btn danger" data-scn="core">
+          <span class="material-symbols-outlined">emergency</span>
+          <span class="scn-txt"><b>都心ターミナル大規模障害</b><small>山手・中央快速・京浜東北 見合わせ／埼京・丸ノ内・総武快速 遅延</small></span>
+        </button>
+        <button class="scn-btn warn" data-scn="typhoon">
+          <span class="material-symbols-outlined">cyclone</span>
+          <span class="scn-txt"><b>台風・強風による湾岸・郊外線遅延</b><small>京葉・ゆりかもめ・外房 見合わせ／東海道・武蔵野・常磐快速 乱れ</small></span>
+        </button>
+        <button class="scn-btn warn" data-scn="through">
+          <span class="material-symbols-outlined">swap_calls</span>
+          <span class="scn-txt"><b>東急・メトロ直通ネットワーク乱れ</b><small>東急東横 見合わせ／副都心・みなとみらい・目黒・西武・東武 遅延</small></span>
+        </button>
+        <button class="scn-btn ok" data-scn="reset">
+          <span class="material-symbols-outlined">verified</span>
+          <span class="scn-txt"><b>全線一括復旧リセット</b><small>全89路線の模擬障害を解除し、平常運転へ一括リセット</small></span>
+        </button>
       </div>
       <p class="backup-msg" id="simMsg"></p>
     </div>

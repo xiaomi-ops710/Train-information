@@ -149,8 +149,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--delay);outline-
 
 
 
-.favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+.favbar{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;
   background:linear-gradient(180deg,#1b1d22,#101114);border-bottom:1px solid #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);z-index:4}
+.favbar::-webkit-scrollbar{display:none}
 .favbar[hidden]{display:none}
 .fav-title{flex:none;display:flex;align-items:center;gap:4px;font-weight:700;font-size:13px;color:#ffd23a;white-space:nowrap}
 .fav-title small{font-size:10px;opacity:.7;margin-left:4px}
@@ -659,8 +660,9 @@ kbd{display:inline-block;padding:1px 7px;border:1px solid #888;border-radius:4px
 .lcd.e235{font-family:var(--lcd-jp);border:6px solid #111;border-radius:6px;background:#e8e4d8;box-shadow:0 10px 24px rgba(0,0,0,.45)}
 .lcd.e235 .lcd-head{position:relative;overflow:hidden}
 .lcd.e235 .lcd-head::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(112deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,0) 66%,rgba(255,255,255,.06) 100%)}
-.fit{display:inline-block;white-space:nowrap;transform-origin:left center;overflow:visible;max-width:none}
-.lcd.e235 .lh-name b.fit{font-family:var(--lcd-jp);font-weight:600;font-size:clamp(1.8rem,4vw,2.7rem);line-height:1.15;text-overflow:clip}
+.fit{display:inline-block;align-self:flex-start;white-space:nowrap;transform-origin:left center;overflow:visible !important;max-width:none;text-overflow:clip !important}
+.lcd.e235 .lh-name{overflow:hidden}
+.lcd.e235 .lh-name b.fit{font-family:var(--lcd-jp);font-weight:600;font-size:clamp(1.8rem,4vw,2.7rem);line-height:1.15;overflow:visible !important;text-overflow:clip}
 .lcd.e235 .lh-name b.ls-s{letter-spacing:.22em}
 .lcd.e235 .lh-name b.ls-m{letter-spacing:.08em}
 .lcd.e235 .lh-name b.ls-l{letter-spacing:.01em}
@@ -759,20 +761,43 @@ button,.tab,.cbtn,.icon-btn,.btn-search,.abn-badge,.mv-tab,.fav-chip,.rc-line,.s
 .sim-row select{min-height:44px;font:500 1rem 'Noto Sans JP',sans-serif;padding:0 10px;border-radius:8px;border:1px solid #b0b5bd;background:#fff;color:#111}
 .sim-btns{display:flex;flex-wrap:wrap;gap:10px}
 
-/* ================= v17：方面・影響度・再開見込み・タイムライン ================= */
-.lcd.e235 .lh-left{width:auto;min-width:150px;max-width:190px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px;padding:12px 14px 10px}
-.lh-route{font:500 .95rem/1.4 var(--lcd-jp);color:#fff;letter-spacing:.03em;word-break:keep-all}
-.lh-left .lh-dir{align-self:flex-end;font:400 .8rem var(--lcd-jp);opacity:.9}
-.res-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#eff2f6;color:#141619;font:500 .9rem var(--lcd-jp)}
-.res-chip .material-symbols-outlined{font-size:18px}
-.imp-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;color:#fff;font:500 .9rem var(--lcd-jp)}
-.imp-chip.sev1{background:#5d7a6a}
-.imp-chip.sev2{background:#e67e00}
-.imp-chip.sev3{background:#d91e18}
+/* ================= v17：方面・影響度・再開見込み・タイムライン・16:9 2画面LCD ================= */
+.lcd.e235 .lh-left{width:190px;min-width:168px;max-width:204px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:4px;padding:10px 14px 8px;overflow:hidden}
+.lh-dir-box{width:100%;overflow:hidden;margin-top:auto;line-height:1.25}
+.lh-route{display:inline-block;white-space:nowrap;font:500 .96rem/1.28 var(--lcd-jp);color:#fff;letter-spacing:.03em;transform-origin:left center}
+.lh-left .lh-dir{align-self:flex-end;font:500 .76rem/1.1 var(--lcd-jp);color:rgba(255,255,255,.9);letter-spacing:.08em}
+.res-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:6px;background:#ffd23a;color:#111;border:1.5px solid #b58900;font:700 .9rem var(--lcd-jp);letter-spacing:.02em}
+.res-chip .material-symbols-outlined{font-size:18px;color:#111}
+.imp-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:6px;color:#fff;font:700 .88rem var(--lcd-jp);letter-spacing:.02em}
+.imp-chip .material-symbols-outlined{font-size:17px}
+.imp-chip.sev1{background:#2d6f54}
+.imp-chip.sev2{background:#df7200}
+.imp-chip.sev3{background:#d11914}
+.bc-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.bc-dir{font:500 .78rem var(--lcd-jp);color:#cfd5e2;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .night-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid #6b5fc2;background:#241f4a;color:#dcd6ff;font:700 13px 'Noto Sans JP',sans-serif;white-space:nowrap}
 .night-chip .material-symbols-outlined{font-size:18px}
 .night-chip[hidden]{display:none}
-.sim-scn{margin-top:4px}
+/* シミュレーター：単一路線＋4種一括シナリオ */
+.sheet-sim{width:min(700px,95vw)}
+.sim-sec-title{display:flex;align-items:center;gap:6px;font:700 .95rem 'Noto Sans JP',sans-serif;color:#1d2433;padding-top:4px;border-top:1px solid #dfe3ec}
+.sim-sec-title:first-of-type{border-top:0;padding-top:0}
+.sim-sec-title .material-symbols-outlined{font-size:20px;color:#2f6df0}
+.sim-row select{flex:1;min-width:0}
+.scn-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.scn-btn{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:10px;border:2px solid #cfd5e2;background:#f8f9fc;color:#111;text-align:left;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.scn-btn:active{transform:translateY(1px)}
+.scn-btn .material-symbols-outlined{font-size:24px;margin-top:2px}
+.scn-btn.danger{border-color:#e05252;background:#fff5f5}
+.scn-btn.danger .material-symbols-outlined{color:#d11914}
+.scn-btn.warn{border-color:#e5942a;background:#fffaf0}
+.scn-btn.warn .material-symbols-outlined{color:#d97200}
+.scn-btn.ok{border-color:#2a9d5c;background:#f2fbf5}
+.scn-btn.ok .material-symbols-outlined{color:#1b7f3a}
+.scn-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.scn-txt b{font-size:.94rem;font-weight:700;line-height:1.25}
+.scn-txt small{font-size:.76rem;color:#555;line-height:1.35}
+@media (max-width:600px){.scn-grid{grid-template-columns:1fr}}
 /* 詳細ポップアップの下部操作：均等な4列 */
 .lcd-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 14px;background:#fff;border-top:1px solid #d6dae4}
 .act-btn{min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 8px;border-radius:8px;border:1px solid #8a8f96;background:#f4f5f8;color:#111;font:500 .9rem var(--lcd-jp);text-decoration:none;cursor:pointer;text-align:center;line-height:1.2}
@@ -783,40 +808,105 @@ button,.tab,.cbtn,.icon-btn,.btn-search,.abn-badge,.mv-tab,.fav-chip,.rc-line,.s
 .rt-link{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#1f5fbf;font:500 .92rem var(--lcd-jp);text-decoration:underline;text-underline-offset:3px}
 .rt-link .material-symbols-outlined{font-size:20px}
 @media (max-width:640px){.lcd-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
-/* マイルートの乗換タイムライン */
-.rt-timeline{display:flex;flex-direction:column;gap:0;padding:6px 4px 4px 6px;position:relative}
-.tl-node{position:relative;display:flex;align-items:center;gap:10px;padding:8px 0 8px 26px;min-height:44px}
-.tl-stop .tl-dot{position:absolute;left:4px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #111}
-.tl-stop b{font:500 1rem var(--lcd-jp)}
-.tl-line{background:#f7f8fb;border-radius:8px;padding:8px 10px 8px 16px;margin:2px 0}
-.tl-line .tl-bar{position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:6px 0 0 6px;background:var(--lc)}
-.tl-line{overflow:hidden}
+/* マイルートの縦型鉄道乗換タイムライン診断 */
+.route-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 4px 10px}
+.route-presets{display:flex;flex-wrap:wrap;gap:6px}
+.rt-timeline{display:flex;flex-direction:column;gap:0;padding:6px 4px 6px 8px;position:relative}
+.rt-timeline::before{content:"";position:absolute;left:18px;top:24px;bottom:24px;width:4px;background:#cfd5e2;border-radius:2px}
+.tl-node{position:relative;z-index:1;display:flex;align-items:center;gap:10px;padding:6px 0 6px 28px;min-height:40px}
+.tl-stop .tl-dot{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid #1d2433}
+.tl-stop.is-xfer .tl-dot{border-color:#2f6df0}
+.tl-stop b{font:700 1rem var(--lcd-jp);color:#111}
+.tl-stop small{font:500 .78rem var(--lcd-jp);color:#5c6475;background:#eef1f7;padding:2px 8px;border-radius:999px}
+.tl-line{background:#f5f7fb;border:1px solid #dce1ec;border-radius:8px;padding:8px 10px 8px 18px;margin:2px 0 2px 24px;overflow:hidden;cursor:pointer}
+.tl-line.s-suspend{background:#fff2f2;border-color:#f0a8a8}
+.tl-line.s-delay,.tl-line.s-partial{background:#fff9ec;border-color:#f0cc8a}
+.tl-line .tl-bar{position:absolute;left:0;top:0;bottom:0;width:7px;border-radius:7px 0 0 7px;background:var(--lc)}
 .tl-name{flex:1;min-width:0;display:flex;flex-direction:column}
-.tl-name b{font:500 1rem var(--lcd-jp)}
-.tl-name small{font:400 .75rem var(--lcd-jp);color:#555}
-.tl-alert{margin:4px 0 6px 26px;padding:10px 12px;border-left:3px solid #e67e00;background:#fff8ea;border-radius:0 8px 8px 0}
-.tl-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.tl-name b{font:700 1rem var(--lcd-jp);color:#111}
+.tl-name small{font:400 .76rem var(--lcd-jp);color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-alert{position:relative;z-index:1;margin:4px 0 8px 28px;padding:10px 12px;border-left:4px solid #e67e00;background:#fff8ea;border-radius:0 8px 8px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tl-alert.s-suspend{border-left-color:#d11914;background:#fff1f1}
+.tl-detail{margin:0 0 8px;font:500 .86rem/1.5 var(--lcd-jp);color:#222}
+.tl-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 .tl-alt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.tl-alt small{width:100%;font:500 .8rem var(--lcd-jp);color:#555}
+.tl-alt small{width:100%;font:700 .8rem var(--lcd-jp);color:#333}
 .rc-actions{display:flex;gap:8px;flex-wrap:wrap}
-.rc-share{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid #1f5fbf;background:#eef4ff;color:#1f5fbf;font:700 .9rem 'Noto Sans JP',sans-serif;cursor:pointer}
+.rc-share{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid #1f5fbf;background:#eef4ff;color:#1f5fbf;font:700 .88rem 'Noto Sans JP',sans-serif;cursor:pointer}
 .rc-share .material-symbols-outlined{font-size:20px}
 /* 地図まわりのフロートUIを統一（角丸・半透明の濃いパネル・同じ罫線） */
 .zoom .icon-btn,.legend,.loc-chip,.detour-bar,.hud,.jump-list,.toast,.stn-pop{background:rgba(14,18,28,.92);border:1px solid #3a3e46;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
-.legend{border-radius:12px}
-.hud{border-radius:12px;background:rgba(14,18,28,.92);border:1px solid #3a3e46}
-/* 診断HUDが出るときは、凡例を上へずらして重ならないようにする */
-body.hud-on .legend{bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + 52px)}
-/* 縦持ち（ポートレート）：地図を上、2画面LCDを下の段に */
-@media (orientation:portrait){
-  body.dual #map-viewport{right:0;bottom:calc(46vh + 7px)}
-  body.dual .info-lcd{left:0;right:0;top:auto;bottom:var(--bot-h,0px);width:auto;height:46vh}
-  body.dual .dual-pillar{left:0;right:0;top:auto;bottom:calc(46vh);width:auto;height:14px;transform:none}
-}
-/* 2画面LCDの右パネル：車内のワイド液晶の比率（16:9）の枠に収め、アイボリーの化粧枠で囲む */
-body.dual .info-lcd{background:#e5e1d5;padding:10px}
-body.dual .info-lcd .info-body{padding:0;background:transparent}
-body.dual .info-lcd .info-body .lcd.e235{aspect-ratio:auto}
+.legend{border-radius:12px;transition:bottom .22s cubic-bezier(.2,.8,.2,1)}
+.hud{left:16px;max-width:calc(100% - 104px);white-space:normal;border-radius:12px;background:rgba(14,18,28,.92);border:1px solid #3a3e46}
+/* 診断HUDが出るときは、HUDの実寸高さに応じて凡例を自動スライドし重なりを完全に防ぐ */
+body.hud-on .legend{bottom:calc(max(var(--bot-h,0px),env(safe-area-inset-bottom,0px)) + var(--hud-offset,54px))}
+
+/* ================= 2画面LCDモード：車内化粧板アイボリーフレーム＋中央ピラー＋16:9モニター ================= */
+.dual-wall{display:none;position:fixed;left:0;right:0;top:var(--top-h,0px);bottom:var(--dual-bot,var(--bot-h,0px));z-index:0;
+  background:linear-gradient(180deg,#eeeae0 0%,#e4dfd1 52%,#d5cfc0 100%);
+  border-top:2px solid #b7b19f;border-bottom:2px solid #9e9887;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.15),inset 0 -2px 8px rgba(0,0,0,.15)}
+body.dual .dual-wall{display:block}
+body.dual .dual-pillar{display:block;left:var(--dm-p-left,50%);top:var(--dm-p-top,var(--top-h,0px));bottom:auto;right:auto;
+  width:var(--dm-p-w,16px);height:var(--dm-p-h,50vh);transform:none;z-index:2;
+  background:linear-gradient(90deg,#cdc7b5 0%,#f4f0e4 50%,#cdc7b5 100%);
+  border-left:1px solid #9c9685;border-right:1px solid #9c9685;box-shadow:0 0 8px rgba(0,0,0,.16)}
+body.dual.is-portrait .dual-pillar{
+  background:linear-gradient(180deg,#cdc7b5 0%,#f4f0e4 50%,#cdc7b5 100%);
+  border-left:0;border-right:0;border-top:1px solid #9c9685;border-bottom:1px solid #9c9685}
+body.dual #map-viewport{
+  left:var(--dm-m-left,12px);top:var(--dm-m-top,110px);right:auto;bottom:auto;
+  width:var(--dm-w,46vw);height:var(--dm-h,26vw);z-index:2;
+  border:6px solid #141619;border-radius:6px;
+  box-shadow:0 0 0 2px #918b7a,0 10px 24px rgba(0,0,0,.32)}
+body.dual #map-viewport .board,body.dual #map-viewport .clockmode{padding-top:0;padding-bottom:0}
+body.dual #map-viewport .loc-chip,body.dual #map-viewport .detour-bar{top:8px;font-size:12px;padding:5px 10px}
+body.dual #map-viewport .zoom{right:10px;bottom:10px;gap:6px}
+body.dual #map-viewport .zoom .icon-btn{width:40px;height:40px;min-height:40px}
+body.dual #map-viewport .zoom .icon-btn .material-symbols-outlined{font-size:21px}
+body.dual #map-viewport .legend{left:10px;bottom:10px;padding:5px 10px;gap:10px;font-size:11px}
+body.dual #map-viewport .hud{left:10px;bottom:8px;font-size:10.5px;max-width:calc(100% - 72px);padding:4px 8px}
+body.dual.hud-on #map-viewport .legend{bottom:calc(10px + var(--hud-offset,44px))}
+body.dual #map-viewport .toast{bottom:12px;font-size:12.5px;padding:7px 12px}
+body.dual .info-lcd{
+  display:flex;left:var(--dm-i-left,52vw);top:var(--dm-i-top,110px);right:auto;bottom:auto;
+  width:var(--dm-w,46vw);height:var(--dm-h,26vw);z-index:3;padding:0;overflow:hidden;
+  background:#141619;border:6px solid #141619;border-radius:6px;
+  box-shadow:0 0 0 2px #918b7a,0 10px 24px rgba(0,0,0,.32)}
+body.dual .info-lcd .info-head{height:24px;padding:0 10px;font-size:.78rem}
+body.dual .info-lcd .info-head b{font-size:.8rem}
+body.dual .info-lcd .info-body{flex:1;min-height:0;padding:0;background:#d3d9e3;display:flex;flex-direction:column;overflow-y:auto}
+body.dual .info-lcd .info-body .lcd.e235{flex:1;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;box-shadow:none}
+body.dual .info-lcd .info-body .lcd.e235 .lcd-head{min-height:66px}
+body.dual .info-lcd .info-body .lcd.e235 .lh-left{width:138px;min-width:128px;max-width:146px;padding:4px 8px;gap:2px}
+body.dual .info-lcd .info-body .co-pill{font-size:.72rem}
+body.dual .info-lcd .info-body .lh-route{font-size:.78rem}
+body.dual .info-lcd .info-body .lh-dir{font-size:.62rem}
+body.dual .info-lcd .info-body .cbar{width:10px}
+body.dual .info-lcd .info-body .lh-sym{width:auto;padding:3px 6px;gap:2px}
+body.dual .info-lcd .info-body .lh-status{font-size:.64rem}
+body.dual .info-lcd .info-body .sym-box{width:auto;min-width:62px}
+body.dual .info-lcd .info-body .sym-co{font-size:.54rem;padding:1px 4px}
+body.dual .info-lcd .info-body .sym-code{height:26px;font-size:1.05rem;border-width:2.5px;margin:0 3px 3px}
+body.dual .info-lcd .info-body .lh-name{padding:4px 8px}
+body.dual .info-lcd .info-body .lh-name b.fit{font-size:1.45rem}
+body.dual .info-lcd .info-body .lh-right{padding:4px 8px;justify-content:center;gap:3px}
+body.dual .info-lcd .info-body .lh-right time{font-size:.8rem;line-height:1}
+body.dual .info-lcd .info-body .carno{flex-direction:row;align-items:baseline;gap:2px}
+body.dual .info-lcd .info-body .carno b{font-size:1.25rem}
+body.dual .info-lcd .info-body .carno small{font-size:.64rem;margin-top:0}
+body.dual .info-lcd .info-body .car{font-size:.7rem !important;padding:2px 6px !important}
+body.dual .info-lcd .info-body .lcd-sub{height:21px;font-size:.74rem}
+body.dual .info-lcd .info-body .lcd-screen{flex:1;min-height:92px;border-width:2px 0 0 0}
+body.dual .info-lcd .info-body .lcd-page{padding:7px 46px 8px 12px}
+body.dual .info-lcd .info-body .jp-h{font-size:.9rem;margin-bottom:2px}
+body.dual .info-lcd .info-body .jp-b{font-size:.8rem;line-height:1.38}
+body.dual .info-lcd .info-body .jp-meta{margin-top:5px;gap:5px}
+body.dual .info-lcd .info-body .cause-chip,body.dual .info-lcd .info-body .res-chip,body.dual .info-lcd .info-body .imp-chip{font-size:.68rem;padding:2px 6px}
+body.dual .info-lcd .info-body .cause-chip .material-symbols-outlined,body.dual .info-lcd .info-body .res-chip .material-symbols-outlined,body.dual .info-lcd .info-body .imp-chip .material-symbols-outlined{font-size:14px}
+body.dual .info-lcd .info-body .elapsed{font-size:.68rem}
+body.dual .info-lcd .info-body .pg-badge{right:6px;bottom:5px;font-size:.72rem;padding:1px 7px}
+body.dual .info-lcd .info-foot{height:20px;padding:0 10px;display:flex;align-items:center;justify-content:flex-end;font-size:10px;background:#141619}
 
 /* ================= v18：スマホ版（画面幅640px以下）の独自UI ================= */
 .phone-nav,.pn-scrim,.pn-sheet{display:none}
@@ -849,9 +939,10 @@ body.is-phone{--nav-h:calc(80px + env(safe-area-inset-bottom,0px));--m3-surface:
 .is-phone .ticker{bottom:var(--nav-h);height:auto;min-height:30px}
 .is-phone .ticker-label{display:none}
 .is-phone .ticker-track{font-size:14px;line-height:30px}
-.is-phone .legend{left:8px;bottom:8px;padding:6px 10px;gap:8px;font-size:11px;border-radius:10px}
+.is-phone .legend{left:8px;bottom:calc(var(--bot-h,0px) + 8px);padding:6px 10px;gap:8px;font-size:11px;border-radius:10px}
+.is-phone.hud-on .legend{bottom:calc(var(--bot-h,0px) + var(--hud-offset,48px))}
 .is-phone .legend small{display:none}
-.is-phone .zoom{right:8px;bottom:8px;gap:6px}
+.is-phone .zoom{right:8px;bottom:calc(var(--bot-h,0px) + 8px);gap:6px}
 .is-phone .zoom .icon-btn{width:44px;height:44px;border-radius:12px}
 .is-phone .zoom .icon-btn .material-symbols-outlined{font-size:24px}
 .is-phone .loc-chip{top:calc(var(--top-h,0px) + 8px);max-width:calc(100% - 16px);font-size:12px;padding:6px 10px}
@@ -880,14 +971,15 @@ body.is-phone{--nav-h:calc(80px + env(safe-area-inset-bottom,0px));--m3-surface:
 .is-phone .hdr .tabs{gap:4px}
 .is-phone .hdr .tab{height:30px;padding:0 10px;font-size:12px}
 .is-phone .lamp{width:9px;height:9px}
-/* 2画面LCD：スマホでは上下2段（地図：上、情報：下） */
-.is-phone body.dual #map-viewport,.is-phone.dual #map-viewport{right:0;bottom:calc(var(--nav-h) + 40vh + 6px)}
-.is-phone.dual .info-lcd{left:0;right:0;top:auto;bottom:var(--nav-h);width:auto;height:40vh;padding:6px}
-.is-phone.dual .dual-pillar{left:0;right:0;top:auto;bottom:calc(var(--nav-h) + 40vh);width:auto;height:6px;transform:none}
+/* 2画面LCD：スマホでもアイボリー化粧枠＋16:9上下2段配置を維持 */
+.is-phone.dual #map-viewport{left:var(--dm-m-left,8px);top:var(--dm-m-top,98px);right:auto;bottom:auto;width:var(--dm-w,92vw);height:var(--dm-h,52vw);border-width:4px}
+.is-phone.dual .info-lcd{left:var(--dm-i-left,8px);top:var(--dm-i-top,54vh);right:auto;bottom:auto;width:var(--dm-w,92vw);height:var(--dm-h,52vw);padding:0;border-width:4px}
+.is-phone.dual .dual-pillar{left:var(--dm-p-left,4px);top:var(--dm-p-top,52vh);right:auto;bottom:auto;width:var(--dm-p-w,94vw);height:var(--dm-p-h,8px);transform:none}
 /* ボタン・LCDの文字は、スマホでは読める範囲で小さく、ラベルは省いてアイコン中心に */
 .is-phone .lcd.e235 .lcd-head{display:grid;grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"left left left" "bar sym right" "bar name name"}
 .is-phone .lcd.e235 .lh-left{grid-area:left;width:auto;max-width:none;flex-direction:row;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;min-width:0}
-.is-phone .lcd.e235 .lh-route{font-size:.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.is-phone .lcd.e235 .lh-dir-box{flex:1;min-width:0;margin-top:0}
+.is-phone .lcd.e235 .lh-route{font-size:.8rem}
 .is-phone .lcd.e235 .cbar{grid-area:bar;width:auto;min-height:100%}
 .is-phone .lcd.e235 .lh-sym{grid-area:sym;width:auto;flex-direction:row;align-items:center;gap:8px;padding:6px 10px}
 .is-phone .lcd.e235 .lh-status{display:none}
@@ -988,3 +1080,354 @@ body.is-phone{--nav-h:calc(80px + env(safe-area-inset-bottom,0px));--m3-surface:
 .is-phone #modalDetail .lcd-head{padding-right:52px}
 .is-phone #modalDetail .lh-left{padding-right:0}
 .is-phone .mv-status-tag{display:none}
+
+/* ================= v18：マルチLCDデザインエンジン・鴨居アイボリー筐体・進行シェブロン演出 ================= */
+/* ドア上鴨居を模したアイボリー化粧板外枠（#e5e1d5）＋黒インナーベゼル（5px solid #111） */
+#modalDetail .bezel{
+  width:min(92vw,960px);max-height:90dvh;overflow:auto;padding:16px 18px 18px;border-radius:10px;
+  background:linear-gradient(180deg,#f0ede3 0%,#e5e1d5 54%,#d5d0c1 100%);
+  border:1px solid #a9a392;
+  box-shadow:0 30px 72px rgba(0,0,0,.78),inset 0 2px 0 rgba(255,255,255,.8),inset 0 -2px 0 rgba(0,0,0,.14);
+}
+#modalDetail .bezel-close{
+  top:6px;right:6px;width:42px;height:42px;border:2px solid #2b2e34;
+  background:linear-gradient(180deg,#3a3e46,#181a1f);color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.45);
+}
+.lcd.e235{
+  border:5px solid #111;border-radius:4px;overflow:hidden;background:#e5e1d5;
+  box-shadow:0 0 0 1.5px #6f6a5c,0 8px 20px rgba(0,0,0,.35);
+}
+body.dual #map-viewport,body.dual .info-lcd{
+  border:5px solid #111;border-radius:4px;
+  box-shadow:0 0 0 2px #8f8979,0 10px 24px rgba(0,0,0,.32);
+}
+
+/* サブヘッダー＋ゆっくり流れる進行シェブロン（› › ›）：GPU合成のみ、ドラッグ・省電力・見合わせ時は自動停止 */
+.lh-edge{display:none}
+.lcd.e235 .lcd-sub{
+  height:38px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:#eff2f6;color:#1a1a1a;border-top:1px solid #666;border-bottom:1px solid #666;letter-spacing:.06em;
+}
+.sub-tag{flex:none;font:700 .74rem/1 var(--lcd-jp);padding:4px 9px;border-radius:4px;background:#1e2633;color:#fff;letter-spacing:.05em}
+.th-jr .sub-tag{display:none}
+.sub-txt{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 .96rem var(--lcd-jp)}
+.lcd-chev{flex:none;display:inline-flex;align-items:center;gap:2px;font:900 1.15rem/1 var(--lcd-en);color:#2b5fb8}
+.lcd-chev i{font-style:normal;display:inline-block;animation:chevFlow 1.9s ease-in-out infinite}
+.lcd-chev i:nth-child(2){animation-delay:.26s}
+.lcd-chev i:nth-child(3){animation-delay:.52s}
+@keyframes chevFlow{0%,100%{opacity:.22;transform:translateX(-2px)}50%{opacity:.95;transform:translateX(3px)}}
+body.map-busy .lcd-chev i,body.no-anim .lcd-chev i,.st-suspend .lcd-chev i{animation-play-state:paused !important;opacity:.45}
+@media (prefers-reduced-motion:reduce){.lcd-chev i{animation:none !important}}
+
+/* ページコンテナ構造（見出しバナーや直通バーと干渉せず 1/2 ⇔ 2/2 をスライド切替） */
+.lcd-screen{display:flex;flex-direction:column;position:relative;overflow:hidden;min-height:240px;padding:0}
+.lcd-pages{position:relative;flex:1;min-height:170px;overflow:hidden}
+.lcd-banner{
+  flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;
+  font:700 1rem/1.3 var(--lcd-jp);color:#fff;background:#00a676;
+}
+.lcd-banner.s-delay,.lcd-banner.s-partial{background:#e88300}
+.lcd-banner.s-suspend{background:#d41b15}
+.lcd-banner small{font:600 .82rem var(--lcd-en);opacity:.94;margin-left:auto}
+.lb-dot{width:10px;height:10px;border-radius:50%;background:#fff;flex:none}
+
+/* ② 東京メトロ（Tokyo Metro Vision 16000/17000/18000/13000系仕様） */
+.lcd.th-metro .lcd-head{
+  background:linear-gradient(180deg,#ffffff 0%,#f4f7fa 62%,#e7eef6 100%);color:#14233c;
+  border-bottom:5px solid var(--lc);box-shadow:inset 0 -8px 0 #009bbf;
+}
+.lcd.th-metro .cbar,.lcd.th-metro .lh-status,.lcd.th-metro .sym-co{display:none}
+.lcd.th-metro .lh-sym{order:1;padding:10px 6px 12px 16px}
+.lcd.th-metro .sym-box{background:transparent;min-width:0;border-radius:50%;box-shadow:none;overflow:visible}
+.lcd.th-metro .sym-code{
+  width:64px;height:64px;margin:0;border-radius:50%;background:#fff;border:8px solid var(--lc);
+  color:#14233c;font:900 1.75rem/1 var(--lcd-en);box-shadow:0 2px 6px rgba(20,35,60,.16);
+}
+.lcd.th-metro .lh-name{order:2;padding:10px 14px}
+.lcd.th-metro .lh-name b.fit{color:#14233c;font-weight:700}
+.lcd.th-metro .lh-name .lh-en{color:#2f4a70;font:700 .95rem var(--lcd-en);letter-spacing:.08em;opacity:1}
+.lcd.th-metro .lh-name .fav-btn{background:rgba(20,35,60,.08);color:#5c6f8c}
+.lcd.th-metro .lh-name .fav-btn.on{background:#ffd23a;color:#9c6f00}
+.lcd.th-metro .lh-left{order:3;align-items:flex-end;text-align:right;padding:10px 12px 12px}
+.lcd.th-metro .co-pill{align-self:flex-end;background:#009bbf;color:#fff;padding:2px 10px;border-radius:999px;font:700 .76rem var(--lcd-jp)}
+.lcd.th-metro .lh-dir-box{text-align:right}
+.lcd.th-metro .lh-route{color:#14233c;font-weight:700}
+.lcd.th-metro .lh-left .lh-dir{color:#365073;font-weight:700}
+.lcd.th-metro .lh-right{order:4;padding:10px 16px 12px;gap:5px}
+.lcd.th-metro .lh-right time{background:#14233c;color:#fff;padding:3px 10px;border-radius:6px;font:700 1.15rem var(--lcd-en)}
+.lcd.th-metro .carno{
+  flex-direction:row;align-items:baseline;gap:3px;padding:3px 10px;border-radius:6px;
+  background:linear-gradient(180deg,#3d4450,#1a1f27);color:#fff;border:1.5px solid #c5d1e0;
+}
+.lcd.th-metro .carno b{font:800 1.65rem/1 var(--lcd-en)}
+.lcd.th-metro .carno small{color:#e2e9f2;font-size:.74rem;margin:0}
+.lcd.th-metro .lcd-sub{background:#eef3f9;color:#14233c;border-color:#c8d5e5}
+.lcd.th-metro .sub-tag{background:#009bbf;color:#fff}
+.lcd.th-metro .lcd-chev{color:#009bbf}
+.lcd.th-metro .lcd-screen{background:#ffffff;border:3px solid #14233c;color:#14233c}
+.lcd.th-metro .lcd-banner{background:#00a676}
+.lcd.th-metro .lcd-banner.s-delay,.lcd.th-metro .lcd-banner.s-partial{background:#f39800}
+.lcd.th-metro .lcd-banner.s-suspend{background:#d91e18}
+.lcd.th-metro .lcd-pages{margin:12px 16px 14px;background:#f8fafd;border:1.5px solid #d2deed;border-radius:10px}
+.lcd.th-metro .en-tbl th{background:#14233c;color:#fff;border-color:#b8c7dc}
+.lcd.th-metro .en-tbl td{border-color:#b8c7dc}
+
+/* ③ 都営地下鉄（5500/6500/10-300/12-600形 ワイドLCD仕様） */
+.lcd.th-toei .lcd-head{
+  background:linear-gradient(106deg,#009e49 0%,#00863d 114px,#1c242b 115px,#141a20 100%);color:#fff;
+  border-bottom:6px solid var(--lc);
+}
+.lcd.th-toei .cbar,.lcd.th-toei .lh-status,.lcd.th-toei .sym-co{display:none}
+.lcd.th-toei .lh-sym{order:1;padding:10px 10px 10px 16px}
+.lcd.th-toei .sym-box{background:transparent;min-width:0;border-radius:50%;box-shadow:none;overflow:visible}
+.lcd.th-toei .sym-code{
+  width:62px;height:62px;margin:0;border-radius:50%;background:#fff;border:8px solid var(--lc);
+  color:#111;font:900 1.65rem/1 var(--lcd-en);box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.lcd.th-toei .lh-name{order:2;padding:10px 14px}
+.lcd.th-toei .lh-name b.fit{font-weight:700}
+.lcd.th-toei .lh-left{order:3;align-items:flex-end;text-align:right;padding:10px 12px}
+.lcd.th-toei .co-pill{align-self:flex-end;background:#009e49;color:#fff;padding:2px 9px;border-radius:4px;font:700 .76rem var(--lcd-jp)}
+.lcd.th-toei .lh-right{order:4;padding:10px 16px;gap:5px}
+.lcd.th-toei .carno{
+  flex-direction:row;align-items:baseline;gap:3px;padding:3px 10px;border-radius:5px;
+  background:#0e1317;border:2px solid rgba(255,255,255,.8);
+}
+.lcd.th-toei .carno b{font:800 1.7rem/1 var(--lcd-en)}
+.lcd.th-toei .lcd-sub{background:#f2f6f3;color:#111;border-color:#1a1a1a}
+.lcd.th-toei .sub-tag{background:#009e49;color:#fff}
+.lcd.th-toei .lcd-chev{color:#009e49}
+.lcd.th-toei .lcd-screen{background:#ffffff;border:3px solid #1a1a1a;color:#111}
+.lcd-banner.toei-ban{
+  justify-content:space-between;background:#1c242b;color:#fff;padding:8px 16px;
+  border-bottom:4px solid #009e49;
+}
+.lcd-banner.toei-ban.s-delay,.lcd-banner.toei-ban.s-partial{border-bottom-color:#f39800}
+.lcd-banner.toei-ban.s-suspend{background:#8f110d;border-bottom-color:#ff4d4d}
+.tb-lead{font:700 1rem var(--lcd-jp);letter-spacing:.08em}
+.tb-state{font:800 .95rem var(--lcd-jp);padding:2px 10px;border-radius:4px;background:rgba(255,255,255,.14)}
+.tb-state small{font:600 .78rem var(--lcd-en);margin-left:8px;opacity:.9}
+.toei-focus{
+  display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;padding:8px 12px;border-radius:6px;
+  background:#f3f7f4;border:1.5px solid #1c242b;border-left:6px solid #009e49;font:600 .92rem var(--lcd-jp);
+}
+.lcd.th-toei .en-tbl th{background:#009e49;color:#fff}
+
+/* ④ 東急電鉄・みなとみらい線（5050/2020/3020系 TOQビジョン仕様） */
+.lcd.th-tokyu .lcd-head{
+  background:linear-gradient(180deg,#232e3f 0%,#18202c 55%,#10161f 100%);color:#fff;
+  border-bottom:3px solid var(--lc);
+}
+.lcd.th-tokyu .lh-edge{
+  order:1;display:block;flex:none;width:14px;align-self:stretch;
+  background:linear-gradient(90deg,#da0442 0 50%,var(--lc) 50% 100%);
+}
+.lcd.th-tokyu .cbar,.lcd.th-tokyu .lh-status,.lcd.th-tokyu .sym-co{display:none}
+.lcd.th-tokyu .lh-sym{order:2;padding:10px 8px 10px 14px}
+.lcd.th-tokyu .sym-box{background:transparent;min-width:0;box-shadow:none;overflow:visible}
+.lcd.th-tokyu .sym-code{
+  width:60px;height:56px;margin:0;border-radius:11px;background:var(--lc);border:2.5px solid #fff;
+  color:#fff;font:800 1.65rem/1 var(--lcd-en);box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.lcd.th-tokyu .lh-name{order:3;padding:10px 12px}
+.lcd.th-tokyu .lh-name b.fit{font-weight:700}
+.lcd.th-tokyu .lh-name .lh-en{color:#cbd6e6;font:600 .92rem var(--lcd-en);letter-spacing:.08em}
+.lcd.th-tokyu .lh-left{order:4;align-items:flex-end;text-align:right;padding:10px 12px}
+.lcd.th-tokyu .co-pill{align-self:flex-end;background:#da0442;color:#fff;padding:2px 9px;border-radius:4px;font:700 .74rem var(--lcd-jp)}
+.lcd.th-tokyu .lh-right{order:5;padding:10px 16px;gap:5px}
+.lcd.th-tokyu .carno{
+  flex-direction:row;align-items:baseline;gap:3px;padding:3px 10px;border-radius:6px;
+  background:linear-gradient(180deg,#f2f5f9,#c4cdd9);color:#111;border:1px solid #fff;
+}
+.lcd.th-tokyu .carno b{font:800 1.65rem/1 var(--lcd-en);color:#111}
+.lcd.th-tokyu .carno small{color:#222;margin:0}
+.lcd.th-tokyu .lcd-sub{background:#dfe6ef;color:#18202c;border-color:#9aa7b8}
+.lcd.th-tokyu .sub-tag{background:#da0442;color:#fff}
+.lcd.th-tokyu .lcd-chev{color:#da0442}
+.lcd.th-tokyu .lcd-screen{background:#e8edf3;border:3px solid #18202c;color:#141a24}
+.lcd.th-tokyu .lcd-banner{background:#18202c;border-bottom:2px solid var(--lc)}
+.lcd.th-tokyu .lcd-banner.s-delay,.lcd.th-tokyu .lcd-banner.s-partial{background:#d97200}
+.lcd.th-tokyu .lcd-banner.s-suspend{background:#c81912}
+.lcd.th-tokyu .lcd-pages{
+  margin:10px 14px 8px;background:#ffffff;border-radius:10px;
+  border:1px solid #cad3e0;border-left:7px solid var(--lc);
+}
+.tokyu-net{
+  flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 12px;
+  background:#18202c;color:#fff;border-top:2px solid #da0442;
+}
+.tn-lbl{flex:none;display:inline-flex;align-items:center;gap:4px;font:700 .76rem var(--lcd-jp);color:#d7e0ee}
+.tn-lbl .material-symbols-outlined{font-size:16px;color:#ff6b8b}
+.tn-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.tn-chip{
+  min-height:28px;display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 5px;border-radius:6px;
+  border:1px solid #364357;background:#222d3d;color:#fff;font:600 .75rem var(--lcd-jp);cursor:pointer;
+}
+.tn-code{font:800 .68rem/1 var(--lcd-en);padding:3px 5px;border-radius:4px;background:var(--plc);color:#fff;font-style:normal}
+.tn-st{font-style:normal;font:700 .68rem var(--lcd-jp);padding:1px 5px;border-radius:3px;background:#1f9d4a;color:#fff}
+.tn-st.delay,.tn-st.partial{background:#e67e00}
+.tn-st.suspend{background:#d91e18}
+.lcd.th-tokyu .en-tbl th{background:#18202c;color:#fff}
+
+/* ⑤ 大手私鉄・新交通 共通構造（TVOS / K-DG / スマイルビジョン / 京急 / 東武 / 京成 / 相鉄 / TX） */
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .cbar,
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-status,
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .sym-co{display:none}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-sym{order:1;padding:10px 8px 10px 16px}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .sym-box{background:transparent;min-width:0;box-shadow:none;overflow:visible}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-name{order:2;padding:10px 12px}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-name b.fit{font-weight:700}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-left{order:3;align-items:flex-end;text-align:right;padding:10px 12px}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .co-pill{
+  align-self:flex-end;background:rgba(255,255,255,.2);color:#fff;padding:2px 9px;border-radius:999px;font:700 .75rem var(--lcd-jp);
+}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lh-right{order:4;padding:10px 16px;gap:5px}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .carno{
+  flex-direction:row;align-items:baseline;gap:3px;padding:3px 10px;border-radius:6px;
+  background:rgba(10,14,22,.55);border:1.5px solid rgba(255,255,255,.75);color:#fff;
+}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .carno b{font:800 1.65rem/1 var(--lcd-en)}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lcd-screen{background:#f3f7fb;border:3px solid #1b2432;color:#111}
+.lcd:is(.th-odakyu,.th-keio,.th-seibu,.th-keikyu,.th-tobu,.th-keisei,.th-sotetsu,.th-tx,.th-transit) .lcd-pages{
+  margin:10px 14px 12px;background:#ffffff;border-radius:10px;border:1.5px solid #cfd9e6;
+}
+
+/* 小田急 TVOS（オダキュウブルー＋ライトブルーウェーブ帯） */
+.lcd.th-odakyu .lcd-head{
+  background:linear-gradient(165deg,#008be6 0%,#006ec4 64%,#004f94 100%);
+  border-bottom:6px solid #75d2ff;box-shadow:inset 0 -2px 0 #ffffff;
+}
+.lcd.th-odakyu .sym-code{
+  width:60px;height:60px;margin:0;border-radius:50%;background:#fff;border:6px solid #007ed5;
+  box-shadow:0 0 0 2.5px #fff;color:#005196;font:900 1.55rem/1 var(--lcd-en);
+}
+.lcd.th-odakyu .sub-tag{background:#007ed5}
+.lcd.th-odakyu .lcd-chev{color:#007ed5}
+.lcd.th-odakyu .en-tbl th{background:#007ed5;color:#fff}
+
+/* 京王 K-DG（京王ブルー×京王レッド ツートン） */
+.lcd.th-keio .lcd-head{
+  background:linear-gradient(114deg,#1d2088 0%,#1d2088 66%,#dd0077 66.5%,#b2005e 100%);
+  border-bottom:5px solid #dd0077;
+}
+.lcd.th-keio .sym-code{
+  width:60px;height:56px;margin:0;border-radius:12px;background:#fff;border:5px solid #dd0077;
+  color:#1d2088;font:900 1.6rem/1 var(--lcd-en);box-shadow:0 0 0 2px #fff;
+}
+.lcd.th-keio .sub-tag{background:#1d2088}
+.lcd.th-keio .lcd-chev{color:#dd0077}
+.lcd.th-keio .en-tbl th{background:#1d2088;color:#fff}
+
+/* 西武 スマイルビジョン（スマイルトレインブルー×ライムグリーン） */
+.lcd.th-seibu .lcd-head{
+  background:linear-gradient(125deg,#00a4dd 0%,#0086bd 67%,#74c043 100%);
+  border-bottom:5px solid #8dc63f;
+}
+.lcd.th-seibu .sym-code{
+  width:58px;height:56px;margin:0;border-radius:12px;background:var(--lc);border:3px solid #fff;
+  color:#fff;font:900 1.6rem/1 var(--lcd-en);
+}
+.lcd.th-seibu .lcd-screen{background:#eaf5fa}
+.lcd.th-seibu .lcd-pages{border-radius:14px;border-color:#b6dce9}
+.lcd.th-seibu .sub-tag{background:#0099cc}
+.lcd.th-seibu .lcd-chev{color:#0099cc}
+.lcd.th-seibu .en-tbl th{background:#0099cc;color:#fff}
+
+/* 京急 車内LCD（京急レッド フルカラー＋スカイブルー帯） */
+.lcd.th-keikyu .lcd-head{
+  background:linear-gradient(180deg,#f00c1f 0%,#d50011 72%,#ab000d 100%);
+  border-bottom:5px solid #00a0e9;box-shadow:inset 0 -2px 0 #ffffff;
+}
+.lcd.th-keikyu .sym-code{
+  width:60px;height:60px;margin:0;border-radius:50%;background:#fff;border:6px solid #00a0e9;
+  box-shadow:0 0 0 2.5px #fff;color:#111;font:900 1.55rem/1 var(--lcd-en);
+}
+.lcd.th-keikyu .sub-tag{background:#e50012}
+.lcd.th-keikyu .lcd-chev{color:#e50012}
+.lcd.th-keikyu .en-tbl th{background:#e50012;color:#fff}
+
+/* 東武・京成・相鉄・TX・都市鉄道 */
+.lcd.th-tobu .lcd-head{background:linear-gradient(180deg,#004ea8 0%,#003578 100%);border-bottom:5px solid var(--lc)}
+.lcd.th-tobu .sym-code{width:60px;height:56px;margin:0;border-radius:10px;background:#fff;border:5px solid var(--lc);color:#004098;font:900 1.6rem/1 var(--lcd-en)}
+.lcd.th-tobu .sub-tag,.lcd.th-tobu .en-tbl th{background:#004098;color:#fff}
+
+.lcd.th-keisei .lcd-head{background:linear-gradient(180deg,#0060b6 0%,#004282 100%);border-bottom:5px solid #e60012;box-shadow:inset 0 -2px 0 #fff}
+.lcd.th-keisei .sym-code{width:60px;height:60px;margin:0;border-radius:50%;background:#fff;border:6px solid var(--lc);box-shadow:0 0 0 2px #fff;color:#111;font:900 1.5rem/1 var(--lcd-en)}
+.lcd.th-keisei .sub-tag,.lcd.th-keisei .en-tbl th{background:#005aaa;color:#fff}
+
+.lcd.th-sotetsu .lcd-head{background:linear-gradient(180deg,#0f2954 0%,#07152e 100%);border-bottom:5px solid #f39800}
+.lcd.th-sotetsu .sym-code{width:60px;height:56px;margin:0;border-radius:8px;background:#003893;border:2.5px solid #fff;color:#fff;font:900 1.6rem/1 var(--lcd-en)}
+.lcd.th-sotetsu .sub-tag,.lcd.th-sotetsu .en-tbl th{background:#003893;color:#fff}
+.lcd.th-sotetsu .lcd-chev{color:#f39800}
+
+.lcd.th-tx .lcd-head{background:linear-gradient(180deg,#112358 0%,#091334 100%);box-shadow:inset 0 5px 0 #e60012;border-bottom:4px solid #003399}
+.lcd.th-tx .sym-code{width:60px;height:56px;margin:0;border-radius:8px;background:#003399;border:2.5px solid #fff;color:#fff;font:900 1.6rem/1 var(--lcd-en)}
+.lcd.th-tx .sub-tag,.lcd.th-tx .en-tbl th{background:#003399;color:#fff}
+.lcd.th-tx .lcd-chev{color:#e60012}
+
+.lcd.th-transit .lcd-head{background:linear-gradient(180deg,#1f314d 0%,#111c2e 100%);border-bottom:6px solid var(--lc)}
+.lcd.th-transit .sym-code{width:60px;height:58px;margin:0;border-radius:50%;background:#fff;border:6px solid var(--lc);box-shadow:0 0 0 2px #fff;color:#111;font:900 1.5rem/1 var(--lcd-en)}
+.lcd.th-transit .sub-tag,.lcd.th-transit .en-tbl th{background:#1f314d;color:#fff}
+
+/* 異常ボード（#abnBoard / #modalAbn）の各社LCDカード対応 */
+.board-card{border:4px solid #111;border-radius:6px;box-shadow:0 0 0 3px #e5e1d5,0 6px 16px rgba(0,0,0,.32)}
+.bc-edge{display:none}
+.bc-sub{display:flex;align-items:center;justify-content:space-between;height:24px;padding:0 12px;background:#eff2f6;color:#222;font:700 .72rem var(--lcd-jp);border-bottom:1px solid #b8c0cc}
+.board-card.bc-th-metro .bc-head{background:linear-gradient(180deg,#fff,#e9f0f8);color:#14233c;border-bottom:4px solid var(--lc)}
+.board-card.bc-th-metro .cbar{display:none}
+.board-card.bc-th-metro .sym{border-radius:50%;border-width:6px}
+.board-card.bc-th-metro .bc-dir{color:#365073}
+.board-card.bc-th-toei .bc-head{background:linear-gradient(106deg,#009e49 0,#00863d 86px,#1c242b 87px,#141a20 100%);border-bottom:4px solid var(--lc)}
+.board-card.bc-th-toei .cbar{display:none}
+.board-card.bc-th-toei .sym{border-radius:50%;border-width:6px}
+.board-card.bc-th-tokyu .bc-head{background:linear-gradient(180deg,#232e3f,#141b26);padding-left:0}
+.board-card.bc-th-tokyu .cbar{display:none}
+.board-card.bc-th-tokyu .bc-edge{display:block;width:10px;align-self:stretch;background:linear-gradient(90deg,#da0442 0 50%,var(--lc) 50% 100%)}
+.board-card.bc-th-tokyu .sym{background:var(--lc);color:#fff;border:2px solid #fff;border-radius:9px}
+.board-card.bc-th-odakyu .bc-head{background:linear-gradient(165deg,#008be6,#005298);border-bottom:4px solid #75d2ff}
+.board-card.bc-th-keio .bc-head{background:linear-gradient(114deg,#1d2088 0 66%,#dd0077 66.5% 100%)}
+.board-card.bc-th-seibu .bc-head{background:linear-gradient(125deg,#00a4dd 0 68%,#74c043 100%)}
+.board-card.bc-th-keikyu .bc-head{background:linear-gradient(180deg,#f00c1f,#b3000e);border-bottom:4px solid #00a0e9}
+.board-card.bc-th-tobu .bc-head{background:linear-gradient(180deg,#004ea8,#003578);border-bottom:4px solid var(--lc)}
+.board-card.bc-th-keisei .bc-head{background:linear-gradient(180deg,#0060b6,#004282);border-bottom:4px solid #e60012}
+.board-card.bc-th-sotetsu .bc-head{background:linear-gradient(180deg,#0f2954,#07152e);border-bottom:4px solid #f39800}
+.board-card.bc-th-tx .bc-head{background:linear-gradient(180deg,#112358,#091334);box-shadow:inset 0 4px 0 #e60012}
+.board-card:is(.bc-th-odakyu,.bc-th-keio,.bc-th-seibu,.bc-th-keikyu,.bc-th-tobu,.bc-th-keisei,.bc-th-sotetsu,.bc-th-tx,.bc-th-transit) .cbar{display:none}
+.board-card:is(.bc-th-odakyu,.bc-th-keikyu,.bc-th-keisei) .sym{border-radius:50%}
+
+/* 2画面LCD（16:9コンパクト領域）での各社テーマ微調整 */
+body.dual .info-lcd .info-body .lcd:not(.th-jr) .sym-code{width:40px;height:40px;font-size:1.15rem;border-width:4px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .sym-code{width:42px;height:38px;border-width:2px;border-radius:8px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .lh-edge{width:10px}
+body.dual .info-lcd .info-body .lcd.th-toei .lcd-head{background:linear-gradient(106deg,#009e49 0%,#00863d 74px,#1c242b 75px,#141a20 100%)}
+body.dual .info-lcd .info-body .lcd-sub{padding:0 8px;gap:6px}
+body.dual .info-lcd .info-body .sub-tag{font-size:.6rem;padding:2px 6px}
+body.dual .info-lcd .info-body .sub-txt{font-size:.72rem}
+body.dual .info-lcd .info-body .lcd-chev{font-size:.9rem}
+body.dual .info-lcd .info-body .lcd-banner{padding:4px 10px;font-size:.76rem;gap:6px}
+body.dual .info-lcd .info-body .lcd-banner small{display:none}
+body.dual .info-lcd .info-body .lb-dot{width:7px;height:7px}
+body.dual .info-lcd .info-body .lcd-pages{min-height:0}
+body.dual .info-lcd .info-body .lcd:not(.th-jr) .lcd-pages{margin:5px 8px;border-radius:7px}
+body.dual .info-lcd .info-body .toei-focus{margin-top:4px;padding:4px 8px;font-size:.72rem;gap:4px 10px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .lcd-banner{display:none}
+body.dual .info-lcd .info-body .lcd.th-tokyu .lcd-pages{margin:4px 8px;overflow-y:auto}
+body.dual .info-lcd .info-body .lcd.th-tokyu .lcd-page{padding:5px 40px 6px 10px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .jp-h{font-size:.84rem;margin-bottom:1px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .jp-b{font-size:.74rem;line-height:1.3}
+body.dual .info-lcd .info-body .lcd.th-tokyu .jp-meta{margin-top:3px;gap:4px}
+body.dual .info-lcd .info-body .lcd.th-tokyu .elapsed{display:none}
+body.dual .info-lcd .info-body .tokyu-net{padding:3px 8px;gap:5px;flex-wrap:nowrap}
+body.dual .info-lcd .info-body .tn-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+body.dual .info-lcd .info-body .tn-chips::-webkit-scrollbar{display:none}
+body.dual .info-lcd .info-body .tn-lbl{font-size:.62rem}
+body.dual .info-lcd .info-body .tn-chip{flex:none;min-height:19px;padding:1px 5px;font-size:.6rem;gap:3px}
+body.dual .info-lcd .info-body .tn-code,body.dual .info-lcd .info-body .tn-st{font-size:.58rem;padding:1px 4px}
+body.dual .info-lcd .info-body .en-tbl{font-size:.76rem;line-height:1.25}
+body.dual .info-lcd .info-body .en-tbl th,body.dual .info-lcd .info-body .en-tbl td{padding:4px 8px}
+
+/* スマホ（640px以下）での各社テーマ安全表示 */
+.is-phone .lcd:not(.th-jr) .lcd-head{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"left left" "sym right" "name name"}
+.is-phone .lcd:not(.th-jr) .sym-code{width:42px;height:42px;font-size:1.2rem;border-width:5px}
+.is-phone .lcd.th-tokyu .lh-edge{display:none}
+.is-phone .sub-tag{display:none}

@@ -55,207 +55,118 @@ const STRINGS = {
 const JR = ['JR東日本', 'JR East'], TM = ['東京メトロ', 'Tokyo Metro'], TO = ['都営地下鉄', 'Toei Subway'];
 const TQ = ['東急電鉄', 'Tokyu'], OD = ['小田急電鉄', 'Odakyu'], KE = ['京王電鉄', 'Keio'], SE = ['西武鉄道', 'Seibu'], TB = ['東武鉄道', 'Tobu'],
       KS = ['京成電鉄', 'Keisei'], KQ = ['京浜急行電鉄', 'Keikyu'], SO = ['相模鉄道', 'Sotetsu'];
-/* 路線マスターデータ（89路線）
- * [路線名, 英語名, 会社区分, 路線記号, ラインカラー, [事業者名, Operator], [路線図SVG内のグループID前方一致...], [振替・代替路線名...]]
+/* 路線マスターデータ（全89路線）
+ * [路線名, 英語名, 会社区分, 路線記号, ラインカラー, [事業者名, Operator], [路線図SVG内のグループID前方一致...], [振替・代替路線名...], 主要経由駅・方面テキスト(directionText)]
  * 路線図SVGに描画が無い路線は svg を空配列にしてあります（一覧・検索・運行状況の表示には使えます） */
 const MASTER_RAW = [
   /* ---- JR東日本（30路線） ---- */
-  ['山手線', 'Yamanote Line', 'JR', 'JY', '#80c241', JR, ['jr-yamanote'], ['京浜東北線', '埼京線', '湘南新宿ライン', '中央線快速', '丸ノ内線', '銀座線']],
-  ['京浜東北線', 'Keihin-Tohoku Line', 'JR', 'JK', '#00b2e5', JR, ['jr-keihintohoku'], ['山手線', '東海道線', '上野東京ライン', '京急本線']],
-  ['根岸線', 'Negishi Line', 'JR', 'JK', '#00b2e5', JR, ['jr-negishi'], ['横浜線', '横浜市営地下鉄ブルーライン', '京浜東北線']],
-  ['中央線快速', 'Chuo Line (Rapid)', 'JR', 'JC', '#f15a22', JR, ['jr-chuo'], ['中央・総武各駅停車', '丸ノ内線', '東西線', '京王線', '西武新宿線']],
-  ['中央・総武各駅停車', 'Chuo-Sobu Line (Local)', 'JR', 'JB', '#ffd400', JR, ['jr-sobulocal'], ['中央線快速', '総武快速線', '東西線', '都営新宿線', '都営大江戸線']],
-  ['中央本線', 'Chuo Main Line', 'JR', 'CO', '#007ac0', JR, [], ['中央線快速', '青梅線', '京王線', '横浜線']],
-  ['東海道線', 'Tokaido Line', 'JR', 'JT', '#f68b1e', JR, ['jr-tokaido'], ['京浜東北線', '横須賀線', '上野東京ライン', '京急本線', '東急東横線', '相鉄本線']],
-  ['横須賀線', 'Yokosuka Line', 'JR', 'JO', '#0068b7', JR, ['jr-yokosuka'], ['東海道線', '湘南新宿ライン', '京急本線', '横浜線']],
-  ['総武快速線', 'Sobu Line (Rapid)', 'JR', 'JO', '#0068b7', JR, ['jr-soburapid'], ['中央・総武各駅停車', '京葉線', '京成本線', '都営新宿線', '東西線']],
-  ['総武本線', 'Sobu Main Line', 'JR', 'JO', '#ffd400', JR, [], ['総武快速線', '京成本線', '京葉線', '外房線']],
-  ['湘南新宿ライン', 'Shonan-Shinjuku Line', 'JR', 'JS', '#e21f26', JR, ['jr-shonanshinjuku'], ['山手線', '埼京線', '上野東京ライン', '東海道線', '横須賀線']],
-  ['上野東京ライン', 'Ueno-Tokyo Line', 'JR', 'JU', '#f68b1e', JR, ['jr-uenotokyo'], ['東海道線', '京浜東北線', '宇都宮線', '高崎線', '山手線']],
-  ['宇都宮線', 'Utsunomiya Line', 'JR', 'JU', '#f68b1e', JR, ['jr-utsunomiya'], ['高崎線', '京浜東北線', '埼京線', '東武アーバンパークライン', '埼玉高速鉄道線']],
-  ['高崎線', 'Takasaki Line', 'JR', 'JU', '#f68b1e', JR, ['jr-takasaki'], ['宇都宮線', '埼京線', '京浜東北線', '東武東上線']],
-  ['埼京線', 'Saikyo Line', 'JR', 'JA', '#00ac9a', JR, ['jr-saikyo'], ['山手線', '湘南新宿ライン', '有楽町線', '副都心線', '東武東上線', '川越線']],
-  ['川越線', 'Kawagoe Line', 'JR', 'JA', '#00ac9a', JR, ['jr-kawagoe'], ['埼京線', '東武東上線', '西武池袋線', '高崎線']],
-  ['常磐線快速', 'Joban Line (Rapid)', 'JR', 'JJ', '#00b261', JR, ['jr-joban_'], ['常磐線各駅停車', '千代田線', 'つくばエクスプレス', '山手線', '京浜東北線']],
-  ['常磐線各駅停車', 'Joban Line (Local)', 'JR', 'JL', '#808080', JR, ['jr-jobanlocal'], ['常磐線快速', '千代田線', 'つくばエクスプレス', '武蔵野線']],
-  ['常磐線', 'Joban Line', 'JR', 'JJ', '#0068b7', JR, [], ['常磐線快速', 'つくばエクスプレス', '東武アーバンパークライン']],
-  ['京葉線', 'Keiyo Line', 'JR', 'JE', '#c9242f', JR, ['jr-keiyo'], ['総武快速線', '中央・総武各駅停車', '東西線', '武蔵野線', '東葉高速線']],
-  ['武蔵野線', 'Musashino Line', 'JR', 'JM', '#f15a22', JR, ['jr-musashino'], ['京葉線', '南武線', '埼京線', '東武アーバンパークライン', '常磐線各駅停車']],
-  ['南武線', 'Nambu Line', 'JR', 'JN', '#ffd400', JR, ['jr-nanbu'], ['東急田園都市線', '東急東横線', '京王線', '小田急小田原線', '横浜線']],
-  ['横浜線', 'Yokohama Line', 'JR', 'JH', '#80c241', JR, ['jr-yokohama'], ['東急東横線', '相鉄本線', '小田急小田原線', '京王相模原線', '南武線']],
-  ['相模線', 'Sagami Line', 'JR', 'JI', '#009793', JR, ['jr-sagami'], ['横浜線', '小田急小田原線', '小田急江ノ島線', '東海道線']],
-  ['青梅線', 'Ome Line', 'JR', 'JC', '#f15a22', JR, ['jr-ome'], ['中央線快速', '西武池袋線', '西武新宿線', '五日市線']],
-  ['五日市線', 'Itsukaichi Line', 'JR', 'JC', '#f15a22', JR, ['jr-itsukaichi'], ['青梅線', '中央線快速', '西武拝島線']],
-  ['外房線', 'Sotobo Line', 'JR', 'JO', '#db4028', JR, ['jr-sotobo'], ['内房線', '総武本線', '京成千葉線', '京成本線']],
-  ['内房線', 'Uchibo Line', 'JR', 'JO', '#00b2e5', JR, ['jr-uchibo'], ['外房線', '京葉線', '京成千葉線']],
-  ['成田線', 'Narita Line', 'JR', 'JO', '#00b261', JR, ['jr-narita'], ['京成本線', '成田スカイアクセス線', '総武本線']],
-  ['鶴見線', 'Tsurumi Line', 'JR', 'JI', '#ffd400', JR, ['jr-tsurumi'], ['京浜東北線', '京急本線', '京急空港線']],
+  ['山手線', 'Yamanote Line', 'JR', 'JY', '#80c241', JR, ['jr-yamanote'], ['京浜東北線', '埼京線', '湘南新宿ライン', '中央線快速', '丸ノ内線', '銀座線'], '東京・品川・渋谷・新宿・上野'],
+  ['京浜東北線', 'Keihin-Tohoku Line', 'JR', 'JK', '#00b2e5', JR, ['jr-keihintohoku'], ['山手線', '東海道線', '上野東京ライン', '京急本線'], '大宮・上野・東京・品川・横浜'],
+  ['根岸線', 'Negishi Line', 'JR', 'JK', '#00b2e5', JR, ['jr-negishi'], ['横浜線', '横浜市営地下鉄ブルーライン', '京浜東北線'], '横浜・桜木町・関内・磯子・大船'],
+  ['中央線快速', 'Chuo Line (Rapid)', 'JR', 'JC', '#f15a22', JR, ['jr-chuo'], ['中央・総武各駅停車', '丸ノ内線', '東西線', '京王線', '西武新宿線'], '東京・御茶ノ水・新宿・立川・高尾'],
+  ['中央・総武各駅停車', 'Chuo-Sobu Line (Local)', 'JR', 'JB', '#ffd400', JR, ['jr-sobulocal'], ['中央線快速', '総武快速線', '東西線', '都営新宿線', '都営大江戸線'], '三鷹・新宿・秋葉原・錦糸町・千葉'],
+  ['中央本線', 'Chuo Main Line', 'JR', 'CO', '#007ac0', JR, [], ['中央線快速', '青梅線', '京王線', '横浜線'], '立川・八王子・高尾・大月・甲府'],
+  ['東海道線', 'Tokaido Line', 'JR', 'JT', '#f68b1e', JR, ['jr-tokaido'], ['京浜東北線', '横須賀線', '上野東京ライン', '京急本線', '東急東横線', '相鉄本線'], '東京・品川・横浜・大船・小田原'],
+  ['横須賀線', 'Yokosuka Line', 'JR', 'JO', '#0068b7', JR, ['jr-yokosuka'], ['東海道線', '湘南新宿ライン', '京急本線', '横浜線'], '東京・品川・横浜・鎌倉・久里浜'],
+  ['総武快速線', 'Sobu Line (Rapid)', 'JR', 'JO', '#0068b7', JR, ['jr-soburapid'], ['中央・総武各駅停車', '京葉線', '京成本線', '都営新宿線', '東西線'], '東京・錦糸町・船橋・津田沼・千葉'],
+  ['総武本線', 'Sobu Main Line', 'JR', 'JO', '#ffd400', JR, [], ['総武快速線', '京成本線', '京葉線', '外房線'], '千葉・佐倉・成東・八日市場・銚子'],
+  ['湘南新宿ライン', 'Shonan-Shinjuku Line', 'JR', 'JS', '#e21f26', JR, ['jr-shonanshinjuku'], ['山手線', '埼京線', '上野東京ライン', '東海道線', '横須賀線'], '大宮・池袋・新宿・渋谷・横浜'],
+  ['上野東京ライン', 'Ueno-Tokyo Line', 'JR', 'JU', '#f68b1e', JR, ['jr-uenotokyo'], ['東海道線', '京浜東北線', '宇都宮線', '高崎線', '山手線'], '宇都宮・高崎・大宮・上野・東京'],
+  ['宇都宮線', 'Utsunomiya Line', 'JR', 'JU', '#f68b1e', JR, ['jr-utsunomiya'], ['高崎線', '京浜東北線', '埼京線', '東武アーバンパークライン', '埼玉高速鉄道線'], '上野・赤羽・大宮・小山・宇都宮'],
+  ['高崎線', 'Takasaki Line', 'JR', 'JU', '#f68b1e', JR, ['jr-takasaki'], ['宇都宮線', '埼京線', '京浜東北線', '東武東上線'], '上野・赤羽・大宮・熊谷・高崎'],
+  ['埼京線', 'Saikyo Line', 'JR', 'JA', '#00ac9a', JR, ['jr-saikyo'], ['山手線', '湘南新宿ライン', '有楽町線', '副都心線', '東武東上線', '川越線'], '大宮・赤羽・池袋・新宿・大崎'],
+  ['川越線', 'Kawagoe Line', 'JR', 'JA', '#00ac9a', JR, ['jr-kawagoe'], ['埼京線', '東武東上線', '西武池袋線', '高崎線'], '大宮・日進・川越・高麗川'],
+  ['常磐線快速', 'Joban Line (Rapid)', 'JR', 'JJ', '#00b261', JR, ['jr-joban_'], ['常磐線各駅停車', '千代田線', 'つくばエクスプレス', '山手線', '京浜東北線'], '品川・上野・北千住・松戸・取手'],
+  ['常磐線各駅停車', 'Joban Line (Local)', 'JR', 'JL', '#808080', JR, ['jr-jobanlocal'], ['常磐線快速', '千代田線', 'つくばエクスプレス', '武蔵野線'], '綾瀬・松戸・新松戸・柏・取手'],
+  ['常磐線', 'Joban Line', 'JR', 'JJ', '#0068b7', JR, [], ['常磐線快速', 'つくばエクスプレス', '東武アーバンパークライン'], '上野・取手・土浦・水戸・いわき'],
+  ['京葉線', 'Keiyo Line', 'JR', 'JE', '#c9242f', JR, ['jr-keiyo'], ['総武快速線', '中央・総武各駅停車', '東西線', '武蔵野線', '東葉高速線'], '東京・新木場・舞浜・海浜幕張・蘇我'],
+  ['武蔵野線', 'Musashino Line', 'JR', 'JM', '#f15a22', JR, ['jr-musashino'], ['京葉線', '南武線', '埼京線', '東武アーバンパークライン', '常磐線各駅停車'], '府中本町・南浦和・新松戸・西船橋'],
+  ['南武線', 'Nambu Line', 'JR', 'JN', '#ffd400', JR, ['jr-nanbu'], ['東急田園都市線', '東急東横線', '京王線', '小田急小田原線', '横浜線'], '川崎・武蔵小杉・登戸・府中本町・立川'],
+  ['横浜線', 'Yokohama Line', 'JR', 'JH', '#80c241', JR, ['jr-yokohama'], ['東急東横線', '相鉄本線', '小田急小田原線', '京王相模原線', '南武線'], '東神奈川・新横浜・町田・橋本・八王子'],
+  ['相模線', 'Sagami Line', 'JR', 'JI', '#009793', JR, ['jr-sagami'], ['横浜線', '小田急小田原線', '小田急江ノ島線', '東海道線'], '茅ヶ崎・寒川・厚木・海老名・橋本'],
+  ['青梅線', 'Ome Line', 'JR', 'JC', '#f15a22', JR, ['jr-ome'], ['中央線快速', '西武池袋線', '西武新宿線', '五日市線'], '立川・拝島・河辺・青梅・奥多摩'],
+  ['五日市線', 'Itsukaichi Line', 'JR', 'JC', '#f15a22', JR, ['jr-itsukaichi'], ['青梅線', '中央線快速', '西武拝島線'], '拝島・東秋留・秋川・武蔵五日市'],
+  ['外房線', 'Sotobo Line', 'JR', 'JO', '#db4028', JR, ['jr-sotobo'], ['内房線', '総武本線', '京成千葉線', '京成本線'], '千葉・蘇我・茂原・勝浦・安房鴨川'],
+  ['内房線', 'Uchibo Line', 'JR', 'JO', '#00b2e5', JR, ['jr-uchibo'], ['外房線', '京葉線', '京成千葉線'], '千葉・蘇我・木更津・君津・館山'],
+  ['成田線', 'Narita Line', 'JR', 'JO', '#00b261', JR, ['jr-narita'], ['京成本線', '成田スカイアクセス線', '総武本線'], '佐倉・成田・成田空港・我孫子・銚子'],
+  ['鶴見線', 'Tsurumi Line', 'JR', 'JI', '#ffd400', JR, ['jr-tsurumi'], ['京浜東北線', '京急本線', '京急空港線'], '鶴見・浅野・海芝浦・武蔵白石・扇町'],
 
   /* ---- 東京メトロ（9路線） ---- */
-  ['銀座線', 'Ginza Line', 'Metro', 'G', '#ff9500', TM, ['tokyometro-ginza'], ['山手線', '丸ノ内線', '都営浅草線', '半蔵門線']],
-  ['丸ノ内線', 'Marunouchi Line', 'Metro', 'M', '#f62e36', TM, ['tokyometro-marunouchi'], ['中央線快速', '山手線', '東西線', '都営新宿線']],
-  ['日比谷線', 'Hibiya Line', 'Metro', 'H', '#b5b5ac', TM, ['tokyometro-hibiya'], ['山手線', '銀座線', '都営大江戸線', '京浜東北線']],
-  ['東西線', 'Tozai Line', 'Metro', 'T', '#009bbf', TM, ['tokyometro-tozai'], ['中央・総武各駅停車', '中央線快速', '総武快速線', '都営新宿線', '京葉線']],
-  ['千代田線', 'Chiyoda Line', 'Metro', 'C', '#00bb85', TM, ['tokyometro-chiyoda'], ['常磐線各駅停車', '小田急小田原線', '山手線', '半蔵門線']],
-  ['有楽町線', 'Yurakucho Line', 'Metro', 'Y', '#c1a470', TM, ['tokyometro-yurakucho'], ['西武有楽町線', '副都心線', '東武東上線', '山手線']],
-  ['半蔵門線', 'Hanzomon Line', 'Metro', 'Z', '#8f76d6', TM, ['tokyometro-hanzomon'], ['銀座線', '東急田園都市線', '都営新宿線', '都営大江戸線']],
-  ['南北線', 'Namboku Line', 'Metro', 'N', '#00ac9b', TM, ['tokyometro-nanboku'], ['都営三田線', '埼玉高速鉄道線', '山手線', '東急目黒線']],
-  ['副都心線', 'Fukutoshin Line', 'Metro', 'F', '#9c5e31', TM, ['tokyometro-fukutoshin'], ['山手線', '埼京線', '有楽町線', '東急東横線', '西武池袋線']],
+  ['銀座線', 'Ginza Line', 'Metro', 'G', '#ff9500', TM, ['tokyometro-ginza'], ['山手線', '丸ノ内線', '都営浅草線', '半蔵門線'], '渋谷・表参道・銀座・上野・浅草'],
+  ['丸ノ内線', 'Marunouchi Line', 'Metro', 'M', '#f62e36', TM, ['tokyometro-marunouchi'], ['中央線快速', '山手線', '東西線', '都営新宿線'], '池袋・東京・銀座・新宿・荻窪'],
+  ['日比谷線', 'Hibiya Line', 'Metro', 'H', '#b5b5ac', TM, ['tokyometro-hibiya'], ['山手線', '銀座線', '都営大江戸線', '京浜東北線'], '中目黒・六本木・銀座・上野・北千住'],
+  ['東西線', 'Tozai Line', 'Metro', 'T', '#009bbf', TM, ['tokyometro-tozai'], ['中央・総武各駅停車', '中央線快速', '総武快速線', '都営新宿線', '京葉線'], '中野・飯田橋・大手町・浦安・西船橋'],
+  ['千代田線', 'Chiyoda Line', 'Metro', 'C', '#00bb85', TM, ['tokyometro-chiyoda'], ['常磐線各駅停車', '小田急小田原線', '山手線', '半蔵門線'], '代々木上原・表参道・大手町・北千住・綾瀬'],
+  ['有楽町線', 'Yurakucho Line', 'Metro', 'Y', '#c1a470', TM, ['tokyometro-yurakucho'], ['西武有楽町線', '副都心線', '東武東上線', '山手線'], '和光市・池袋・有楽町・豊洲・新木場'],
+  ['半蔵門線', 'Hanzomon Line', 'Metro', 'Z', '#8f76d6', TM, ['tokyometro-hanzomon'], ['銀座線', '東急田園都市線', '都営新宿線', '都営大江戸線'], '渋谷・表参道・大手町・錦糸町・押上'],
+  ['南北線', 'Namboku Line', 'Metro', 'N', '#00ac9b', TM, ['tokyometro-nanboku'], ['都営三田線', '埼玉高速鉄道線', '山手線', '東急目黒線'], '目黒・溜池山王・飯田橋・駒込・赤羽岩淵'],
+  ['副都心線', 'Fukutoshin Line', 'Metro', 'F', '#9c5e31', TM, ['tokyometro-fukutoshin'], ['山手線', '埼京線', '有楽町線', '東急東横線', '西武池袋線'], '和光市・小竹向原・池袋・新宿三丁目・渋谷'],
 
   /* ---- 都営地下鉄・東京都交通局（5路線） ---- */
-  ['都営浅草線', 'Toei Asakusa Line', 'Toei', 'A', '#ec6e65', TO, ['toei-asakusa'], ['銀座線', '京急本線', '京成押上線', '山手線']],
-  ['都営三田線', 'Toei Mita Line', 'Toei', 'I', '#0067b0', TO, ['toei-mita'], ['南北線', '東急目黒線', '山手線', '東西線']],
-  ['都営新宿線', 'Toei Shinjuku Line', 'Toei', 'S', '#b0bf1e', TO, ['toei-shinjuku'], ['中央・総武各駅停車', '京王線', '東西線', '丸ノ内線']],
-  ['都営大江戸線', 'Toei Oedo Line', 'Toei', 'E', '#ce045b', TO, ['toei-oedo'], ['山手線', '中央・総武各駅停車', '丸ノ内線', '西武池袋線']],
-  ['日暮里・舎人ライナー', 'Nippori-Toneri Liner', 'Toei', 'NT', '#ff69b4', TO, ['toei-nipporitoneriliner'], ['山手線', '京浜東北線', '常磐線各駅停車', '千代田線']],
+  ['都営浅草線', 'Toei Asakusa Line', 'Toei', 'A', '#ec6e65', TO, ['toei-asakusa'], ['銀座線', '京急本線', '京成押上線', '山手線'], '西馬込・泉岳寺・新橋・浅草・押上'],
+  ['都営三田線', 'Toei Mita Line', 'Toei', 'I', '#0067b0', TO, ['toei-mita'], ['南北線', '東急目黒線', '山手線', '東西線'], '目黒・日比谷・大手町・巣鴨・西高島平'],
+  ['都営新宿線', 'Toei Shinjuku Line', 'Toei', 'S', '#b0bf1e', TO, ['toei-shinjuku'], ['中央・総武各駅停車', '京王線', '東西線', '丸ノ内線'], '新宿・市ヶ谷・神保町・大島・本八幡'],
+  ['都営大江戸線', 'Toei Oedo Line', 'Toei', 'E', '#ce045b', TO, ['toei-oedo'], ['山手線', '中央・総武各駅停車', '丸ノ内線', '西武池袋線'], '都庁前・六本木・大門・両国・光が丘'],
+  ['日暮里・舎人ライナー', 'Nippori-Toneri Liner', 'Toei', 'NT', '#ff69b4', TO, ['toei-nipporitoneriliner'], ['山手線', '京浜東北線', '常磐線各駅停車', '千代田線'], '日暮里・西日暮里・江北・見沼代親水公園'],
 
   /* ---- 大手私鉄・準大手・新交通・モノレール（45路線） ---- */
-  ['東急東横線', 'Tokyu Toyoko Line', 'Private', 'TY', '#da0442', TQ, ['tokyu-toyoko'], ['東急目黒線', '山手線', '副都心線', 'みなとみらい線', '東海道線']],
-  ['東急目黒線', 'Tokyu Meguro Line', 'Private', 'MG', '#009cd2', TQ, ['tokyu-meguro'], ['東急東横線', '南北線', '都営三田線', '山手線']],
-  ['東急田園都市線', 'Tokyu Den-en-toshi Line', 'Private', 'DT', '#20a288', TQ, ['tokyu-denentoshi'], ['東急大井町線', '半蔵門線', '南武線', '小田急小田原線']],
-  ['東急大井町線', 'Tokyu Oimachi Line', 'Private', 'OM', '#f18c43', TQ, ['tokyu-oimachi'], ['東急田園都市線', '東急目黒線', '京浜東北線', '南武線']],
-  ['東急池上線', 'Tokyu Ikegami Line', 'Private', 'IK', '#ee86a7', TQ, ['tokyu-ikegami'], ['東急多摩川線', '京浜東北線', '東急目黒線']],
-  ['東急多摩川線', 'Tokyu Tamagawa Line', 'Private', 'TM', '#ae0378', TQ, ['tokyu-tamagawa'], ['東急池上線', '京浜東北線', '京急空港線']],
-  ['東急新横浜線', 'Tokyu Shin-Yokohama Line', 'Private', 'SH', '#890d84', TQ, [], ['相鉄新横浜線', '横浜線', '横浜市営地下鉄ブルーライン', '東急東横線']],
-  ['小田急小田原線', 'Odakyu Odawara Line', 'Private', 'OH', '#007ed5', OD, ['odakyu-odawara'], ['京王線', '中央線快速', '東急田園都市線', '千代田線', '東海道線']],
-  ['小田急江ノ島線', 'Odakyu Enoshima Line', 'Private', 'OE', '#007ed5', OD, ['odakyu-enoshima'], ['小田急小田原線', '東海道線', '相鉄本線', '相模線']],
-  ['小田急多摩線', 'Odakyu Tama Line', 'Private', 'OT', '#007ed5', OD, ['odakyu-tama'], ['小田急小田原線', '京王相模原線', '横浜線']],
-  ['京王線', 'Keio Line', 'Private', 'KO', '#dd0077', KE, ['keio-keio', 'keio-new'], ['小田急小田原線', '中央線快速', '都営新宿線', '京王相模原線']],
-  ['京王相模原線', 'Keio Sagamihara Line', 'Private', 'KO', '#dd0077', KE, ['keio-sagamihara'], ['京王線', '小田急多摩線', '横浜線', '多摩都市モノレール']],
-  ['京王井の頭線', 'Keio Inokashira Line', 'Private', 'IN', '#1d2088', KE, ['keio-inokashira'], ['中央線快速', '小田急小田原線', '東急田園都市線', '山手線']],
-  ['西武池袋線', 'Seibu Ikebukuro Line', 'Private', 'SI', '#ff6600', SE, ['seibu-ikebukuro'], ['東武東上線', '山手線', '都営大江戸線', '西武有楽町線', '中央線快速']],
-  ['西武新宿線', 'Seibu Shinjuku Line', 'Private', 'SS', '#0099cc', SE, ['seibu-shinjuku'], ['中央線快速', '都営新宿線', '西武拝島線', '山手線']],
-  ['西武拝島線', 'Seibu Haijima Line', 'Private', 'SS', '#0099cc', SE, ['seibu-haijima'], ['西武新宿線', '中央線快速', '青梅線']],
-  ['西武有楽町線', 'Seibu Yurakucho Line', 'Private', 'SI', '#ff6600', SE, ['seibu-yurakucho'], ['西武池袋線', '有楽町線', '副都心線']],
-  ['東武東上線', 'Tobu Tojo Line', 'Private', 'TJ', '#004098', TB, ['tobu-tojo'], ['西武池袋線', '川越線', '埼京線', '有楽町線', '副都心線']],
-  ['東武スカイツリーライン', 'Tobu Skytree Line', 'Private', 'TS', '#0067c0', TB, ['tobu-skytree'], ['つくばエクスプレス', '日比谷線', '半蔵門線', '京成本線', '常磐線各駅停車']],
-  ['東武伊勢崎線', 'Tobu Isesaki Line', 'Private', 'TI', '#e60012', TB, ['tobu-isezaki'], ['東武スカイツリーライン', '高崎線', '宇都宮線']],
-  ['東武日光線', 'Tobu Nikko Line', 'Private', 'TN', '#f39800', TB, [], ['東武スカイツリーライン', '宇都宮線']],
-  ['東武アーバンパークライン', 'Tobu Urban Park Line', 'Private', 'TD', '#00a7e3', TB, ['tobu-noda'], ['武蔵野線', '宇都宮線', '総武快速線', '京成本線']],
-  ['京成本線', 'Keisei Main Line', 'Private', 'KS', '#005aaa', KS, ['keisei-keisei'], ['総武快速線', '中央・総武各駅停車', '東西線', '都営浅草線', '北総線']],
-  ['京成押上線', 'Keisei Oshiage Line', 'Private', 'KS', '#005aaa', KS, ['keisei-oshiage'], ['都営浅草線', '京成本線', '半蔵門線']],
-  ['京成千葉線', 'Keisei Chiba Line', 'Private', 'KS', '#005aaa', KS, ['keisei-chiba'], ['京成本線', '総武快速線', '京葉線']],
-  ['成田スカイアクセス線', 'Narita Sky Access Line', 'Private', 'KS', '#ff6600', KS, ['keisei-naritaskyaccess'], ['京成本線', '成田線', '総武快速線']],
-  ['新京成線', 'Shin-Keisei Line', 'Private', 'SL', '#ef59a1', ['新京成電鉄', 'Shin-Keisei'], ['shinkeisei-shinkeisei'], ['京成本線', '総武快速線', '中央・総武各駅停車', '京葉線', '武蔵野線']],
-  ['北総線', 'Hokuso Line', 'Private', 'HS', '#00a0e9', ['北総鉄道', 'Hokuso Railway'], [], ['京成本線', '都営浅草線', '京成押上線', '総武快速線']],
-  ['東葉高速線', 'Toyo Rapid Line', 'Private', 'TR', '#3fb035', ['東葉高速鉄道', 'Toyo Rapid Railway'], ['toyokosoku'], ['東西線', '総武快速線', '京葉線', '武蔵野線']],
-  ['京急本線', 'Keikyu Main Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-keikyu'], ['東海道線', '京浜東北線', '都営浅草線', '東急東横線', '横須賀線']],
-  ['京急空港線', 'Keikyu Airport Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-airport'], ['東京モノレール', 'りんかい線', '京急本線', '京浜東北線']],
-  ['京急逗子線', 'Keikyu Zushi Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-zushi'], ['京急本線', '横須賀線', '東海道線']],
-  ['京急久里浜線', 'Keikyu Kurihama Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-kurihama'], ['京急本線', '横須賀線', '東海道線']],
-  ['相鉄本線', 'Sotetsu Main Line', 'Private', 'SO', '#003893', SO, ['soutetsu-main'], ['東海道線', '横須賀線', '湘南新宿ライン', '東急東横線', '横浜線']],
-  ['相鉄いずみ野線', 'Sotetsu Izumino Line', 'Private', 'SO', '#003893', SO, ['soutetsu-izumino'], ['相鉄本線', '横浜市営地下鉄ブルーライン', '小田急江ノ島線']],
-  ['相鉄新横浜線', 'Sotetsu Shin-Yokohama Line', 'Private', 'SO', '#003893', SO, ['soutetsu-shinyokohama'], ['相鉄本線', '東急新横浜線', '横浜線', '横浜市営地下鉄ブルーライン']],
-  ['つくばエクスプレス', 'Tsukuba Express', 'Private', 'TX', '#003399', ['首都圏新都市鉄道', 'MIR'], ['tsukubaexpress'], ['東武スカイツリーライン', '常磐線快速', '常磐線各駅停車', '日比谷線', '山手線']],
-  ['りんかい線', 'Rinkai Line', 'Private', 'R', '#00418e', ['東京臨海高速鉄道', 'TWR'], ['rinkai'], ['東京モノレール', '山手線', '埼京線', 'ゆりかもめ']],
-  ['ゆりかもめ', 'Yurikamome', 'Private', 'U', '#0075c2', ['ゆりかもめ', 'Yurikamome'], ['yurikamome'], ['りんかい線', '山手線', '都営浅草線', '京葉線']],
-  ['東京モノレール', 'Tokyo Monorail', 'Private', 'MO', '#00a0e9', ['東京モノレール', 'Tokyo Monorail'], ['jr-tokyomonorail'], ['京急空港線', '山手線', 'りんかい線', '京浜東北線']],
-  ['多摩都市モノレール', 'Tama Toshi Monorail', 'Private', 'TT', '#ff6600', ['多摩都市モノレール', 'Tama Monorail'], ['tamatoshimonorail'], ['京王相模原線', '中央線快速', '西武拝島線', '青梅線']],
-  ['みなとみらい線', 'Minatomirai Line', 'Private', 'MM', '#003e92', ['横浜高速鉄道', 'Yokohama Minatomirai Railway'], ['minatomirai'], ['東急東横線', '京浜東北線', '根岸線', '横浜市営地下鉄ブルーライン']],
-  ['横浜市営地下鉄ブルーライン', 'Yokohama Subway Blue Line', 'Private', 'B', '#0068b7', ['横浜市交通局', 'Yokohama Municipal Subway'], ['yokohama-blue'], ['根岸線', '京急本線', '相鉄本線', '横浜市営地下鉄グリーンライン', '東急新横浜線']],
-  ['横浜市営地下鉄グリーンライン', 'Yokohama Subway Green Line', 'Private', 'G', '#00a040', ['横浜市交通局', 'Yokohama Municipal Subway'], ['yokohama-green'], ['横浜線', '東急田園都市線', '横浜市営地下鉄ブルーライン']],
-  ['埼玉高速鉄道線', 'Saitama Rapid Railway Line', 'Private', 'SR', '#0080c6', ['埼玉高速鉄道', 'Saitama Railway'], ['saitamakosoku'], ['南北線', '都営三田線', '京浜東北線', '宇都宮線']]
+  ['東急東横線', 'Tokyu Toyoko Line', 'Private', 'TY', '#da0442', TQ, ['tokyu-toyoko'], ['東急目黒線', '山手線', '副都心線', 'みなとみらい線', '東海道線'], '渋谷・自由が丘・武蔵小杉・横浜'],
+  ['東急目黒線', 'Tokyu Meguro Line', 'Private', 'MG', '#009cd2', TQ, ['tokyu-meguro'], ['東急東横線', '南北線', '都営三田線', '山手線'], '目黒・大岡山・田園調布・武蔵小杉・日吉'],
+  ['東急田園都市線', 'Tokyu Den-en-toshi Line', 'Private', 'DT', '#20a288', TQ, ['tokyu-denentoshi'], ['東急大井町線', '半蔵門線', '南武線', '小田急小田原線'], '渋谷・二子玉川・溝の口・長津田・中央林間'],
+  ['東急大井町線', 'Tokyu Oimachi Line', 'Private', 'OM', '#f18c43', TQ, ['tokyu-oimachi'], ['東急田園都市線', '東急目黒線', '京浜東北線', '南武線'], '大井町・大岡山・自由が丘・二子玉川・溝の口'],
+  ['東急池上線', 'Tokyu Ikegami Line', 'Private', 'IK', '#ee86a7', TQ, ['tokyu-ikegami'], ['東急多摩川線', '京浜東北線', '東急目黒線'], '五反田・旗の台・雪が谷大塚・池上・蒲田'],
+  ['東急多摩川線', 'Tokyu Tamagawa Line', 'Private', 'TM', '#ae0378', TQ, ['tokyu-tamagawa'], ['東急池上線', '京浜東北線', '京急空港線'], '多摩川・下丸子・武蔵新田・蒲田'],
+  ['東急新横浜線', 'Tokyu Shin-Yokohama Line', 'Private', 'SH', '#890d84', TQ, [], ['相鉄新横浜線', '横浜線', '横浜市営地下鉄ブルーライン', '東急東横線'], '日吉・新綱島・新横浜'],
+  ['小田急小田原線', 'Odakyu Odawara Line', 'Private', 'OH', '#007ed5', OD, ['odakyu-odawara'], ['京王線', '中央線快速', '東急田園都市線', '千代田線', '東海道線'], '新宿・下北沢・登戸・町田・小田原'],
+  ['小田急江ノ島線', 'Odakyu Enoshima Line', 'Private', 'OE', '#007ed5', OD, ['odakyu-enoshima'], ['小田急小田原線', '東海道線', '相鉄本線', '相模線'], '相模大野・大和・湘南台・藤沢・片瀬江ノ島'],
+  ['小田急多摩線', 'Odakyu Tama Line', 'Private', 'OT', '#007ed5', OD, ['odakyu-tama'], ['小田急小田原線', '京王相模原線', '横浜線'], '新百合ヶ丘・小田急永山・多摩センター・唐木田'],
+  ['京王線', 'Keio Line', 'Private', 'KO', '#dd0077', KE, ['keio-keio', 'keio-new'], ['小田急小田原線', '中央線快速', '都営新宿線', '京王相模原線'], '新宿・明大前・調布・府中・京王八王子'],
+  ['京王相模原線', 'Keio Sagamihara Line', 'Private', 'KO', '#dd0077', KE, ['keio-sagamihara'], ['京王線', '小田急多摩線', '横浜線', '多摩都市モノレール'], '調布・京王永山・多摩センター・南大沢・橋本'],
+  ['京王井の頭線', 'Keio Inokashira Line', 'Private', 'IN', '#1d2088', KE, ['keio-inokashira'], ['中央線快速', '小田急小田原線', '東急田園都市線', '山手線'], '渋谷・下北沢・明大前・永福町・吉祥寺'],
+  ['西武池袋線', 'Seibu Ikebukuro Line', 'Private', 'SI', '#ff6600', SE, ['seibu-ikebukuro'], ['東武東上線', '山手線', '都営大江戸線', '西武有楽町線', '中央線快速'], '池袋・練馬・石神井公園・所沢・飯能'],
+  ['西武新宿線', 'Seibu Shinjuku Line', 'Private', 'SS', '#0099cc', SE, ['seibu-shinjuku'], ['中央線快速', '都営新宿線', '西武拝島線', '山手線'], '西武新宿・高田馬場・田無・所沢・本川越'],
+  ['西武拝島線', 'Seibu Haijima Line', 'Private', 'SS', '#0099cc', SE, ['seibu-haijima'], ['西武新宿線', '中央線快速', '青梅線'], '小平・萩山・東大和市・玉川上水・拝島'],
+  ['西武有楽町線', 'Seibu Yurakucho Line', 'Private', 'SI', '#ff6600', SE, ['seibu-yurakucho'], ['西武池袋線', '有楽町線', '副都心線'], '小竹向原・新桜台・練馬'],
+  ['東武東上線', 'Tobu Tojo Line', 'Private', 'TJ', '#004098', TB, ['tobu-tojo'], ['西武池袋線', '川越線', '埼京線', '有楽町線', '副都心線'], '池袋・和光市・朝霞台・川越・小川町'],
+  ['東武スカイツリーライン', 'Tobu Skytree Line', 'Private', 'TS', '#0067c0', TB, ['tobu-skytree'], ['つくばエクスプレス', '日比谷線', '半蔵門線', '京成本線', '常磐線各駅停車'], '浅草・押上・北千住・新越谷・春日部'],
+  ['東武伊勢崎線', 'Tobu Isesaki Line', 'Private', 'TI', '#e60012', TB, ['tobu-isezaki'], ['東武スカイツリーライン', '高崎線', '宇都宮線'], '東武動物公園・久喜・館林・太田・伊勢崎'],
+  ['東武日光線', 'Tobu Nikko Line', 'Private', 'TN', '#f39800', TB, [], ['東武スカイツリーライン', '宇都宮線'], '東武動物公園・栗橋・栃木・下今市・東武日光'],
+  ['東武アーバンパークライン', 'Tobu Urban Park Line', 'Private', 'TD', '#00a7e3', TB, ['tobu-noda'], ['武蔵野線', '宇都宮線', '総武快速線', '京成本線'], '大宮・春日部・柏・新鎌ヶ谷・船橋'],
+  ['京成本線', 'Keisei Main Line', 'Private', 'KS', '#005aaa', KS, ['keisei-keisei'], ['総武快速線', '中央・総武各駅停車', '東西線', '都営浅草線', '北総線'], '京成上野・日暮里・青砥・京成津田沼・成田空港'],
+  ['京成押上線', 'Keisei Oshiage Line', 'Private', 'KS', '#005aaa', KS, ['keisei-oshiage'], ['都営浅草線', '京成本線', '半蔵門線'], '押上・京成曳舟・八広・青砥・京成高砂'],
+  ['京成千葉線', 'Keisei Chiba Line', 'Private', 'KS', '#005aaa', KS, ['keisei-chiba'], ['京成本線', '総武快速線', '京葉線'], '京成津田沼・幕張本郷・京成千葉・千葉中央'],
+  ['成田スカイアクセス線', 'Narita Sky Access Line', 'Private', 'KS', '#ff6600', KS, ['keisei-naritaskyaccess'], ['京成本線', '成田線', '総武快速線'], '京成高砂・東松戸・新鎌ヶ谷・成田空港'],
+  ['新京成線', 'Shin-Keisei Line', 'Private', 'SL', '#ef59a1', ['新京成電鉄', 'Shin-Keisei'], ['shinkeisei-shinkeisei'], ['京成本線', '総武快速線', '中央・総武各駅停車', '京葉線', '武蔵野線'], '松戸・新鎌ヶ谷・北習志野・京成津田沼'],
+  ['北総線', 'Hokuso Line', 'Private', 'HS', '#00a0e9', ['北総鉄道', 'Hokuso Railway'], [], ['京成本線', '都営浅草線', '京成押上線', '総武快速線'], '京成高砂・東松戸・新鎌ヶ谷・印旛日本医大'],
+  ['東葉高速線', 'Toyo Rapid Line', 'Private', 'TR', '#3fb035', ['東葉高速鉄道', 'Toyo Rapid Railway'], ['toyokosoku'], ['東西線', '総武快速線', '京葉線', '武蔵野線'], '西船橋・北習志野・八千代緑が丘・東葉勝田台'],
+  ['京急本線', 'Keikyu Main Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-keikyu'], ['東海道線', '京浜東北線', '都営浅草線', '東急東横線', '横須賀線'], '泉岳寺・品川・京急蒲田・横浜・金沢文庫・浦賀'],
+  ['京急空港線', 'Keikyu Airport Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-airport'], ['東京モノレール', 'りんかい線', '京急本線', '京浜東北線'], '京急蒲田・糀谷・穴守稲荷・羽田空港'],
+  ['京急逗子線', 'Keikyu Zushi Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-zushi'], ['京急本線', '横須賀線', '東海道線'], '金沢八景・六浦・神武寺・逗子・葉山'],
+  ['京急久里浜線', 'Keikyu Kurihama Line', 'Private', 'KK', '#e50012', KQ, ['keikyu-kurihama'], ['京急本線', '横須賀線', '東海道線'], '堀ノ内・北久里浜・京急久里浜・三浦海岸・三崎口'],
+  ['相鉄本線', 'Sotetsu Main Line', 'Private', 'SO', '#003893', SO, ['soutetsu-main'], ['東海道線', '横須賀線', '湘南新宿ライン', '東急東横線', '横浜線'], '横浜・西谷・二俣川・大和・海老名'],
+  ['相鉄いずみ野線', 'Sotetsu Izumino Line', 'Private', 'SO', '#003893', SO, ['soutetsu-izumino'], ['相鉄本線', '横浜市営地下鉄ブルーライン', '小田急江ノ島線'], '二俣川・緑園都市・いずみ野・湘南台'],
+  ['相鉄新横浜線', 'Sotetsu Shin-Yokohama Line', 'Private', 'SO', '#003893', SO, ['soutetsu-shinyokohama'], ['相鉄本線', '東急新横浜線', '横浜線', '横浜市営地下鉄ブルーライン'], '西谷・羽沢横浜国大・新横浜'],
+  ['つくばエクスプレス', 'Tsukuba Express', 'Private', 'TX', '#003399', ['首都圏新都市鉄道', 'MIR'], ['tsukubaexpress'], ['東武スカイツリーライン', '常磐線快速', '常磐線各駅停車', '日比谷線', '山手線'], '秋葉原・北千住・流山おおたかの森・守谷・つくば'],
+  ['りんかい線', 'Rinkai Line', 'Private', 'R', '#00418e', ['東京臨海高速鉄道', 'TWR'], ['rinkai'], ['東京モノレール', '山手線', '埼京線', 'ゆりかもめ'], '新木場・国際展示場・東京テレポート・大井町・大崎'],
+  ['ゆりかもめ', 'Yurikamome', 'Private', 'U', '#0075c2', ['ゆりかもめ', 'Yurikamome'], ['yurikamome'], ['りんかい線', '山手線', '都営浅草線', '京葉線'], '新橋・お台場海浜公園・国際展示場・有明・豊洲'],
+  ['東京モノレール', 'Tokyo Monorail', 'Private', 'MO', '#00a0e9', ['東京モノレール', 'Tokyo Monorail'], ['jr-tokyomonorail'], ['京急空港線', '山手線', 'りんかい線', '京浜東北線'], '浜松町・天王洲アイル・流通センター・羽田空港'],
+  ['多摩都市モノレール', 'Tama Toshi Monorail', 'Private', 'TT', '#ff6600', ['多摩都市モノレール', 'Tama Monorail'], ['tamatoshimonorail'], ['京王相模原線', '中央線快速', '西武拝島線', '青梅線'], '上北台・玉川上水・立川北・高幡不動・多摩センター'],
+  ['みなとみらい線', 'Minatomirai Line', 'Private', 'MM', '#003e92', ['横浜高速鉄道', 'Yokohama Minatomirai Railway'], ['minatomirai'], ['東急東横線', '京浜東北線', '根岸線', '横浜市営地下鉄ブルーライン'], '横浜・みなとみらい・馬車道・元町・中華街'],
+  ['横浜市営地下鉄ブルーライン', 'Yokohama Subway Blue Line', 'Private', 'B', '#0068b7', ['横浜市交通局', 'Yokohama Municipal Subway'], ['yokohama-blue'], ['根岸線', '京急本線', '相鉄本線', '横浜市営地下鉄グリーンライン', '東急新横浜線'], 'あざみ野・新横浜・横浜・上大岡・戸塚・湘南台'],
+  ['横浜市営地下鉄グリーンライン', 'Yokohama Subway Green Line', 'Private', 'G', '#00a040', ['横浜市交通局', 'Yokohama Municipal Subway'], ['yokohama-green'], ['横浜線', '東急田園都市線', '横浜市営地下鉄ブルーライン'], '中山・センター南・センター北・日吉'],
+  ['埼玉高速鉄道線', 'Saitama Rapid Railway Line', 'Private', 'SR', '#0080c6', ['埼玉高速鉄道', 'Saitama Railway'], ['saitamakosoku'], ['南北線', '都営三田線', '京浜東北線', '宇都宮線'], '赤羽岩淵・川口元郷・鳩ヶ谷・東川口・浦和美園']
 ];
-const DIRECTION = {
-  '山手線': '東京・品川・渋谷・新宿・池袋・上野',
-  '京浜東北線': '大宮・赤羽・上野・東京・品川・横浜・大船',
-  '根岸線': '桜木町・横浜・磯子・大船',
-  '中央線快速': '東京・新宿・立川・八王子・高尾',
-  '中央・総武各駅停車': '三鷹・中野・御茶ノ水・錦糸町・千葉',
-  '中央本線': '新宿・立川・八王子・甲府',
-  '東海道線': '東京・品川・横浜・大船・小田原・熱海',
-  '横須賀線': '東京・品川・横浜・大船・横須賀',
-  '総武快速線': '東京・錦糸町・津田沼・千葉',
-  '総武本線': '千葉・銚子',
-  '湘南新宿ライン': '大宮・新宿・渋谷・大崎・大船・藤沢・小田原',
-  '上野東京ライン': '宇都宮・高崎・上野・東京・品川・熱海',
-  '宇都宮線': '宇都宮・小山・大宮・上野・東京',
-  '高崎線': '高崎・熊谷・大宮・上野・東京',
-  '埼京線': '大宮・池袋・新宿・恵比寿・新木場',
-  '川越線': '大宮・川越',
-  '常磐線快速': '上野・北千住・柏・取手',
-  '常磐線各駅停車': '綾瀬・北千住・松戸・我孫子・取手',
-  '常磐線': '上野・土浦・水戸・いわき',
-  '京葉線': '東京・新木場・舞浜・海浜幕張・蘇我',
-  '武蔵野線': '府中本町・南船橋・西船橋・新松戸・大宮',
-  '南武線': '川崎・登戸・立川',
-  '横浜線': '八王子・町田・橋本・新横浜・横浜',
-  '相模線': '茅ヶ崎・橋本・相模原',
-  '青梅線': '立川・青梅・奥多摩',
-  '五日市線': '武蔵五日市・拝島',
-  '外房線': '千葉・茂原・勝浦・安房鴨川',
-  '内房線': '蘇我・君津・館山',
-  '成田線': '成田・我孫子・銚子',
-  '鶴見線': '鶴見・扇町・浅野・海芝浦',
-  '銀座線': '渋谷・新橋・上野・浅草',
-  '丸ノ内線': '池袋・新宿・東京・荻窪・方南町',
-  '日比谷線': '北千住・上野・銀座・六本木・中目黒',
-  '東西線': '中野・大手町・西船橋',
-  '千代田線': '代々木上原・大手町・北綾瀬',
-  '有楽町線': '和光市・池袋・新木場',
-  '半蔵門線': '渋谷・大手町・押上',
-  '南北線': '目黒・赤羽岩淵・武蔵小杉',
-  '副都心線': '渋谷・新宿三丁目・池袋・小竹向原',
-  '都営浅草線': '押上・浅草・新橋・西馬込',
-  '都営三田線': '目黒・大手町・西高島平',
-  '都営新宿線': '新宿・大島・本八幡',
-  '都営大江戸線': '都庁前・新宿・六本木・両国・光が丘',
-  '日暮里・舎人ライナー': '日暮里・見沼代親水公園',
-  '東急東横線': '渋谷・自由が丘・武蔵小杉・横浜',
-  '東急目黒線': '目黒・大岡山・日吉・新横浜',
-  '東急田園都市線': '渋谷・二子玉川・長津田・中央林間',
-  '東急大井町線': '大井町・二子玉川・溝の口',
-  '東急池上線': '五反田・蒲田・池上',
-  '東急多摩川線': '蒲田・多摩川',
-  '東急新横浜線': '日吉・新横浜',
-  '小田急小田原線': '新宿・町田・海老名・小田原',
-  '小田急江ノ島線': '町田・藤沢・片瀬江ノ島',
-  '小田急多摩線': '新百合ヶ丘・唐木田',
-  '京王線': '新宿・府中・調布・高尾山口',
-  '京王相模原線': '調布・橋本',
-  '京王井の頭線': '渋谷・吉祥寺',
-  '西武池袋線': '池袋・飯能・西武秩父',
-  '西武新宿線': '西武新宿・高田馬場・東村山・本川越',
-  '西武拝島線': '小平・拝島',
-  '西武有楽町線': '池袋・小竹向原・所沢',
-  '東武東上線': '池袋・川越・寄居・森林公園',
-  '東武スカイツリーライン': '押上・浅草・北千住・春日部・久喜',
-  '東武伊勢崎線': '浅草・春日部・館林・伊勢崎',
-  '東武日光線': '東武動物公園・日光・鬼怒川温泉',
-  '東武アーバンパークライン': '大宮・春日部・柏・船橋',
-  '京成本線': '京成上野・京成津田沼・京成成田',
-  '京成押上線': '押上・京成高砂・青砥',
-  '京成千葉線': '京成津田沼・千葉中央',
-  '成田スカイアクセス線': '京成成田・成田空港',
-  '新京成線': '松戸・津田沼・鎌ヶ谷',
-  '北総線': '京成高砂・印旛日本医大・印西牧の原',
-  '東葉高速線': '西船橋・東葉勝田台',
-  '京急本線': '泉岳寺・品川・横浜・三崎口',
-  '京急空港線': '京急蒲田・羽田空港',
-  '京急逗子線': '金沢八景・京急逗子',
-  '京急久里浜線': '品川・京急久里浜',
-  '相鉄本線': '横浜・二俣川・海老名',
-  '相鉄いずみ野線': '二俣川・いずみ野',
-  '相鉄新横浜線': '新横浜・西谷・海老名',
-  'つくばエクスプレス': '秋葉原・守谷・つくば',
-  'りんかい線': '新木場・大井町・新宿・大崎',
-  'ゆりかもめ': '新橋・豊洲・新豊洲・お台場海浜公園',
-  '東京モノレール': '浜松町・羽田空港',
-  '多摩都市モノレール': '多摩センター・上北台',
-  'みなとみらい線': '横浜・みなとみらい・元町・中華街',
-  '横浜市営地下鉄ブルーライン': '湘南台・あざみ野・新横浜・上大岡',
-  '横浜市営地下鉄グリーンライン': '中山・日吉',
-  '埼玉高速鉄道線': '赤羽岩淵・浦和美園',
-};
-const LINES = MASTER_RAW.map(([ja, en, co, code, color, op, svg, alt]) =>
-  ({ ja, en, co, code, color, op: { ja: op[0], en: op[1] }, svg, alt: alt || [], direction: DIRECTION[ja] || '' }));
+const LINES = MASTER_RAW.map(([ja, en, co, code, color, op, svg, alt, directionText]) => ({
+  ja, en, co, code, color, op: { ja: op[0], en: op[1] }, svg, alt: alt || [],
+  directionText: directionText || '', direction: directionText || ''
+}));
 const lineByName = name => LINES.find(l => l.ja === name);
 
 /* ---------- 設定（localStorage） ---------- */
 const Settings = {
   KEY: 'tokyo-lcd:settings',
   data: { demo: false, bilingual: true, autoLocate: false, chime: false, speech: false, autoCycle: false, ticker: true, tickerSpeed: 'normal',
-          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, hud: false, blink: true, miniTags: true, nightWatch: false, focus: false }, // 保存値があればそちらを優先（load）
+          interval: 180000, lcdOverlay: false, carNo: 10, initFilter: 'all', beep: true, nightDim: false, topOffset: 42, chimeType: 'std', dual: false, hud: false, blink: true, miniTags: true, nightWatch: false, focus: false, lcdTheme: 'auto' }, // 保存値があればそちらを優先（load）
   load() { try { Object.assign(this.data, JSON.parse(localStorage.getItem(this.KEY) || '{}')); } catch (_) {} },
   set(k, v) {
     this.data[k] = v;
@@ -284,55 +195,78 @@ const I18n = {
   }
 };
 
-/* ---------- 運行状況ストア ---------- */
+/* ---------- 運行状況ストア（異常データ防御＋オフライン用キャッシュ保持） ---------- */
 const Store = {
+  CACHE_KEY: 'tokyo-lcd:lastStatus',
   data: {},
-  of(name) { return this.data[name] || { status: 'normal', detail: '' }; },
-  rank(name) { return STATUS[this.of(name).status].rank; }
+  of(name) {
+    const d = this.data && this.data[name];
+    if (!d || typeof d !== 'object' || !STATUS[d.status]) return { status: 'normal', detail: '' };
+    return { status: d.status, detail: typeof d.detail === 'string' ? d.detail : '', url: d.url || '' };
+  },
+  rank(name) { return STATUS[this.of(name).status].rank; },
+  saveCache(data) {
+    try { localStorage.setItem(this.CACHE_KEY, JSON.stringify({ time: Date.now(), data })); } catch (_) {}
+  },
+  loadCache() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(this.CACHE_KEY) || 'null');
+      if (!raw || typeof raw.data !== 'object' || !raw.time) return null;
+      const safe = {};
+      Object.entries(raw.data).forEach(([k, v]) => {
+        if (lineByName(k) && v && STATUS[v.status]) safe[k] = { status: v.status, detail: String(v.detail || '').slice(0, 300), url: String(v.url || '') };
+      });
+      return { time: Number(raw.time) || Date.now(), data: safe };
+    } catch (_) { return null; }
+  }
 };
 
 /* ---------- 運行データ提供元 ----------
- * 共通IF: fetchStatus() → { 路線名: { status:'normal'|'delay'|'partial'|'suspend', detail?:string } }
- * Step 3 で YahooProvider を実装して LiveProvider と差し替える */
+ * 共通IF: fetchStatus() → { 路線名: { status:'normal'|'delay'|'partial'|'suspend', detail?:string } } */
 const DemoProvider = {
   async fetchStatus() {
+    const d = new Date(Date.now() + 40 * 60000);
+    const eta = `${String(d.getHours()).padStart(2, '0')}時${String(Math.ceil(d.getMinutes() / 5) * 5 % 60).padStart(2, '0')}分頃`;
     return {
-      '山手線':     { status: 'delay',   detail: '山手線は、京浜東北線内での人身事故の影響で、内・外回り電車に遅れがでています。' },
-      '中央線快速': { status: 'suspend', detail: '中央線快速は、新宿駅での人身事故の影響で、東京駅〜高尾駅間の上下線で運転を見合わせています。' },
-      '東西線':     { status: 'delay',   detail: '東西線は、車両点検の影響で、上下線の一部列車に遅れがでています。' },
-      '東急東横線': { status: 'delay',   detail: '東急東横線は、信号確認の影響で、上下線の一部列車に遅れがでています。' },
-      '京急本線':   { status: 'partial', detail: '京急本線は、踏切安全確認の影響で、品川駅〜横浜駅間の一部列車を運休しています。' }
+      '山手線':     { status: 'delay',   detail: '山手線は、混雑および車内安全確認の影響で、内・外回り電車の一部列車に遅れがでています。' },
+      '中央線快速': { status: 'suspend', detail: `中央線快速は、新宿駅での人身事故の影響で、東京〜高尾駅間の上下線で運転を見合わせています。運転再開は${eta}を見込んでいます。振替輸送を実施しています。` },
+      '東西線':     { status: 'delay',   detail: '東西線は、信号確認の影響で、上下線の一部列車に遅れがでています。振替輸送を実施しています。' },
+      '東急東横線': { status: 'delay',   detail: '東急東横線は、車両点検の影響で、上下線の一部列車に遅れがでています。' },
+      '京急本線':   { status: 'partial', detail: '京急本線は、踏切安全確認の影響で、品川〜横浜駅間の一部列車を運休しています。振替輸送を実施しています。' }
     };
   }
 };
 
 /* ---------- Yahoo!路線情報（関東エリア）の取得・解析 ----------
- * ・fetchViaProxy：自作Cloudflare Workersプロキシ経由で生のHTMLを取得（外部の無料CORSプロキシは使用しない）
- * ・parse：<table>の<tr>のうち /diainfo/ へのリンクを含む行を路線データとして抽出（クラス名に依存しない）
- * ・平常運転以外の路線は個別詳細ページ(#mdServiceStatus)を並列取得して詳細メッセージに反映
- * ・Yahoo側の表記ゆれ(canon + ALIAS + 会社名プレフィックス)を吸収してマスター路線に照合
- * ・一覧に載っていない路線は平常運転として扱う */
+ * ・fetchViaProxy：自作Cloudflare Workersプロキシ経由で生のHTMLを取得（10秒タイムアウト制御）
+ * ・parse：<table>の<tr>・リスト構造・JSON埋め込みの複数経路で抽出し一部HTML構造変化にも耐える
+ * ・平常運転以外の路線は個別詳細ページを並列取得（Promise.allSettledで一部失敗時も継続） */
 const YAHOO_ORIGIN = 'https://transit.yahoo.co.jp';
 const YAHOO_URL = YAHOO_ORIGIN + '/diainfo/area/4';
 const AUTO_REFRESH_MS = 180000;   // 自動更新間隔：3分
-const FETCH_TIMEOUT_MS = 12000;
+const FETCH_TIMEOUT_MS = 10000;   // 通信タイムアウト：10秒
+const DETAIL_TIMEOUT_MS = 6500;   // 個別詳細タイムアウト：6.5秒
 const PROXY_BASE = 'https://train-info-proxy.xiongdayiteng4.workers.dev/';
 const proxyUrl = targetUrl => `${PROXY_BASE}?url=${encodeURIComponent(targetUrl)}`;
 const clean = t => String(t || '').replace(/\s+/g, ' ').trim();
 
-/* 自作Workersプロキシ経由で targetUrl のHTML文字列を取得。失敗時は原因入りのErrorを投げる */
-async function fetchViaProxy(targetUrl, validate = html => /diainfo|運行情報/.test(html)) {
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
+/* 自作Workersプロキシ経由で targetUrl のHTML文字列を取得。10秒タイムアウト・オフライン時は明確なErrorを投げる */
+async function fetchViaProxy(targetUrl, validate = html => /diainfo|運行情報|路線/.test(html), timeoutMs = FETCH_TIMEOUT_MS) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('オフライン状態です（ネットワーク未接続）');
+  }
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(proxyUrl(targetUrl), { signal: ctl.signal, cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const html = await res.text();
-    if (html.length < 500 || !validate(html)) throw new Error('不正な応答（HTMLが短い/想定外の内容）');
+    if (!html || html.length < 300 || !validate(html)) throw new Error('不正な応答（HTML構造変化または空応答）');
     return { html, proxy: 'Cloudflare Workers' };
   } catch (e) {
-    const why = e.name === 'AbortError' ? 'タイムアウト' : (e.message === 'Failed to fetch' ? '通信失敗(接続不可/CORS)' : e.message);
+    const why = e && e.name === 'AbortError' ? `タイムアウト(${Math.round(timeoutMs / 1000)}秒)`
+      : (e && e.message === 'Failed to fetch' ? '通信失敗(接続不可/オフライン)' : (e && e.message ? e.message : String(e)));
     console.warn('[Yahoo] proxy failed →', why);
-    throw new Error('プロキシ取得失敗：' + why);
+    throw new Error(why);
   } finally { clearTimeout(timer); }
 }
 
@@ -443,7 +377,7 @@ const Yahoo = {
     });
     return out;
   },
-  /* 予備：テーブルでない構造（li/dl等）のとき */
+  /* 予備：テーブルでない構造（li/dl/article/div等）のとき */
   rowsFromLinks(doc) {
     const out = [], seen = new Set();
     doc.querySelectorAll('a[href]').forEach(a => {
@@ -451,49 +385,82 @@ const Yahoo = {
       if (!this.isLineHref(href)) return;
       const name = clean(a.textContent), url = this.toUrl(href);
       if (!name || seen.has(url)) return;
-      let row = a.closest('li') || a.closest('dl') || a.parentElement;
-      if (row.querySelectorAll('a[href*="/diainfo/"]').length > 1) row = a.parentElement;
+      let row = a.closest('li,dl,article,section,div') || a.parentElement;
+      if (row && row.querySelectorAll && row.querySelectorAll('a[href*="/diainfo/"]').length > 1) row = a.parentElement || a;
+      if (!row) return;
       seen.add(url); out.push({ name, url, row });
     });
     return out;
   },
+  /* さらに予備：Next.js等の埋め込みJSON（__NEXT_DATA__）から路線情報を抽出 */
+  rowsFromJson(doc) {
+    const out = [];
+    const sc = doc.getElementById('__NEXT_DATA__');
+    if (!sc || !sc.textContent) return out;
+    try {
+      const walk = node => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) { node.forEach(walk); return; }
+        const name = clean(node.railName || node.lineName || node.name || '');
+        const rawSt = clean(node.status || node.diainfo || node.trouble || '');
+        const detail = clean(node.detail || node.message || node.summary || '');
+        const status = this.statusOf(rawSt) || this.statusOf(detail);
+        if (name && status && this.match(name).length) {
+          out.push({ name, url: node.url ? this.toUrl(node.url) : YAHOO_URL, status, detail });
+        }
+        Object.values(node).forEach(walk);
+      };
+      walk(JSON.parse(sc.textContent));
+    } catch (_) {}
+    return out;
+  },
 
-  /* HTML → [{ name, url, status, detail }] */
+  /* HTML → [{ name, url, status, detail }]（HTML一部変更時にも例外で止めない） */
   parse(html) {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    let doc;
+    try { doc = new DOMParser().parseFromString(String(html || ''), 'text/html'); } catch (_) { return []; }
     let rows = this.rowsFromTables(doc);
     if (!rows.length) rows = this.rowsFromLinks(doc);
     const out = [];
     rows.forEach(({ name, url, row }) => {
+      if (!row) return;
       const text = clean(row.textContent);
-      const cells = [...row.querySelectorAll('td,dd')].map(c => clean(c.textContent));
-      const lab = row.querySelector('[class*="trouble" i],[class*="status" i],[class*="label" i]');
+      const cells = [...row.querySelectorAll('td,dd,span,p')].map(c => clean(c.textContent)).filter(Boolean);
+      const lab = row.querySelector('[class*="trouble" i],[class*="status" i],[class*="label" i],[class*="icn" i]');
       const rest = clean(text.replace(name, ''));
       const status = this.statusOf(lab && lab.textContent) || this.statusOf(cells[1]) || this.statusOf(rest);
-      if (!status) return; // 状況が読めない行（ナビ等）は無視
+      if (!status) return;
       let detail = cells.length >= 3 ? cells[cells.length - 1] : rest;
       detail = clean(detail.replace(/^(平常運転|遅延|運転見合わせ|見合わせ|運転状況|交通障害情報?|運転再開|一部運休|運休|その他)\s*/, ''));
       out.push({ name, url, status, detail });
     });
+    if (!out.length) out.push(...this.rowsFromJson(doc));
     return this.merge(out);
   },
   /* 上部「現在運行情報のある路線」と下部の会社別一覧で重複した路線を1件に統合（異常状態・詳細が長い方を優先） */
   merge(list) {
-    const score = x => (x.status !== 'normal' ? 1000 : 0) + x.detail.length;
+    const score = x => (x.status !== 'normal' ? 1000 : 0) + (x.detail || '').length;
     const m = new Map();
     list.forEach(e => {
-      const key = e.url.split(/[?#]/)[0], cur = m.get(key);
+      const key = (e.url || e.name).split(/[?#]/)[0], cur = m.get(key);
       if (!cur || score(e) > score(cur)) m.set(key, e);
     });
     return [...m.values()];
   },
-  /* 個別詳細ページ → 運行情報本文（#mdServiceStatus 内の<p>） */
+  /* 個別詳細ページ → 運行情報本文（複数セレクタ＋OGPメタのフォールバック対応） */
   parseDetail(html) {
-    const box = new DOMParser().parseFromString(html, 'text/html').querySelector('#mdServiceStatus, [id*="ServiceStatus" i]');
-    if (!box) return '';
-    const ps = [...box.querySelectorAll('p')].map(p => clean(p.textContent)).filter(Boolean);
-    const text = ps.length ? ps.join('　') : clean(box.textContent);
-    return text.length > 240 ? text.slice(0, 239) + '…' : text;
+    let doc;
+    try { doc = new DOMParser().parseFromString(String(html || ''), 'text/html'); } catch (_) { return ''; }
+    const box = doc.querySelector('#mdServiceStatus, [id*="ServiceStatus" i], [class*="ServiceStatus" i], [class*="serviceStatus" i]');
+    if (box) {
+      const ps = [...box.querySelectorAll('p,dd')].map(p => clean(p.textContent)).filter(Boolean);
+      const text = ps.length ? ps.join('　') : clean(box.textContent);
+      if (text) return text.length > 260 ? text.slice(0, 259) + '…' : text;
+    }
+    const og = doc.querySelector('meta[property="og:description"], meta[name="description"]');
+    const desc = clean(og && og.getAttribute('content'));
+    if (desc && /運転|遅れ|遅延|見合わせ|運休|平常/.test(desc)) return desc.slice(0, 260);
+    return '';
   },
 
   /* [{name,url,status,detail}] → { マスター路線名: {status, detail, url} }（同一路線は最も重い状態を採用） */
@@ -507,7 +474,7 @@ const Yahoo = {
     const result = {};
     Object.entries(byLine).forEach(([n, list]) => {
       list.sort((a, b) => STATUS[a.status].rank - STATUS[b.status].rank);
-      if (list[0].status === 'normal') return; // 平常運転は「情報なし」と同じ扱い
+      if (list[0].status === 'normal') return;
       const abn = list.filter(x => x.status !== 'normal');
       const details = [...new Set(abn.map(x => x.detail).filter(Boolean))];
       result[n] = { status: list[0].status, detail: details.join('　'), url: list[0].url };
@@ -516,21 +483,22 @@ const Yahoo = {
   },
 
   async fetchStatus() {
-    const { html, proxy } = await fetchViaProxy(YAHOO_URL);
+    const { html, proxy } = await fetchViaProxy(YAHOO_URL, h => /diainfo|運行情報|路線/.test(h), FETCH_TIMEOUT_MS);
     const entries = this.parse(html);
-    if (!entries.length && !/情報はありません|平常/.test(html))
-      throw new Error('解析エラー：路線の行が見つかりません（Yahoo!のページ構造が変わった可能性）');
+    if (!entries.length && !/情報はありません|平常|運行情報/.test(html))
+      throw new Error('解析エラー：路線データを抽出できませんでした');
     const result = this.toStatuses(entries);
     const matched = new Set(entries.flatMap(e => this.match(e.name))).size;
 
-    /* 平常運転以外の路線は個別詳細ページを並列取得して、理由テキストを差し替える */
+    /* 平常運転以外の路線は個別詳細ページを並列取得（一部がタイムアウト・失敗しても全体は止めない） */
     let detailOk = 0, detailFail = 0;
-    await Promise.all(Object.values(result).map(async r => {
+    await Promise.allSettled(Object.values(result).map(async r => {
+      if (!r.url) return;
       try {
-        const { html: dh } = await fetchViaProxy(r.url, h => h.length > 500);
+        const { html: dh } = await fetchViaProxy(r.url, h => h.length > 300, DETAIL_TIMEOUT_MS);
         const t = this.parseDetail(dh);
         if (t) { r.detail = t; detailOk++; } else detailFail++;
-      } catch (e) { detailFail++; console.warn('[Yahoo] detail failed:', r.url, e.message); }
+      } catch (e) { detailFail++; console.warn('[Yahoo] detail fallback:', r.url, e && e.message); }
     }));
     this.report = { rows: entries.length, matched, abnormal: Object.keys(result).length, proxy, detailOk, detailFail };
     return result;
@@ -562,17 +530,79 @@ const Frame = {
     });
   }
 };
-/* ---------- 固定レイヤー：上部ヘッダー／下部ティッカーの実寸をCSS変数とZoomに反映 ---------- */
+/* ---------- 固定レイヤー＆2画面16:9レイアウト計測 ---------- */
 const Layout = {
+  top: null, tk: null,
   init() {
-    const top = document.getElementById('topStack'), tk = document.getElementById('ticker'), root = document.documentElement;
-    const upd = () => {
-      const t = top.getBoundingClientRect().height, b = tk.getBoundingClientRect().height;
-      root.style.setProperty('--top-h', t + 'px'); root.style.setProperty('--bot-h', b + 'px');
-      Zoom.insT = t; Zoom.insB = b;
-    };
-    if (window.ResizeObserver) { const ro = new ResizeObserver(upd); ro.observe(top); ro.observe(tk); }
-    window.addEventListener('resize', upd); upd();
+    this.top = document.getElementById('topStack');
+    this.tk = document.getElementById('ticker');
+    const onChg = () => { this.upd(); if (Engine.canvas) Engine.scheduleResize(200); };
+    if (window.ResizeObserver) { const ro = new ResizeObserver(onChg); ro.observe(this.top); ro.observe(this.tk); }
+    this.upd();
+  },
+  upd() {
+    const root = document.documentElement;
+    const t = this.top ? this.top.getBoundingClientRect().height : 0;
+    const b = (this.tk && !document.body.classList.contains('no-ticker')) ? this.tk.getBoundingClientRect().height : 0;
+    root.style.setProperty('--top-h', t + 'px');
+    root.style.setProperty('--bot-h', b + 'px');
+    const isPhone = document.body.classList.contains('is-phone');
+    const navEl = document.getElementById('phoneNav');
+    const navH = (isPhone && navEl) ? navEl.getBoundingClientRect().height : 0;
+    const dualBot = b + navH;
+    root.style.setProperty('--dual-bot', dualBot + 'px');
+    const W = window.innerWidth || 1, H = window.innerHeight || 1;
+    const availW = Math.max(120, W), availH = Math.max(120, H - t - dualBot);
+    const portrait = availH >= availW;
+    document.body.classList.toggle('is-portrait', portrait);
+    const dual = document.body.classList.contains('dual');
+    Zoom.insT = dual ? 0 : t;
+    Zoom.insB = dual ? 0 : b;
+    if (dual) {
+      if (!portrait) {
+        const pillarW = 14, padX = 8, padY = 8;
+        const slotW = Math.max(120, (availW - pillarW) / 2 - padX * 2);
+        const slotH = Math.max(90, availH - padY * 2);
+        const monW = Math.floor(Math.min(slotW, slotH * 16 / 9));
+        const monH = Math.floor(monW * 9 / 16);
+        const monTop = Math.round(t + (availH - monH) / 2);
+        const halfW = (availW - pillarW) / 2;
+        const mLeft = Math.round((halfW - monW) / 2);
+        const pLeft = Math.round(halfW);
+        const iLeft = Math.round(halfW + pillarW + (halfW - monW) / 2);
+        root.style.setProperty('--dm-w', monW + 'px');
+        root.style.setProperty('--dm-h', monH + 'px');
+        root.style.setProperty('--dm-m-left', mLeft + 'px');
+        root.style.setProperty('--dm-m-top', monTop + 'px');
+        root.style.setProperty('--dm-i-left', iLeft + 'px');
+        root.style.setProperty('--dm-i-top', monTop + 'px');
+        root.style.setProperty('--dm-p-left', pLeft + 'px');
+        root.style.setProperty('--dm-p-top', Math.max(Math.round(t), monTop - 8) + 'px');
+        root.style.setProperty('--dm-p-w', pillarW + 'px');
+        root.style.setProperty('--dm-p-h', Math.min(availH, monH + 16) + 'px');
+      } else {
+        const pillarH = isPhone ? 8 : 12, padX = isPhone ? 8 : 16, padY = isPhone ? 6 : 12;
+        const slotW = Math.max(120, availW - padX * 2);
+        const slotH = Math.max(80, (availH - pillarH) / 2 - padY * 2);
+        const monW = Math.floor(Math.min(slotW, slotH * 16 / 9));
+        const monH = Math.floor(monW * 9 / 16);
+        const halfH = (availH - pillarH) / 2;
+        const mLeft = Math.round((availW - monW) / 2);
+        const mTop = Math.round(t + (halfH - monH) / 2);
+        const pTop = Math.round(t + halfH);
+        const iTop = Math.round(t + halfH + pillarH + (halfH - monH) / 2);
+        root.style.setProperty('--dm-w', monW + 'px');
+        root.style.setProperty('--dm-h', monH + 'px');
+        root.style.setProperty('--dm-m-left', mLeft + 'px');
+        root.style.setProperty('--dm-m-top', mTop + 'px');
+        root.style.setProperty('--dm-i-left', mLeft + 'px');
+        root.style.setProperty('--dm-i-top', iTop + 'px');
+        root.style.setProperty('--dm-p-left', Math.max(0, mLeft - 4) + 'px');
+        root.style.setProperty('--dm-p-top', pTop + 'px');
+        root.style.setProperty('--dm-p-w', Math.min(availW, monW + 8) + 'px');
+        root.style.setProperty('--dm-p-h', pillarH + 'px');
+      }
+    }
   }
 };
 
@@ -631,36 +661,60 @@ const setRootAttrs = (xml, attrs) => {
 };
 
 const Engine = {
-  BW: 3072, VW: 7300, VH: 5400, HI_RATIO: 1.3, SETTLE_MS: 180,
+  BW: 3072, VW: 7300, VH: 5400, HI_RATIO: 1.3, SETTLE_MS: 180, RESIZE_DEBOUNCE_MS: 200,
   stage: null, canvas: null, ctx: null, dpr: 1, W: 1, H: 1, ready: false,
   base: null, svgText: '',
   patch: null, patchCtx: null, patchView: null, patchValid: false,
-  hiImg: null, hiUrl: null, hiGen: 0, hiTimer: 0, hiMs: 0, moving: false,
+  hiImg: null, hiUrl: null, hiGen: 0, hiTimer: 0, hiMs: 0, moving: false, resizeTimer: 0,
   state: { company: 'all', alert: false, detour: null },
-  blinkOn: true, marker: null, lastDraw: 0, drawCount: 0, pin: null, raf: 0,
+  blinkOn: true, marker: null, lastDraw: 0, drawCount: 0, pin: null, raf: 0, drawnTags: [],
 
   init(stage, canvas) {
     this.stage = stage; this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.patch = document.createElement('canvas');           // 高精細バッファ：起動時の1回だけ作る
     this.patchCtx = this.patch.getContext('2d');
     this.hiImg = new Image();                                // 高精細描画用のImageも1つだけ
-    this.resize();
-    if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(stage);
-    window.addEventListener('resize', () => this.resize());
+    this.applyResize();
+    if (window.ResizeObserver) new ResizeObserver(() => this.scheduleResize(this.RESIZE_DEBOUNCE_MS)).observe(stage);
+    window.addEventListener('resize', () => this.scheduleResize(this.RESIZE_DEBOUNCE_MS), { passive: true });
+    window.addEventListener('orientationchange', () => this.scheduleResize(this.RESIZE_DEBOUNCE_MS), { passive: true });
   },
-  /* 表示Canvasと高精細バッファを、画面サイズ×DPR（上限2.0）に合わせる。サイズが変わったときだけ確保し直す */
-  resize() {
+  /* 高精細バッファと保留中Blob URLを安全に無効化する */
+  invalidateHi() {
+    clearTimeout(this.hiTimer); this.hiTimer = 0;
+    this.patchValid = false; this.hiGen++;
+    if (this.hiUrl) this.releaseHi(this.hiUrl);
+  },
+  /* 連続するリサイズ・画面回転・Split Viewを200msデバウンスして1回だけバッファ再確保する */
+  scheduleResize(delayMs = this.RESIZE_DEBOUNCE_MS) {
+    this.invalidateHi();
+    Layout.upd();
+    clearTimeout(this.resizeTimer);
+    if (delayMs <= 0) { this.resizeTimer = 0; this.applyResize(); return; }
+    this.resizeTimer = setTimeout(() => { this.resizeTimer = 0; this.applyResize(); }, delayMs);
+  },
+  resize() { this.scheduleResize(this.RESIZE_DEBOUNCE_MS); },
+  /* 表示Canvasと高精細バッファを、内側実寸×DPR（上限2.0）に1回だけ安全に合わせる */
+  applyResize() {
     if (!this.stage || !this.canvas) return;
+    Layout.upd();
     const r = this.stage.getBoundingClientRect();
-    this.W = Math.max(1, r.width); this.H = Math.max(1, r.height);
+    const cw = this.stage.clientWidth || r.width, ch = this.stage.clientHeight || r.height;
+    this.W = Math.max(1, cw); this.H = Math.max(1, ch);
     this.dpr = Math.min(window.devicePixelRatio || 1, document.body.classList.contains('is-phone') ? 1.5 : 2.0);
-    const w = Math.round(this.W * this.dpr), h = Math.round(this.H * this.dpr);
+    const w = Math.max(1, Math.round(this.W * this.dpr)), h = Math.max(1, Math.round(this.H * this.dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w; this.canvas.height = h;
       this.patch.width = w; this.patch.height = h;
-      this.patchValid = false;                               // 大きさが変わったら高精細の結果は使わない
+      this.patchValid = false;
     }
-    this.requestDraw();
+    if (Zoom.stage) Zoom.syncViewport();
+    Hud.syncOffset();
+    if (Detail.isOpen()) Fit.all(document.getElementById('detailBody'));
+    if (Settings.get('dual') && InfoLcd.el) Fit.all(InfoLcd.el);
+    if (Cycle.view === 'board') Fit.all(document.getElementById('abnBoard'));
+    this.draw();
+    if (this.ready && !this.moving) this.scheduleHi();
   },
   requestDraw() { if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.draw(); }); },
   setState(p) { Object.assign(this.state, p); this.requestDraw(); },
@@ -798,29 +852,79 @@ const Engine = {
     c.restore();
   },
   /* 異常路線のミニタグ：路線の代表位置に「記号＋状態」を小さく描く。重なるものは省く（地図の拡大率に依らず読める） */
+  /* 異常ステータスミニラベル（吹き出しタグ）：主要拠点付近に「[JY] 遅延」「[JC] 見合わせ」等を描画（タップで詳細起動） */
   drawTags(c) {
+    this.drawnTags.length = 0;
     if (!Settings.get('miniTags')) return;
-    const rows = LINES.filter(L => Store.of(L.ja).status !== 'normal' && (this.state.company === 'all' || L.co === this.state.company)).slice(0, 10);
+    const rows = LINES.filter(L => Store.of(L.ja).status !== 'normal' && (this.state.company === 'all' || L.co === this.state.company))
+      .sort((a, b) => Store.rank(a.ja) - Store.rank(b.ja)).slice(0, 14);
     if (!rows.length) return;
-    const k = this.W / Zoom.vw;                                  // css px / 地図単位
+    const k = this.W / Zoom.vw;
     c.save(); c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    c.font = '700 12px "Roboto Condensed", "Helvetica Neue", sans-serif'; c.textBaseline = 'middle';
+    c.textBaseline = 'middle';
+    const OFFSETS = [[0, -16], [0, 22], [44, -14], [-44, -14], [44, 20], [-44, 20]];
+    const SHORT_ST = { suspend: '見合わせ', delay: '遅延', partial: '一部運休' };
     const placed = [];
     rows.forEach(L => {
-      const cen = MapView.lineCenter(L.ja); if (!cen) return;
-      const x = (cen.x - Zoom.vx) * k, y = (cen.y - Zoom.vy) * k;
-      if (x < 8 || y < 8 || x > this.W - 8 || y > this.H - 8) return;
-      const st = Store.of(L.ja).status, label = `${L.code} ${STATUS[st].ja}`;
-      const w = c.measureText(label).width + 14, h = 20, rx = x - w / 2, ry = y - h / 2;
-      if (placed.some(p => rx < p.x + p.w && rx + w > p.x && ry < p.y + p.h && ry + h > p.y)) return;
+      const anc = MapView.anchorOf(L.ja); if (!anc) return;
+      const ax = (anc.x - Zoom.vx) * k, ay = (anc.y - Zoom.vy) * k;
+      if (ax < 6 || ay < 6 || ax > this.W - 6 || ay > this.H - 6) return;
+      const st = Store.of(L.ja).status;
+      const codeStr = `[${L.code}]`, stStr = SHORT_ST[st] || STATUS[st].ja;
+      c.font = '700 11px "Roboto Condensed", "Inter", sans-serif';
+      const cw = c.measureText(codeStr).width;
+      c.font = '700 11.5px "Zen Kaku Gothic New", "Noto Sans JP", sans-serif';
+      const sw = c.measureText(stStr).width;
+      const w = Math.ceil(cw + sw + 18), h = 22;
+      let chosen = null;
+      for (const [ox, oy] of OFFSETS) {
+        const rx = Math.min(this.W - w - 4, Math.max(4, ax + ox - w / 2));
+        const ry = Math.min(this.H - h - 6, Math.max(4, ay + oy - h / 2));
+        if (!placed.some(p => rx < p.x + p.w + 4 && rx + w + 4 > p.x && ry < p.y + p.h + 4 && ry + h + 4 > p.y)) {
+          chosen = { rx, ry }; break;
+        }
+      }
+      if (!chosen) return;
+      const { rx, ry } = chosen;
       placed.push({ x: rx, y: ry, w, h });
-      c.fillStyle = st === 'suspend' ? '#d91e18' : '#e67e00';
+      this.drawnTags.push({ line: L.ja, x0: rx - 2, y0: ry - 2, x1: rx + w + 2, y1: ry + h + 4 });
+      const bg = st === 'suspend' ? '#c81912' : '#d96b00';
+      const tipX = Math.min(rx + w - 7, Math.max(rx + 7, ax));
+      const tipDown = ay >= ry + h / 2;
+      /* 影オフセット（filter不使用で高速） */
+      c.fillStyle = 'rgba(0,0,0,0.34)';
       c.beginPath();
-      if (c.roundRect) c.roundRect(rx, ry, w, h, 6); else c.rect(rx, ry, w, h);
+      if (c.roundRect) c.roundRect(rx, ry + 2, w, h, 5); else c.rect(rx, ry + 2, w, h);
       c.fill();
-      c.fillStyle = '#fff'; c.fillText(label, rx + 7, y + 1);
+      /* 吹き出しのしっぽ（拠点方向を指す小三角） */
+      c.beginPath();
+      if (tipDown) { c.moveTo(tipX - 5, ry + h - 1); c.lineTo(tipX + 5, ry + h - 1); c.lineTo(tipX, ry + h + 5); }
+      else { c.moveTo(tipX - 5, ry + 1); c.lineTo(tipX + 5, ry + 1); c.lineTo(tipX, ry - 5); }
+      c.closePath();
+      c.fillStyle = bg; c.fill(); c.lineWidth = 1.5; c.strokeStyle = '#fff'; c.stroke();
+      /* ラベル本体 */
+      c.beginPath();
+      if (c.roundRect) c.roundRect(rx, ry, w, h, 5); else c.rect(rx, ry, w, h);
+      c.fillStyle = bg; c.fill();
+      c.lineWidth = 1.6; c.strokeStyle = '#ffffff'; c.stroke();
+      /* 路線カラーアクセント帯 */
+      c.fillStyle = L.color || '#fff';
+      c.fillRect(rx + 3, ry + 4, 3.5, h - 8);
+      /* テキスト描画：[JY] 遅延 */
+      c.fillStyle = '#fff';
+      c.font = '700 11px "Roboto Condensed", "Inter", sans-serif';
+      c.fillText(codeStr, rx + 9, ry + h / 2 + 0.5);
+      c.font = '700 11.5px "Zen Kaku Gothic New", "Noto Sans JP", sans-serif';
+      c.fillText(stStr, rx + 12 + cw, ry + h / 2 + 0.5);
     });
     c.restore();
+  },
+  tagAt(px, py) {
+    for (let i = this.drawnTags.length - 1; i >= 0; i--) {
+      const t = this.drawnTags[i];
+      if (px >= t.x0 && px <= t.x1 && py >= t.y0 && py <= t.y1) return t.line;
+    }
+    return null;
   },
   /* 1回の描画：背景 → 地図（高精細バッファ or 基礎地図）→ 会社・強調・振替 → 発光 → 警告 → 現在地 */
   draw() {
@@ -851,8 +955,8 @@ const Engine = {
 };
 
 const MapView = {
-  svg: null, rails: LINE_PATHS, boxes: {}, _all: null, _by: null, dom: null,
-  /* 読み込み：SVG解析 → 一時的な実DOMで駅・路線の位置を取り出し破棄 → 基礎地図を1回だけ作る */
+  svg: null, rails: LINE_PATHS, boxes: {}, anchors: {}, railMid: {}, _all: null, _by: null, dom: null,
+  /* 読み込み：SVG解析 → 一時的な実DOMで駅・路線の位置を取り出し即破棄 → 基礎地図を1回だけ作る */
   async init() {
     const msg = document.getElementById('mapLoading');
     try {
@@ -866,7 +970,6 @@ const MapView = {
       this.dom = { before: root.getElementsByTagName('*').length };
       this.dom.removed = Sanitize.run(root);
       this.dom.after = root.getElementsByTagName('*').length;
-      Engine.svgText = Engine.svgText || txt.slice(txt.indexOf('<svg'));
       const vb = (root.getAttribute('viewBox') || '0 0 7300 5400').trim().split(/[\s,]+/).map(Number);
       Engine.VW = vb[2]; Engine.VH = vb[3];
       const holder = document.createElement('div');
@@ -876,6 +979,7 @@ const MapView = {
       this.svg = live;
       this.tag(live);
       Stations.ensure(); LineGeo.ensure();
+      this.buildAnchors();
       holder.remove(); this.svg = null;
       await Engine.buildBase();
       if (msg) msg.hidden = true;
@@ -886,8 +990,8 @@ const MapView = {
   },
   /* 路線グループに路線名・会社を付け、路線パスの索引（LINE_PATHS）を作る */
   tag(live) {
-    const all = lineGroupsOf(live);
-    this._all = []; this._by = new Map(); this.boxes = {}; LINE_PATHS.length = 0;
+    const all = lineGroupsOf(live), pt = live.createSVGPoint();
+    this._all = []; this._by = new Map(); this.boxes = {}; this.railMid = {}; LINE_PATHS.length = 0;
     all.forEach(g => {
       const id = g.getAttribute('id') || '';
       const L = LINES.find(x => x.svg.some(p => id.startsWith(p)));
@@ -896,7 +1000,7 @@ const MapView = {
       this.decorate(g);
       this._all.push(g);
       (this._by.get(L.ja) || this._by.set(L.ja, []).get(L.ja)).push(g);
-      g.__rails.forEach(el => this.addRail(el, L));
+      g.__rails.forEach(el => this.addRail(el, L, pt));
     });
   },
   decorate(g) {
@@ -908,7 +1012,7 @@ const MapView = {
     g.__rails = rails;
   },
   /* 路線パス1本を、地図座標の記録として保存する（Path2Dは起動時に1回だけ作る） */
-  addRail(el, L) {
+  addRail(el, L, pt) {
     const m = toRoot(el); if (!m) return;
     const d = pathD(el); if (!d) return;
     LINE_PATHS.push({
@@ -917,6 +1021,15 @@ const MapView = {
       path: new Path2D(d)
     });
     try {
+      const len = el.getTotalLength ? el.getTotalLength() : 0;
+      if (len > (this.railMid[L.ja]?.len || 0) && pt) {
+        const mp = el.getPointAtLength(len * 0.5);
+        pt.x = mp.x; pt.y = mp.y;
+        const q = pt.matrixTransform(m);
+        this.railMid[L.ja] = { x: q.x, y: q.y, len };
+      }
+    } catch (_) {}
+    try {
       const bb = el.getBBox();
       const pts = [[bb.x, bb.y], [bb.x + bb.width, bb.y], [bb.x, bb.y + bb.height], [bb.x + bb.width, bb.y + bb.height]]
         .map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]);
@@ -924,6 +1037,25 @@ const MapView = {
       pts.forEach(([x, y]) => { box.x0 = Math.min(box.x0, x); box.y0 = Math.min(box.y0, y); box.x1 = Math.max(box.x1, x); box.y1 = Math.max(box.y1, y); });
     } catch (_) {}
   },
+  /* 各路線の主要拠点アンカーを起動時に1回算出（環状線や湾岸線でも必ず実路線・主要駅付近に配置） */
+  buildAnchors() {
+    this.anchors = {};
+    LINES.forEach(L => {
+      const mid = this.railMid[L.ja], cen = this.lineCenter(L.ja);
+      const stNames = (L.directionText || '').split('・').map(s => s.trim()).filter(Boolean);
+      const midIdx = Math.floor(stNames.length / 2);
+      const ordered = stNames.map((n, i) => ({ n, d: Math.abs(i - midIdx) })).sort((a, b) => a.d - b.d);
+      for (const { n } of ordered) {
+        const st = Stations.get(n);
+        if (st && (!mid || LineGeo.lines(st.x, st.y, 160).includes(L.ja))) {
+          this.anchors[L.ja] = { x: st.x, y: st.y }; return;
+        }
+      }
+      if (mid) { this.anchors[L.ja] = { x: mid.x, y: mid.y }; return; }
+      if (cen) this.anchors[L.ja] = cen;
+    });
+  },
+  anchorOf(name) { return this.anchors[name] || this.lineCenter(name); },
   lineCenter(name) {
     const b = this.boxes[name];
     return b && isFinite(b.x0) ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null;
@@ -951,10 +1083,13 @@ const Zoom = {
     document.getElementById('zoomIn').onclick = () => this.step(1.4);
     document.getElementById('zoomOut').onclick = () => this.step(1 / 1.4);
     document.getElementById('zoomReset').onclick = () => this.home();
-    if (window.ResizeObserver) new ResizeObserver(() => this.onResize()).observe(stage);
     this.home();
   },
-  measure() { const r = this.stage.getBoundingClientRect(); this.W = Math.max(1, r.width); this.H = Math.max(1, r.height); },
+  measure() {
+    const r = this.stage.getBoundingClientRect();
+    this.W = Math.max(1, this.stage.clientWidth || r.width);
+    this.H = Math.max(1, this.stage.clientHeight || r.height);
+  },
   off() { return (this.insT - this.insB) / 2; },
   maxVw() { return Math.min(this.VW, this.VH * this.W / this.H); },
   clampVw(v) { const hi = this.maxVw(); return Math.min(hi, Math.max(hi / 5, v)); },
@@ -1008,15 +1143,17 @@ const Zoom = {
     this.zoomAt(this.W / 2, this.H / 2 + this.off(), f);
     this.endInteractLater();
   },
-  onResize() {
+  syncViewport() {
     const c = this.visXY();
     this.measure();
     this.vw = this.clampVw(this.vw);
-    this.centerOn(c.x, c.y); this.clampPos(); this.request();
+    this.centerOn(c.x, c.y); this.clampPos();
   },
+  onResize() { this.syncViewport(); this.request(); },
   beginInteract() {
     clearTimeout(this.endTimer);
     if (!this.stage.classList.contains('is-zooming')) this.stage.classList.add('is-zooming');
+    document.body.classList.add('map-busy');
     Engine.beginMove();
   },
   endInteractLater() { clearTimeout(this.endTimer); this.endTimer = setTimeout(() => this.finish(), 150); },
@@ -1024,6 +1161,7 @@ const Zoom = {
   finish() {
     this.writeView();
     this.stage.classList.remove('is-zooming');
+    document.body.classList.remove('map-busy');
     Engine.endMove();
   },
   dist() { const [a, b] = [...this.pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); },
@@ -1058,10 +1196,13 @@ const Zoom = {
     if (this.pts.size === 1) this.moved = 99;
     if (this.pts.size === 0) this.endInteractLater();
   },
-  /* 5px未満の移動のタップ：駅名ラベル → 駅ポップアップ、それ以外 → 最も近い路線の詳細 */
+  /* 5px未満の移動のタップ：異常ミニタグ → 駅名ラベル → 最も近い路線の詳細 */
   tap(cx, cy) {
     const r = this.stage.getBoundingClientRect(), u = this.unit();
-    const sx = this.vx + (cx - r.left) * u, sy = this.vy + (cy - r.top) * u;
+    const px = cx - r.left - (this.stage.clientLeft || 0), py = cy - r.top - (this.stage.clientTop || 0);
+    const tagged = Engine.tagAt(px, py);
+    if (tagged) { StationPop.close(); Detail.open(tagged); return; }
+    const sx = this.vx + px * u, sy = this.vy + py * u;
     const st = Stations.at(sx, sy, 4 * u);
     if (st) { StationPop.open(st.name, cx, cy); return; }
     StationPop.close();
@@ -1502,11 +1643,15 @@ const Board = {
   },
   cards() {
     const on = I18n.bi(), abn = this.abn();
-    return abn.length ? `<div class="board-list">${abn.map(({ L, s }) => `
-        <button class="board-card" data-line="${L.ja}" style="--lc:${L.color}">
-          <div class="bc-head"><span class="cbar"></span><span class="sym">${L.code}</span>
-            <div class="lname"><b class="fit ${Lcd.lsClass(L.ja)}">${L.ja}</b>${on ? `<small>${L.en}</small>` : ''}</div>${statusBadge(s.status, 'car')}</div>
-          <div class="bc-body"><p class="h">【${L.ja}　${STATUS[s.status].ja}】</p><p>${Detail.highlight(s.detail || '')}</p></div></button>`).join('')}</div>` : '';
+    return abn.length ? `<div class="board-list">${abn.map(({ L, s }) => {
+      const th = Lcd.resolveTheme(L);
+      return `<button class="board-card bc-th-${th}" data-line="${esc(L.ja)}" style="--lc:${L.color}">
+          <div class="bc-head"><span class="bc-edge" aria-hidden="true"></span><span class="cbar"></span><span class="sym">${esc(L.code)}</span>
+            <div class="lname"><b class="fit ${Lcd.lsClass(L.ja)}">${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : `<span class="bc-dir">${esc(L.directionText)} 方面</span>`}</div>${statusBadge(s.status, 'car')}</div>
+          <div class="bc-sub"><span>${esc(Lcd.themeBadge(th, L))}</span><span class="lcd-chev" aria-hidden="true"><i>›</i><i>›</i><i>›</i></span></div>
+          <div class="bc-body"><p class="h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p>${Detail.highlight(s.detail || '')}</p>
+            <div class="bc-meta">${Cause.chipHtml(s.detail)}${Insight.chipsHtml(s)}</div></div></button>`;
+    }).join('')}</div>` : '';
   },
   okHtml() {
     return `<div class="board-ok"><span class="material-symbols-outlined">check_circle</span><b>現在、関東エリアの主要路線は平常通り運転しています。</b>${I18n.bi() ? '<small>All major lines are operating normally.</small>' : ''}</div>`;
@@ -1529,9 +1674,10 @@ const AbnUI = {
   open() { Modals.open('modalAbn'); this.render(); },
   isOpen() { return !document.getElementById('modalAbn').hidden; },
   render() {
-    const n = Board.abn().length;
+    const n = Board.abn().length, listEl = document.getElementById('abnList');
     document.getElementById('abnMeta').textContent = n ? `現在 ${n}路線で運行に乱れがあります（運転見合わせ・遅延・一部運休）` : '';
-    document.getElementById('abnList').innerHTML = Board.cards() || Board.okHtml();
+    listEl.innerHTML = Board.cards() || Board.okHtml();
+    Fit.all(listEl);
   }
 };
 
@@ -1599,7 +1745,16 @@ const OPT_SPEED = [['slow', '遅い', 'Slow'], ['normal', '標準', 'Normal'], [
 const OPT_FILTER = COMPANIES.map(c => [c.id, c.ja, c.en]);
 const OPT_CHIME = [['std', '標準ベル', 'Bell'], ['alert', '警報ベル', 'Alert'], ['soft', 'やわらか4音', 'Soft']];
 const OPT_TOP = [[42, '標準 42px', 'Standard'], [56, '広め 56px', 'Wide'], [0, 'なし 0px', 'None']];
+const OPT_LCD_THEME = [
+  ['auto', '路線別自動切替（実車再現）', 'Auto by railway'],
+  ['jr', 'JR東日本（E235系セサミクロ）固定', 'JR East E235'],
+  ['metro', '東京メトロ（Tokyo Metro Vision）固定', 'Tokyo Metro Vision'],
+  ['toei', '都営地下鉄（ワイドLCD）固定', 'Toei Wide LCD'],
+  ['tokyu', '東急（TOQビジョン）固定', 'Tokyu TOQ Vision'],
+  ['private', '私鉄各社（TVOS / スマイルビジョン）固定', 'Private Railways']
+];
 const SETTING_DEFS = [
+  { key: 'lcdTheme', cat: 'display', ja: '車内LCD表示テーマ', en: 'In-car LCD theme', type: 'cycle', opts: OPT_LCD_THEME },
   { key: 'bilingual', cat: 'display', ja: '日英バイリンガル表記', en: 'Bilingual display', type: 'bool' },
   { key: 'ticker', cat: 'display', ja: '下部ニュースティッカー', en: 'News ticker', type: 'bool' },
   { key: 'tickerSpeed', cat: 'display', ja: 'ティッカー速度', en: 'Ticker speed', type: 'cycle', opts: OPT_SPEED },
@@ -1889,6 +2044,13 @@ const Hud = {
     this.on = !!v; this.el.hidden = !this.on; document.body.classList.toggle('hud-on', this.on);
     clearInterval(this.timer); this.timer = 0;
     if (this.on) { this.lastCount = Engine.drawCount; this.timer = setInterval(() => this.render(), 1000); this.render(); }
+    else this.syncOffset();
+  },
+  syncOffset() {
+    const root = document.documentElement;
+    if (!this.on || !this.el || this.el.hidden) { root.style.removeProperty('--hud-offset'); return; }
+    const h = this.el.offsetHeight || 32;
+    root.style.setProperty('--hud-offset', (h + 18) + 'px');
   },
   render() {
     const n = Engine.drawCount, per = n - this.lastCount; this.lastCount = n;
@@ -1896,6 +2058,7 @@ const Hud = {
     const total = mb(Engine.base) + mb(Engine.canvas) + mb(Engine.patch);
     const hi = Engine.patchValid && Engine.viewMatches() ? '高精細ベクター描画済' : '標準描画';
     this.el.textContent = `${hi} ／ 固定メモリ 約${total.toFixed(1)}MB（基礎 ${mb(Engine.base).toFixed(1)}・表示 ${mb(Engine.canvas).toFixed(1)}・高精細 ${mb(Engine.patch).toFixed(1)}） ／ 描画 ${per}回/秒・直近 ${Engine.lastDraw.toFixed(2)}ms ／ 高精細 ${Engine.hiMs.toFixed(0)}ms ／ DOM ${document.getElementsByTagName('*').length}`;
+    this.syncOffset();
   }
 };
 
@@ -1943,25 +2106,44 @@ const StationPop = {
   }
 };
 
-/* ---------- マイルート（通勤・通学の経路）と迂回アラート ---------- */
+/* ---------- マイルート（通勤・通学の経路）と縦型乗換タイムライン診断 ---------- */
 const Routes = {
   KEY: 'tokyo-lcd:routes', list: [],
+  PRESETS: {
+    commute: { name: '都心通勤（渋谷→新宿→東京）', from: '渋谷', vias: ['新宿'], to: '東京', lines: ['山手線', '中央線快速'] },
+    through: { name: '横浜〜池袋（東横・副都心直通）', from: '横浜', vias: ['渋谷'], to: '池袋', lines: ['東急東横線', '副都心線'] }
+  },
+  normalize(r) {
+    const lines = (Array.isArray(r.lines) ? r.lines : []).filter(n => lineByName(n)).slice(0, 4);
+    const st = Array.isArray(r.stations) ? r.stations.map(s => String(s || '').trim()) : [];
+    const from = r.from !== undefined ? String(r.from || '').trim().slice(0, 12) : (st[0] || '');
+    const to = r.to !== undefined ? String(r.to || '').trim().slice(0, 12) : (st.length >= 2 ? st[st.length - 1] : '');
+    let vias = Array.isArray(r.vias) ? r.vias.map(s => String(s || '').trim().slice(0, 12))
+      : (st.length >= 3 ? st.slice(1, st.length - 1) : []);
+    return {
+      id: String(r.id || Date.now().toString(36)),
+      name: String(r.name || 'マイルート').slice(0, 24),
+      from, vias: vias.slice(0, 3), to,
+      stations: [from, ...vias.filter(Boolean), to].filter(Boolean).slice(0, 5),
+      lines
+    };
+  },
   load() {
     try {
       const a = JSON.parse(localStorage.getItem(this.KEY) || '[]');
-      if (Array.isArray(a)) this.list = a.filter(r => r && r.name && Array.isArray(r.lines)).map(r => ({
-        id: String(r.id || Date.now()), name: String(r.name).slice(0, 20),
-        stations: Array.isArray(r.stations) ? r.stations.slice(0, 3).map(String) : [],
-        lines: r.lines.filter(n => lineByName(n)).slice(0, 4)
-      }));
+      if (Array.isArray(a)) this.list = a.filter(r => r && r.name && Array.isArray(r.lines)).map(r => this.normalize(r)).filter(r => r.lines.length > 0);
     } catch (_) {}
   },
   save() {
     try { localStorage.setItem(this.KEY, JSON.stringify(this.list)); } catch (_) {}
     document.dispatchEvent(new CustomEvent('routes:change'));
   },
-  add(r) { this.list = [...this.list, { id: Date.now().toString(36), ...r }]; this.save(); },
+  add(r) { this.list = [...this.list, this.normalize({ id: Date.now().toString(36), ...r })]; this.save(); },
   remove(id) { this.list = this.list.filter(r => r.id !== id); this.save(); },
+  inferTransfer(lineA, lineB) {
+    const hit = STATIONS.find(([, , , ls]) => ls.includes(lineA) && ls.includes(lineB));
+    return hit ? hit[0] : '';
+  },
   status(r) {
     const bad = r.lines.map(n => ({ n, st: Store.of(n).status })).filter(x => x.st !== 'normal')
       .sort((a, b) => STATUS[a.st].rank - STATUS[b.st].rank);
@@ -1975,6 +2157,14 @@ const RouteUI = {
     document.getElementById('routeBody').addEventListener('click', e => {
       const srt = e.target.closest('[data-share-route]');
       if (srt) { const rr = Routes.list.find(x => x.id === srt.dataset.shareRoute); if (rr) Share.send(Share.route(rr)); return; }
+      const det = e.target.closest('[data-detour]');
+      if (det) { const ln = det.dataset.detour; Modals.closeAll(); Detour.show(ln); return; }
+      const pre = e.target.closest('[data-route-preset]');
+      if (pre) {
+        const p = Routes.PRESETS[pre.dataset.routePreset];
+        if (p) { Routes.add(p); this.render(); UI.toast(`「${p.name}」を追加しました`); }
+        return;
+      }
       const del = e.target.closest('[data-del]');
       if (del) { if (confirm('このマイルートを削除しますか？')) Routes.remove(del.dataset.del); return; }
       if (e.target.closest('[data-route-add]')) { this.editing = true; this.render(); return; }
@@ -1996,74 +2186,122 @@ const RouteUI = {
   save() {
     const name = (document.getElementById('routeName').value || '').trim();
     const lines = [...document.querySelectorAll('#routeBody [data-pick].on')].map(b => b.dataset.pick);
-    const stations = ['routeFrom', 'routeVia', 'routeTo'].map(id => (document.getElementById(id).value || '').trim()).filter(Boolean);
+    const from = (document.getElementById('routeFrom').value || '').trim();
+    const via = (document.getElementById('routeVia').value || '').trim();
+    const to = (document.getElementById('routeTo').value || '').trim();
     if (!name || !lines.length) { UI.toast('ルート名と利用路線（1本以上）を入力してください'); return; }
-    Routes.add({ name, stations, lines: lines.slice(0, 4) });
+    Routes.add({ name, from, vias: via ? [via] : [], to, lines: lines.slice(0, 4) });
     this.editing = false; this.render(); UI.toast('マイルートを登録しました');
   },
   render() {
     const el = document.getElementById('routeBody');
     if (this.editing) { el.innerHTML = this.formHtml(); return; }
-    el.innerHTML = `<div class="route-top"><button class="btn-yahoo" data-route-add><span class="material-symbols-outlined">add</span>${bi('マイルートを追加', 'Add route')}</button></div>` +
+    el.innerHTML = `<div class="route-top">
+        <div class="route-presets">
+          <button class="btn-yahoo plain btn-sm" data-route-preset="commute"><span class="material-symbols-outlined">bolt</span>都心通勤サンプル追加</button>
+          <button class="btn-yahoo plain btn-sm" data-route-preset="through"><span class="material-symbols-outlined">bolt</span>直通通勤サンプル追加</button>
+        </div>
+        <button class="btn-yahoo" data-route-add><span class="material-symbols-outlined">add</span>${bi('マイルートを追加', 'Add route')}</button>
+      </div>` +
       (Routes.list.length ? Routes.list.map(r => this.card(r)).join('')
-        : '<div class="empty">まだマイルートがありません。通勤・通学の経路を登録すると、利用路線の遅延・見合わせをまとめて確認できます。</div>');
+        : '<div class="empty">まだマイルートがありません。上の「マイルートを追加」または「サンプル追加」から通勤・通学経路を登録すると、縦型乗換タイムラインで遅延・再開見込み・推奨振替路線を自動診断します。</div>');
+    Fit.all(el);
   },
   card(r) {
     const { bad, worst } = Routes.status(r);
     const lines = r.lines.map(n => lineByName(n)).filter(Boolean);
-    const stops = r.stations;
+    const fromLbl = r.from || (r.stations && r.stations[0]) || '出発駅';
+    const toLbl = r.to || (r.stations && r.stations.length >= 2 ? r.stations[r.stations.length - 1] : '') || '目的駅';
+    const vias = Array.isArray(r.vias) ? r.vias : [];
     const nodes = [];
-    nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops[0] || '出発')}</b></div>`);
+    nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(fromLbl)}</b><small>出発</small></div>`);
     lines.forEach((L, i) => {
       const s = Store.of(L.ja), abn = s.status !== 'normal';
-      nodes.push(`<div class="tl-node tl-line s-${s.status}" style="--lc:${L.color}"><span class="tl-bar"></span>
-        <span class="badge sm">${esc(L.code)}</span><span class="tl-name"><b>${esc(L.ja)}</b><small>${esc(L.direction || '')}</small></span>${statusBadge(s.status)}</div>`);
+      nodes.push(`<div class="tl-node tl-line s-${s.status}" data-line="${esc(L.ja)}" style="--lc:${L.color}"><span class="tl-bar"></span>
+        <span class="badge sm">${esc(L.code)}</span>
+        <span class="tl-name"><b>${esc(L.ja)}</b><small>${esc(L.directionText)} 方面</small></span>
+        ${statusBadge(s.status)}</div>`);
       if (abn) {
-        const rs = Insight.resume(s.detail), alts = (L.alt || []).map(lineByName).filter(a => a && Store.of(a.ja).status === 'normal').slice(0, 3);
-        nodes.push(`<div class="tl-alert"><div class="tl-meta">${rs ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${rs}頃</span>` : '<span class="muted">再開見込みは未発表</span>'}${Insight.chipsHtml(s)}</div>
-          <div class="tl-alt"><small>推奨される振替・代替路線</small>${alts.length ? alts.map(a => `<button class="rc-line s-normal" data-line="${esc(a.ja)}" style="--lc:${a.color}"><span class="badge sm">${esc(a.code)}</span><span>${esc(a.ja)}</span></button>`).join('') : '<span class="muted">該当なし</span>'}</div></div>`);
+        const rs = Insight.resume(s.detail);
+        const normalAlts = (L.alt || []).map(lineByName).filter(a => a && Store.of(a.ja).status === 'normal').slice(0, 4);
+        const fallbackAlts = normalAlts.length ? normalAlts : (L.alt || []).map(lineByName).filter(Boolean).slice(0, 3);
+        const summary = s.detail ? `<p class="tl-detail">${Detail.highlight(s.detail)}</p>` : '';
+        nodes.push(`<div class="tl-alert s-${s.status}">
+          <div class="tl-meta">
+            ${Cause.chipHtml(s.detail)}
+            ${rs ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${esc(rs)}頃</span>` : '<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み 確認中</span>'}
+            ${Insight.impactChipHtml(s)}
+          </div>
+          ${summary}
+          <div class="tl-alt">
+            <small>推奨される振替・代替路線（タップで路線詳細）</small>
+            ${fallbackAlts.length ? fallbackAlts.map(a => {
+              const ast = Store.of(a.ja).status;
+              return `<button class="rc-line s-${ast}" data-line="${esc(a.ja)}" style="--lc:${a.color}"><span class="badge sm">${esc(a.code)}</span><span>${esc(a.ja)}</span><span class="fc-st ${ast}">${STATUS[ast].ja}</span></button>`;
+            }).join('') : '<span class="muted">代替路線データなし</span>'}
+            <button class="rc-line s-normal" data-detour="${esc(L.ja)}"><span class="material-symbols-outlined" style="font-size:18px;color:#2f6df0">alt_route</span><span>路線図で振替表示</span></button>
+          </div>
+        </div>`);
       }
-      if (i < lines.length - 1) nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops[i + 1] || '乗換')}</b></div>`);
+      if (i < lines.length - 1) {
+        const xfer = vias[i] || Routes.inferTransfer(L.ja, lines[i + 1].ja);
+        nodes.push(`<div class="tl-node tl-stop is-xfer"><span class="tl-dot"></span><b>${esc(xfer ? `${xfer}駅` : '乗換駅')}</b><small>乗換</small></div>`);
+      }
     });
-    if (lines.length) nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(stops.length >= 2 ? stops[stops.length - 1] : '到着')}</b></div>`);
+    if (lines.length) nodes.push(`<div class="tl-node tl-stop"><span class="tl-dot"></span><b>${esc(toLbl)}</b><small>到着</small></div>`);
     return `<div class="route-card s-${worst}">
-      <div class="rc-head"><b class="fit ls-m">${esc(r.name)}</b><span class="rc-state ${worst}">${bad.length ? 'マイルート影響あり（代替ルート確認）' : '正常'}</span></div>
+      <div class="rc-head"><b class="fit ls-m">${esc(r.name)}</b><span class="rc-state ${worst}">${bad.length ? `要確認（${bad.length}路線に乱れ）` : '平常通り通行可能'}</span></div>
       <div class="rt-timeline">${nodes.join('')}</div>
-      <div class="rc-foot"><span class="muted">${bad.length ? bad.map(x => esc(x.n)).join('・') + ' に影響' : '利用路線は平常どおり'}</span>
-        <div class="rc-actions"><button class="rc-share" data-share-route="${esc(r.id)}"><span class="material-symbols-outlined">ios_share</span>状況を共有</button>
+      <div class="rc-foot"><span class="muted">${bad.length ? bad.map(x => esc(x.n)).join('・') + ' で振替・再開見込みを表示中' : '全区間で平常運転しています'}</span>
+        <div class="rc-actions"><button class="rc-share" data-share-route="${esc(r.id)}"><span class="material-symbols-outlined">ios_share</span>状況を共有・コピー</button>
         <button class="rc-del" data-del="${esc(r.id)}"><span class="material-symbols-outlined">delete</span>削除</button></div></div>
     </div>`;
   },
   formHtml() {
     return `<div class="route-form">
-      <label class="rf-row"><span>ルート名</span><input id="routeName" maxlength="20" placeholder="例：通勤（自宅→会社）"></label>
-      <div class="rf-row"><span>経路駅（任意）</span>
+      <label class="rf-row"><span>ルート名</span><input id="routeName" maxlength="24" placeholder="例：通勤（渋谷→東京）"></label>
+      <div class="rf-row"><span>経路駅（任意・空欄でも乗換駅を自動補完します）</span>
         <div class="rf-st"><input id="routeFrom" maxlength="12" placeholder="出発駅"><i class="material-symbols-outlined">arrow_forward</i><input id="routeVia" maxlength="12" placeholder="乗換駅"><i class="material-symbols-outlined">arrow_forward</i><input id="routeTo" maxlength="12" placeholder="目的駅"></div></div>
-      <div class="rf-row"><span>利用路線（タップで選択・最大4本）</span>
-        <div class="rf-picks">${LINES.map(L => `<button class="rf-pick" data-pick="${L.ja}" style="--lc:${L.color}"><span class="badge sm">${L.code}</span>${L.ja}</button>`).join('')}</div></div>
+      <div class="rf-row"><span>利用路線（乗換順にタップで選択・最大4本）</span>
+        <div class="rf-picks">${LINES.map(L => `<button class="rf-pick" data-pick="${esc(L.ja)}" style="--lc:${L.color}"><span class="badge sm">${esc(L.code)}</span>${esc(L.ja)}</button>`).join('')}</div></div>
       <div class="route-top"><button class="mv-silver" data-route-cancel><span class="ms-lbl"><b>戻る</b></span></button><button class="btn-yahoo" data-route-save><span class="material-symbols-outlined">save</span>保存</button></div>
     </div>`;
   }
 };
 
-/* ---------- 情報案内LCD（2画面モードの右画面）：異常路線・マイ路線・マイルートを自動スライド ---------- */
+/* ---------- 情報案内LCD（2画面モードの右/下16:9モニター）：選択路線・異常路線・マイ路線・マイルートを実車LCDテーマで案内 ---------- */
 const InfoLcd = {
-  el: null, i: 0, timer: 0, slides: [],
+  el: null, i: 0, timer: 0, slides: [], activeOn: false, pinned: null,
   init() {
     this.el = document.getElementById('infoLcd');
-    this.el.addEventListener('click', () => {
+    this.el.addEventListener('click', e => {
+      const dot = e.target.closest('[data-dot]');
+      if (dot) { this.i = Number(dot.dataset.dot) || 0; this.draw(); this.start(); return; }
+      if (e.target.closest('.info-head, .info-foot')) { this.next(); this.start(); return; }
+      const net = e.target.closest('[data-net-line]');
+      if (net) { Detail.open(net.dataset.netLine); return; }
       const s = this.slides[this.i];
-      if (s && (s.kind === 'line' || s.kind === 'fav')) { Detail.open(s.L.ja); return; }
+      if (s && (s.kind === 'line' || s.kind === 'fav' || s.kind === 'pinned')) { Detail.open(s.L.ja); return; }
+      if (s && s.kind === 'route') { RouteUI.open(); return; }
       this.next();
     });
   },
+  pin(name) {
+    if (!lineByName(name)) return;
+    this.pinned = name;
+    this.i = 0;
+    if (Settings.get('dual')) { this.render(); this.start(); }
+  },
   build() {
-    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal')
+    const sl = [];
+    const pinL = this.pinned ? lineByName(this.pinned) : null;
+    if (pinL) sl.push({ kind: 'pinned', L: pinL });
+    const abn = LINES.filter(L => Store.of(L.ja).status !== 'normal' && L !== pinL)
       .sort((a, b) => STATUS[Store.of(a.ja).status].rank - STATUS[Store.of(b.ja).status].rank);
-    const sl = abn.map(L => ({ kind: 'line', L }));
-    if (!abn.length) sl.push({ kind: 'ok' });
-    Favs.list.map(lineByName).filter(L => L && !abn.includes(L)).forEach(L => sl.push({ kind: 'fav', L }));
+    abn.forEach(L => sl.push({ kind: 'line', L }));
+    Favs.list.map(lineByName).filter(L => L && L !== pinL && !abn.includes(L)).forEach(L => sl.push({ kind: 'fav', L }));
     Routes.affected().forEach(r => sl.push({ kind: 'route', r }));
+    if (!sl.length) sl.push({ kind: 'ok' });
     return sl;
   },
   render() {
@@ -2074,24 +2312,28 @@ const InfoLcd = {
   },
   draw() {
     const s = this.slides[this.i] || { kind: 'ok' }, on = I18n.bi();
-    let body;
-    if (s.kind === 'line' || s.kind === 'fav') {
-      const L = s.L, st = Store.of(L.ja);
+    const defTh = Lcd.defaultTheme();
+    let body, curLabel = '情報案内';
+    if (s.kind === 'line' || s.kind === 'fav' || s.kind === 'pinned') {
+      const L = s.L, st = Store.of(L.ja), th = Lcd.resolveTheme(L);
+      curLabel = Lcd.themeBadge(th, L);
       body = Lcd.bodyHtml(L, st, on, { key: 'info' });
     } else if (s.kind === 'route') {
       const { bad, worst } = Routes.status(s.r);
-      body = `<div class="lcd e235">
-        <div class="lcd-head plain"><div class="lh-name"><b class="fit ${Lcd.lsClass(s.r.name)}">${esc(s.r.name)}</b>${on ? '<small>My Route</small>' : ''}</div><div class="lh-right">${statusBadge(worst, 'car')}</div></div>
-        <div class="lcd-sub">${on ? 'マイルート　My Route' : 'マイルート'}</div>
-        <div class="lcd-screen"><div class="lcd-page on">${bad.map(x => `<p class="jp-h">【${x.n}　${STATUS[x.st].ja}】</p><p class="jp-b">${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div></div></div>`;
+      body = `<div class="lcd e235 th-${defTh} st-${worst}" style="--lc:#2f6df0">
+        <div class="lcd-head plain"><div class="lh-name"><b class="fit ${Lcd.lsClass(s.r.name)}">${esc(s.r.name)}</b>${on ? '<small class="lh-en">My Route</small>' : ''}</div><div class="lh-right">${statusBadge(worst, 'car')}</div></div>
+        <div class="lcd-sub"><span class="sub-tag">MY ROUTE</span><span class="sub-txt">${on ? 'マイルート　My Route' : 'マイルート'}</span><span class="lcd-chev" aria-hidden="true"><i>›</i><i>›</i><i>›</i></span></div>
+        <div class="lcd-screen"><div class="lcd-pages"><div class="lcd-page on">${bad.map(x => `<p class="jp-h">【${esc(x.n)}　${STATUS[x.st].ja}】</p><p class="jp-b">${Detail.highlight(Store.of(x.n).detail || '')}</p>`).join('')}</div></div></div></div>`;
     } else {
-      body = `<div class="lcd e235"><div class="lcd-head plain"><div class="lh-name"><b class="fit ls-m">運行情報</b>${on ? '<small>Train Information</small>' : ''}</div></div>
-        <div class="lcd-screen"><div class="lcd-page on"><p class="jp-h">現在の運行状況</p><p class="jp-b">現在、関東エリアの主要路線は平常通り運転しています。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div></div>`;
+      body = `<div class="lcd e235 th-${defTh} st-normal" style="--lc:#008b38">
+        <div class="lcd-head plain"><div class="lh-name"><b class="fit ls-m">運行情報</b>${on ? '<small class="lh-en">Train Information</small>' : ''}</div><div class="lh-right">${statusBadge('normal', 'car')}</div></div>
+        <div class="lcd-sub"><span class="sub-tag">STATUS</span><span class="sub-txt">${on ? '平常運転　Normal Service' : '平常運転'}</span><span class="lcd-chev" aria-hidden="true"><i>›</i><i>›</i><i>›</i></span></div>
+        <div class="lcd-screen"><div class="lcd-pages"><div class="lcd-page on"><p class="jp-h">現在の運行状況</p><p class="jp-b">現在、関東エリアの主要路線は平常通り運転しています。路線をタップまたは検索すると、その路線の実車LCDデザインでここに表示されます。${on ? '<br><small>All major lines are operating normally.</small>' : ''}</p></div></div></div></div>`;
     }
     const n = this.slides.length || 1, p = x => String(x).padStart(2, '0'), d = new Date();
-    this.el.innerHTML = `<div class="info-head"><b>情報案内${on ? '　Info' : ''}</b><span class="info-dots">${this.slides.map((_, k) => `<i class="${k === this.i ? 'on' : ''}"></i>`).join('')}</span><time>${p(d.getHours())}:${p(d.getMinutes())}</time></div>
+    this.el.innerHTML = `<div class="info-head"><b>${esc(curLabel)}</b><span class="info-dots">${this.slides.map((_, k) => `<i data-dot="${k}" class="${k === this.i ? 'on' : ''}"></i>`).join('')}</span><time>${p(d.getHours())}:${p(d.getMinutes())}</time></div>
       <div class="info-body">${body}</div>
-      <div class="info-foot">${this.i + 1} / ${n}　<small>タップで次の情報${on ? ' / Tap for next' : ''}</small></div>`;
+      <div class="info-foot">${this.i + 1} / ${n}　<small>端タップで次へ・中央タップで詳細</small></div>`;
     Lcd.mount(this.el.querySelector('[data-pager="info"]'), 'info', 5000, false);
     Fit.all(this.el);
   },
@@ -2099,8 +2341,11 @@ const InfoLcd = {
   start() { clearInterval(this.timer); this.timer = setInterval(() => this.next(), 6000); },
   stop() { clearInterval(this.timer); this.timer = 0; },
   setOn(on) {
-    document.body.classList.toggle('dual', !!on);
-    if (on) { this.render(); this.start(); } else this.stop();
+    const next = !!on, changed = this.activeOn !== next;
+    this.activeOn = next;
+    document.body.classList.toggle('dual', next);
+    if (changed) { Layout.upd(); if (Engine.canvas) Engine.scheduleResize(0); }
+    if (next) { this.render(); this.start(); } else this.stop();
   }
 };
 
@@ -2162,23 +2407,96 @@ const Elapsed = {
   }
 };
 
-/* 長体（横幅の自動圧縮）：枠に収まらない文字列だけ scaleX で縮める。文字の高さは変えない */
-/* 長体（横幅の自動圧縮）：基準は scaleX(0.9)。枠に収まらないときは、収まる比率まで縮める。文字の高さは変えない */
+/* 長体（横幅の自動圧縮）：内側有効幅（padding除外）に収まるよう scaleX で綺麗に圧縮。文字の高さは変えない */
 const Fit = {
   all(root) {
     if (!root) return;
     root.querySelectorAll('.fit').forEach(el => {
       const box = el.parentElement; if (!box) return;
       el.style.transform = 'none';
-      const avail = box.clientWidth, need = el.scrollWidth;
-      const ratio = need > avail && avail > 0 ? Math.min(0.9, avail / need) : 0.9;
+      const cs = getComputedStyle(box);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const avail = Math.max(0, box.clientWidth - padX), need = el.scrollWidth;
+      if (!avail || !need) return;
+      const isDir = el.classList.contains('fit-dir');
+      const base = isDir ? 0.96 : 0.9;
+      const ratio = need > avail ? Math.max(0.42, Math.min(base, avail / need)) : base;
       el.style.transform = `scaleX(${ratio.toFixed(3)})`;
     });
   }
 };
 
+/* ---------- マルチLCDデザインエンジン（JR E235系 / 東京メトロ / 都営 / 東急 / 小田急 / 京王 / 西武 / 京急 / 東武 / 京成 / 相鉄 / TX） ---------- */
+const THROUGH_NET = {
+  '東急東横線': ['みなとみらい線', '副都心線', '西武池袋線', '東武東上線', '東急新横浜線', '相鉄新横浜線'],
+  'みなとみらい線': ['東急東横線', '副都心線', '西武池袋線', '東武東上線'],
+  '東急目黒線': ['南北線', '埼玉高速鉄道線', '都営三田線', '東急新横浜線', '相鉄新横浜線'],
+  '東急新横浜線': ['東急東横線', '東急目黒線', '相鉄新横浜線', '相鉄本線', '相鉄いずみ野線'],
+  '東急田園都市線': ['半蔵門線', '東武スカイツリーライン', '東武伊勢崎線', '東武日光線'],
+  '東急大井町線': ['東急田園都市線', '東急目黒線', '東急東横線'],
+  '東急池上線': ['東急多摩川線', '都営浅草線', '京浜東北線'],
+  '東急多摩川線': ['東急池上線', '東急東横線', '東急目黒線']
+};
+
 const Lcd = {
   timers: {},
+  PRIVATE_SET: new Set(['odakyu', 'keio', 'seibu', 'keikyu', 'tobu', 'keisei', 'sotetsu', 'tx', 'transit']),
+  /* 路線本来の実車LCDテーマ判定 */
+  nativeTheme(L) {
+    if (!L) return 'jr';
+    if (L.co === 'JR') return 'jr';
+    if (L.co === 'Metro') return 'metro';
+    if (L.co === 'Toei') return 'toei';
+    const op = L.op && L.op.ja;
+    if (op === '東急電鉄' || L.ja === 'みなとみらい線') return 'tokyu';
+    if (op === '小田急電鉄') return 'odakyu';
+    if (op === '京王電鉄') return 'keio';
+    if (op === '西武鉄道') return 'seibu';
+    if (op === '京浜急行電鉄') return 'keikyu';
+    if (op === '東武鉄道') return 'tobu';
+    if (op === '京成電鉄' || op === '新京成電鉄' || op === '北総鉄道' || op === '東葉高速鉄道') return 'keisei';
+    if (op === '相模鉄道') return 'sotetsu';
+    if (L.ja === 'つくばエクスプレス') return 'tx';
+    return 'transit';
+  },
+  defaultTheme() {
+    const mode = Settings.get('lcdTheme') || 'auto';
+    if (mode === 'auto' || mode === 'jr') return 'jr';
+    if (mode === 'private') return 'odakyu';
+    return mode;
+  },
+  /* 設定（自動切替 or 固定モード）を加味した最終テーマ */
+  resolveTheme(L) {
+    const mode = Settings.get('lcdTheme') || 'auto';
+    const nat = this.nativeTheme(L);
+    if (mode === 'auto') return nat;
+    if (mode === 'private') return this.PRIVATE_SET.has(nat) ? nat : 'odakyu';
+    return mode;
+  },
+  themeBadge(th, L) {
+    const map = {
+      jr: 'E235系 トレインチャンネル風',
+      metro: 'Tokyo Metro Vision',
+      toei: '都営 ワイドLCD',
+      tokyu: 'TOQビジョン',
+      odakyu: '小田急 TVOS',
+      keio: '京王 K-DGビジョン',
+      seibu: '西武 スマイルビジョン',
+      keikyu: '京急 車内LCD',
+      tobu: '東武 車内ビジョン',
+      keisei: '京成 車内LCD',
+      sotetsu: '相鉄 ネイビーブルーLCD',
+      tx: 'TX 車内ワイドLCD',
+      transit: (L && L.op ? L.op.ja : '都市鉄道') + ' 車内LCD'
+    };
+    return map[th] || '車内LCD';
+  },
+  subTitle(th, on) {
+    if (th === 'toei') return on ? '運行情報のご案内　Service Information' : '運行情報のご案内';
+    if (th === 'metro') return on ? '東京メトロ運行情報　Tokyo Metro Information' : '東京メトロ運行情報';
+    if (th === 'tokyu') return on ? '東急線・直通各線 運行情報　Train Information' : '東急線・直通各線 運行情報';
+    return on ? '運行情報　Train Information' : '運行情報';
+  },
   /* 字間：短い路線名は広く、長い路線名は詰める（JR流の組み方） */
   lsClass(name) {
     const n = [...String(name)].length;
@@ -2193,39 +2511,95 @@ const Lcd = {
     return 'Both directions';
   },
   statusEn(st) { return { normal: 'Normal service', delay: 'Delay', partial: 'Partial suspension', suspend: 'Suspended' }[st] || 'Unknown'; },
-  /* 会社の略号（上段の黒帯に表示） */
   companyCode(L) {
     if (L.co === 'JR') return 'JRE';
-    if (L.co === 'Metro') return 'TM';
+    if (L.co === 'Metro') return 'METRO';
     if (L.co === 'Toei') return 'TOEI';
     return String(L.op.en || '').split(/\s+/)[0].slice(0, 6).toUpperCase();
   },
-  /* 1ページ目（日本語）と、異常時のみの2ページ目（英語の4行表） */
-  pages(L, s) {
+  /* メトロ・都営・私鉄特有の液晶上部ステータス見出しバー */
+  screenBannerHtml(th, L, s, on) {
+    if (th === 'jr') return '';
+    const stJa = {
+      normal: '現在、平常通り運転しています',
+      delay: '列車に遅れ・ダイヤ乱れが出ています',
+      partial: '一部列車に運休が出ています',
+      suspend: '運転を見合わせています'
+    }[s.status] || STATUS[s.status].ja;
+    const stEn = {
+      normal: 'Normal Service — Operating on schedule',
+      delay: 'Delays — Trains are running behind schedule',
+      partial: 'Partial Suspension — Some trains are canceled',
+      suspend: 'Service Suspended — Operations temporarily halted'
+    }[s.status] || '';
+    if (th === 'toei') {
+      return `<div class="lcd-banner toei-ban s-${s.status}">
+        <span class="tb-lead">運行情報のご案内</span>
+        <b class="tb-state">${esc(STATUS[s.status].ja)}${on ? `<small>${esc(this.statusEn(s.status))}</small>` : ''}</b>
+      </div>`;
+    }
+    return `<div class="lcd-banner s-${s.status}">
+      <span class="lb-dot"></span>
+      <b>${esc(stJa)}</b>
+      ${on && stEn ? `<small>${esc(stEn)}</small>` : ''}
+    </div>`;
+  },
+  /* 東急TOQビジョン特有：直通運転ネットワーク連動ステータスバー */
+  throughBarHtml(L) {
+    const partners = (THROUGH_NET[L.ja] || L.alt || []).map(lineByName).filter(Boolean).slice(0, 5);
+    if (!partners.length) return '';
+    return `<div class="tokyu-net">
+      <span class="tn-lbl"><span class="material-symbols-outlined">swap_horiz</span>直通・連絡各線</span>
+      <div class="tn-chips">${partners.map(P => {
+        const pst = Store.of(P.ja).status;
+        const shortSt = { normal: '平常', delay: '遅延', partial: '一部運休', suspend: '見合わせ' }[pst] || '平常';
+        return `<button type="button" class="tn-chip s-${pst}" data-net-line="${esc(P.ja)}" style="--plc:${P.color}">
+          <i class="tn-code">${esc(P.code)}</i><span class="tn-name">${esc(P.ja)}</span><em class="tn-st ${pst}">${shortSt}</em>
+        </button>`;
+      }).join('')}</div>
+    </div>`;
+  },
+  /* 1ページ目（日本語）と 2ページ目（英語4行表 / バイリンガル案内）を全テーマ・平常/異常の両方で提供 */
+  pages(L, s, th) {
+    if (s.status === 'normal') {
+      const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS.normal.ja}】</p>
+        <p class="jp-b">${esc(STRINGS.normalTxt.ja)}（${esc(L.directionText)} 方面）</p>`;
+      const rows = [
+        ['Line', `${L.en} (${L.code})`],
+        ['Section', `${L.directionText}`],
+        ['Status', 'Normal Service (Operating on schedule)'],
+        ['Operator', L.op.en]
+      ];
+      const en = `<table class="en-tbl">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
+      return [ja, en];
+    }
     const detail = s.detail || `${L.ja}は、運行情報をお知らせします。`;
-    const body = s.status === 'normal' ? esc(STRINGS.normalTxt.ja) : Detail.highlight(detail);
-    const meta = s.status === 'normal' ? '' :
-      `<p class="jp-meta">${Cause.chipHtml(s.detail)}${Insight.chipsHtml(s)}<span class="elapsed" data-elapsed="${esc(L.ja)}">${esc(Elapsed.text(L.ja))}</span></p>`;
-    const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>${meta}`;
-    if (s.status === 'normal') return [ja];
-    const rows = [['Line', L.en], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', Cause.classify(s.detail).en]];
+    const body = Detail.highlight(detail);
+    const rs = Insight.resume(s.detail);
+    const meta = `<p class="jp-meta">${Cause.chipHtml(s.detail)}${Insight.chipsHtml(s)}<span class="elapsed" data-elapsed="${esc(L.ja)}">${esc(Elapsed.text(L.ja))}</span></p>`;
+    const toeiBox = th === 'toei' ? `<div class="toei-focus"><span>影響路線：<b>${esc(L.ja)}（${esc(L.directionText)} 方面）</b></span><span>振替輸送：<b>${/振替輸送/.test(detail) ? '実施中' : '案内なし'}</b></span></div>` : '';
+    const ja = `<p class="jp-h">【${esc(L.ja)}　${STATUS[s.status].ja}】</p><p class="jp-b">${body}</p>${toeiBox}${meta}`;
+    const causeEn = Cause.classify(s.detail).en + (rs ? ` (Est. resume: around ${rs})` : '');
+    const rows = [['Line', `${L.en} (${L.code})`], ['Direction', this.dirEn(s.detail)], ['Status', this.statusEn(s.status)], ['Cause', causeEn]];
     const en = `<table class="en-tbl">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
     return [ja, en];
   },
-  /* 上段ダークヘッダー：会社・路線カラー帯・路線記号・路線名（長体つき）・時刻・号車 */
-  headHtml(L, s, o = {}) {
+  /* 上段ヘッダー：全テーマ共通の要素を持ち、CSSテーマ(.th-*)で各社固有の配置・バッジ形状・配色へ変換 */
+  headHtml(L, s, th, o = {}) {
     const on = I18n.bi(), d = new Date(), p = n => String(n).padStart(2, '0');
     const fav = o.fav === undefined ? '' : `<button class="fav-btn${o.fav ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${!!o.fav}" aria-label="マイ路線に登録"><span class="material-symbols-outlined">star</span></button>`;
     const time = o.dtime ? '<time id="dTime">--:--</time>' : `<time>${p(d.getHours())}:${p(d.getMinutes())}</time>`;
+    const showEn = on || th === 'metro' || th === 'toei' || th === 'tokyu';
     return `<div class="lcd-head">
-      <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><span class="lh-route">${esc(L.direction || '')}</span><span class="lh-dir">方面</span></div>
-      <span class="cbar"></span>
+      <span class="lh-edge" aria-hidden="true"></span>
+      <div class="lh-left"><span class="co-pill">${esc(L.op.ja)}</span><div class="lh-dir-box"><span class="lh-route fit fit-dir">${esc(L.directionText || L.direction || '')}</span></div><span class="lh-dir">方面</span></div>
+      <span class="cbar" aria-hidden="true"></span>
       <div class="lh-sym"><span class="lh-status">運行状況</span><div class="sym-box"><span class="sym-co">${esc(this.companyCode(L))}</span><span class="sym-code">${esc(L.code)}</span></div></div>
-      <div class="lh-name"><b class="fit ${this.lsClass(L.ja)}">${esc(L.ja)}</b>${on ? `<small>${esc(L.en)}</small>` : ''}${fav}</div>
+      <div class="lh-name"><b class="fit ${this.lsClass(L.ja)}">${esc(L.ja)}</b>${showEn ? `<small class="lh-en">${esc(L.en)}</small>` : ''}${fav}</div>
       <div class="lh-right">${time}<div class="carno"><b>${Settings.get('carNo')}</b><small>号車</small></div>${statusBadge(s.status, 'car')}</div>
     </div>`;
   },
-  /* ページ送り：スライドで切り替える。2ページ以上のときだけ、タップと5秒ごとに送る */
+  /* ページ送り：日本語 1/2 ⇔ 英語 2/2 をタップおよび5秒ごとにスライド切替 */
   mount(root, key, ms, tapToNext) {
     clearInterval(this.timers[key]); this.timers[key] = 0;
     if (!root) return;
@@ -2241,18 +2615,26 @@ const Lcd = {
     };
     show(0);
     if (pages.length < 2) return;
-    if (tapToNext) root.onclick = () => show(i + 1);
+    if (tapToNext) root.onclick = e => {
+      if (e.target.closest('[data-net-line]')) return;
+      show(i + 1);
+    };
     this.timers[key] = setInterval(() => {
       if (!root.getClientRects().length) { clearInterval(this.timers[key]); this.timers[key] = 0; return; }
       show(i + 1);
     }, ms);
   },
   bodyHtml(L, s, on, o = {}) {
-    const pages = this.pages(L, s);
-    return `<div class="lcd e235" style="--lc:${L.color}">
-      ${this.headHtml(L, s, o)}
-      <div class="lcd-sub">${on ? '運行情報　Train Information' : '運行情報'}</div>
-      <div class="lcd-screen" data-pager="${o.key || 'x'}">${pages.map((p, k) => `<div class="lcd-page${k ? '' : ' on'}">${p}</div>`).join('')}<span class="pg-badge">1/${pages.length}</span></div>
+    const th = this.resolveTheme(L);
+    const pages = this.pages(L, s, th);
+    return `<div class="lcd e235 th-${th} st-${s.status}" data-lcd-theme="${th}" style="--lc:${L.color}">
+      ${this.headHtml(L, s, th, o)}
+      <div class="lcd-sub"><span class="sub-tag">${esc(this.themeBadge(th, L))}</span><span class="sub-txt">${this.subTitle(th, on)}</span><span class="lcd-chev" aria-hidden="true"><i>›</i><i>›</i><i>›</i></span></div>
+      <div class="lcd-screen" data-pager="${o.key || 'x'}">
+        ${this.screenBannerHtml(th, L, s, on)}
+        <div class="lcd-pages">${pages.map((p, k) => `<div class="lcd-page${k ? '' : ' on'}">${p}</div>`).join('')}<span class="pg-badge">1/${pages.length}</span></div>
+        ${th === 'tokyu' ? this.throughBarHtml(L) : ''}
+      </div>
       ${o.extra || ''}
     </div>`;
   }
@@ -2260,7 +2642,14 @@ const Lcd = {
 
 const Detail = {
   el: null, name: null,
-  open(name) { this.name = name; this.render(); this.el.hidden = false; this.tickTime(); },
+  open(name) {
+    if (!lineByName(name)) return;
+    this.name = name;
+    InfoLcd.pin(name);
+    this.el.hidden = false;
+    this.render();
+    this.tickTime();
+  },
   isOpen() { return this.el && !this.el.hidden; },
   /* 取得テキストはHTMLエスケープし、「振替輸送」を含む文は強調表示 */
   highlight(text) {
@@ -2281,7 +2670,7 @@ const Detail = {
         <div class="lcd-actions">
           <button class="act-btn fav-btn${fv ? ' on' : ''}" data-fav="${esc(L.ja)}" aria-pressed="${fv}"><span class="material-symbols-outlined">star</span><span>${fv ? 'マイ路線から外す' : 'マイ路線に登録'}</span></button>
           <button class="act-btn" data-act="detour"><span class="material-symbols-outlined">alt_route</span><span>振替ルート表示</span></button>
-          <button class="act-btn" data-share="${esc(L.ja)}"><span class="material-symbols-outlined">ios_share</span><span>状況を共有</span></button>
+          <button class="act-btn" data-share="${esc(L.ja)}"><span class="material-symbols-outlined">ios_share</span><span>状況を共有・コピー</span></button>
           <a class="act-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">open_in_new</span><span>${on ? '公式詳細' : '公式詳細'}</span></a>
         </div>
         <div class="lcd-foot"><a class="rt-link" href="${esc(rt)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined">forum</span>現場のリアルタイム状況を検索</a></div>`;
@@ -2474,6 +2863,7 @@ const UI = {
     const body = document.getElementById('detailBody');
     body.addEventListener('click', e => {
       const f = e.target.closest('.fav-btn'); if (f) { Favs.toggle(f.dataset.fav); return; }
+      const net = e.target.closest('[data-net-line]'); if (net) { Detail.open(net.dataset.netLine); return; }
       const sh = e.target.closest('[data-share]'); if (sh) { Share.send(Share.line(sh.dataset.share)); return; }
       if (e.target.closest('[data-act="detour"]')) { const n = Detail.name; Modals.closeAll(); Detour.show(n); }
     });
@@ -2493,9 +2883,18 @@ const UI = {
       }
       if (k === 'initFilter') { this.company = e.detail.value; MapView.applyFilter(this.company); }
       if (k === 'autoCycle') Cycle.start();
+      if (k === 'miniTags') Engine.requestDraw();
+      if (k === 'ticker' || k === 'topOffset') { Layout.upd(); if (Engine.canvas) Engine.scheduleResize(200); }
       Frame.once('render', () => this.renderAll());
       if (k === 'demo') this.refresh();
       if (k === 'interval') this.schedule();
+    });
+    window.addEventListener('online', () => { if (!Settings.get('demo')) this.refresh(); });
+    window.addEventListener('offline', () => {
+      if (!Settings.get('demo')) {
+        document.getElementById('lamp').classList.add('err');
+        this.setSync(false, 'オフライン：保持中の最新データを表示しています');
+      }
     });
     document.addEventListener('visibilitychange', () => { // iPadで復帰したとき、古ければすぐ更新
       const ms = Settings.get('interval');
@@ -2521,6 +2920,7 @@ const UI = {
     document.body.classList.toggle('no-ticker', !Settings.get('ticker'));
     document.body.classList.toggle('night', !!Settings.get('nightDim'));
     document.body.classList.toggle('lcd-on', !!Settings.get('lcdOverlay'));
+    document.body.classList.toggle('no-anim', !Settings.get('blink'));
     Engine.setState({ alert: !!Settings.get('focus') }); // 異常のみ強調：基礎地図の状態として反映
     /* iPadOS PWAのシステムバー/ぼかし領域を避ける上部余白（PWA表示のときのみ有効） */
     const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -2551,7 +2951,7 @@ const UI = {
   /* 正常稼働率バッジ＋異常件数バッジ（見合わせ N / 遅延 M） */
   renderMeter() {
     const el = document.getElementById('meter'), txt = document.getElementById('meterTxt'); if (!el) return;
-    const ready = this.lastOk > 0 || Settings.get('demo');
+    const ready = this.lastOk > 0 || this.fallbackReady || Settings.get('demo');
     const { s, d } = this.counts(), abn = s + d;
     const pct = (LINES.length - abn) / LINES.length * 100;
     el.className = 'meter ' + (!ready ? '' : pct >= 95 ? 'good' : pct >= 85 ? 'warn' : 'bad');
@@ -2613,7 +3013,7 @@ const UI = {
     };
     tick(); setInterval(tick, 1000);
   },
-  busy: false, again: false, timer: null, lastOk: 0, spinStart: 0,
+  busy: false, again: false, timer: null, lastOk: 0, fallbackReady: false, spinStart: 0,
   sync: { time: null, ok: true, text: '未同期' },
   setSync(ok, text) {
     if (ok) this.sync.time = new Date();
@@ -2642,7 +3042,10 @@ const UI = {
     try {
       const data = await provider.fetchStatus();
       if (provider !== Providers.current) return;
-      Store.data = data; this.lastOk = Date.now();
+      Store.data = data || {};
+      this.lastOk = Date.now();
+      this.fallbackReady = true;
+      if (provider === LiveProvider) Store.saveCache(Store.data);
       lamp.classList.remove('err');
       this.setSync(true, provider === LiveProvider ? Yahoo.reportText() : 'デモモード：ダミーデータを表示中');
       MapView.applyStatuses(); this.afterData();
@@ -2651,7 +3054,23 @@ const UI = {
     } catch (e) {
       console.error('fetchStatus failed', e);
       lamp.classList.add('err');
-      this.setSync(false, '取得エラー：' + (e && e.message ? e.message : e));
+      const reason = e && e.message ? e.message : String(e);
+      if (!this.lastOk && !Settings.get('demo')) {
+        const cached = Store.loadCache();
+        if (cached) {
+          Store.data = cached.data;
+          this.lastOk = cached.time;
+          const cd = new Date(cached.time);
+          this.setSync(false, `通信失敗（前回 ${pad(cd.getHours())}:${pad(cd.getMinutes())} 取得データを表示中）：${reason}`);
+        } else {
+          this.fallbackReady = true;
+          this.setSync(false, `通信失敗（フォールバック表示中）：${reason}`);
+        }
+        MapView.applyStatuses(); this.afterData();
+      } else {
+        this.setSync(false, `取得エラー（直前のデータを維持中）：${reason}`);
+      }
+      if (spin) UI.toast(`運行情報の更新に失敗しました（${reason}）。表示中のデータを維持します`);
     } finally {
       this.busy = false;
       const wait = Math.max(0, 800 - (Date.now() - this.spinStart));
@@ -2675,53 +3094,103 @@ const Menus = {
   close() { ['displayMenu', 'myMenu'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; }); }
 };
 
-/* ---------- 異常時運行シミュレーター：模擬の運行情報を路線に出し、路線図・詳細・チャイム・音声案内を確かめる ---------- */
+/* ---------- 異常時運行シミュレーター：単一路線模擬 ＋ 広域トラブル一括シナリオ4種 ---------- */
 const Sim = {
-  TEXT: {
-    delay: name => `（模擬）${name}は、車両の点検に伴い、列車に遅れが出ています。`,
-    suspend: name => `（模擬）${name}は、車両点検のため、一部区間で運転を見合わせています。振替輸送を実施しています。`
+  eta(mins = 35) {
+    const d = new Date(Date.now() + mins * 60000);
+    const m5 = Math.min(55, Math.ceil(d.getMinutes() / 5) * 5);
+    return `${pad(d.getHours())}時${pad(m5)}分頃`;
   },
-  /* 広域トラブルの一括シナリオ（路線名は主要路線のみ。模擬の表示は次の更新で実データに戻る） */
-  SCENARIOS: {
-    core: { label: '都心ターミナル大規模障害', text: '都心ターミナル付近の大規模障害の影響で', lines: { '山手線': 'suspend', '京浜東北線': 'delay', '中央線快速': 'suspend', '丸ノ内線': 'delay' } },
-    typhoon: { label: '台風・強風による湾岸・郊外線遅延', text: '台風による強風の影響で', lines: { '京葉線': 'suspend', '総武快速線': 'delay', '東海道線': 'delay', '常磐線快速': 'delay', 'ゆりかもめ': 'suspend' } },
-    through: { label: '東急・メトロ直通ネットワーク乱れ', text: '直通運転区間の車両遅れの影響で', lines: { '東急東横線': 'delay', '副都心線': 'delay', '西武池袋線': 'delay', '東武東上線': 'delay' } },
-    reset: { label: '全線一括復旧（平常運転に戻す）', lines: {}, reset: true }
+  TEXT: {
+    delay: name => `（模擬）${name}は、車両点検の影響で、上下線の一部列車に遅れが出ています。`,
+    suspend: name => `（模擬）${name}は、駅構内での安全確認および車両故障の影響で、一部区間で運転を見合わせています。運転再開は${Sim.eta(40)}を見込んでいます。振替輸送を実施しています。`
+  },
+  /* 広域トラブルの一括シナリオ4種 */
+  buildScenario(key) {
+    if (key === 'core') {
+      const e1 = this.eta(45), e2 = this.eta(35);
+      return {
+        label: '都心ターミナル大規模障害',
+        data: {
+          '山手線': { status: 'suspend', detail: `（模擬）山手線は、新宿駅での人身事故の影響で、内・外回り電車で運転を見合わせています。運転再開は${e1}を見込んでいます。振替輸送を実施しています。` },
+          '中央線快速': { status: 'suspend', detail: `（模擬）中央線快速は、新宿駅での人身事故の影響で、東京〜高尾駅間の上下線で運転を見合わせています。運転再開は${e1}を見込んでいます。振替輸送を実施しています。` },
+          '京浜東北線': { status: 'suspend', detail: `（模擬）京浜東北線は、東京駅付近での停電の影響で、大宮〜大船駅間で運転を見合わせています。運転再開は${e2}を見込んでいます。振替輸送を実施しています。` },
+          '埼京線': { status: 'delay', detail: '（模擬）埼京線は、新宿駅での信号確認および混雑の影響で、上下線に大幅な遅れが出ています。振替輸送を実施しています。' },
+          '丸ノ内線': { status: 'delay', detail: '（模擬）丸ノ内線は、JR線からの振替輸送による混雑の影響で、上下線の一部列車に遅れが出ています。' },
+          '総武快速線': { status: 'delay', detail: '（模擬）総武快速線は、東京駅での接続調整および乗降混雑の影響で、一部列車に遅れが出ています。' }
+        }
+      };
+    }
+    if (key === 'typhoon') {
+      const e1 = this.eta(60), e2 = this.eta(50);
+      return {
+        label: '台風・強風による湾岸・郊外線遅延',
+        data: {
+          '京葉線': { status: 'suspend', detail: `（模擬）京葉線は、台風接近に伴う強風の影響で、東京〜蘇我駅間の全線で運転を見合わせています。運転再開は${e1}を見込んでいます。振替輸送を実施しています。` },
+          'ゆりかもめ': { status: 'suspend', detail: `（模擬）ゆりかもめは、強風の影響で、新橋〜豊洲駅間の全線で運転を見合わせています。運転再開は${e2}を見込んでいます。振替輸送を実施しています。` },
+          '外房線': { status: 'suspend', detail: `（模擬）外房線は、大雨および強風の影響で、千葉〜安房鴨川駅間で運転を見合わせています。運転再開は${e1}を見込んでいます。` },
+          '東海道線': { status: 'partial', detail: '（模擬）東海道線は、強風および大雨の影響で、東京〜小田原駅間の一部列車を運休しています。振替輸送を実施しています。' },
+          '武蔵野線': { status: 'delay', detail: '（模擬）武蔵野線は、強風に伴う速度規制の影響で、上下線に遅れが出ています。' },
+          '常磐線快速': { status: 'delay', detail: '（模擬）常磐線快速は、強風に伴う速度規制の影響で、上野〜取手駅間の上下線に遅れが出ています。' },
+          '東京モノレール': { status: 'delay', detail: '（模擬）東京モノレールは、強風の影響で、浜松町〜羽田空港駅間の一部列車に遅れが出ています。' }
+        }
+      };
+    }
+    if (key === 'through') {
+      const e1 = this.eta(30);
+      return {
+        label: '東急・メトロ直通ネットワーク乱れ',
+        data: {
+          '東急東横線': { status: 'suspend', detail: `（模擬）東急東横線は、武蔵小杉駅での信号トラブルの影響で、渋谷〜横浜駅間で運転を見合わせています。運転再開は${e1}を見込んでいます。東京メトロ副都心線との直通運転を中止し、振替輸送を実施しています。` },
+          '東急新横浜線': { status: 'partial', detail: '（模擬）東急新横浜線は、東急東横線内での信号トラブルの影響で、一部列車を運休しています。振替輸送を実施しています。' },
+          '副都心線': { status: 'delay', detail: '（模擬）副都心線は、東急東横線との直通運転中止の影響で、和光市〜渋谷駅間の上下線に遅れが出ています。振替輸送を実施しています。' },
+          'みなとみらい線': { status: 'delay', detail: '（模擬）みなとみらい線は、東急東横線内での信号トラブルの影響で、上下線に遅れが出ています。' },
+          '東急目黒線': { status: 'delay', detail: '（模擬）東急目黒線は、武蔵小杉駅での安全確認の影響で、一部列車に遅れが出ています。' },
+          '西武池袋線': { status: 'delay', detail: '（模擬）西武池袋線は、直通先でのダイヤ乱れに伴い、一部列車に遅れが出ています。' },
+          '東武東上線': { status: 'delay', detail: '（模擬）東武東上線は、直通運転区間の列車遅れの影響で、一部列車に遅れが出ています。' }
+        }
+      };
+    }
+    if (key === 'reset') return { label: '全線一括復旧リセット', data: {}, reset: true };
+    return null;
   },
   init() {
-    document.getElementById('simLine').innerHTML = LINES.map(L => `<option value="${esc(L.ja)}">${esc(L.ja)}</option>`).join('');
+    document.getElementById('simLine').innerHTML = LINES.map(L => `<option value="${esc(L.ja)}">[${esc(L.code)}] ${esc(L.ja)}</option>`).join('');
     document.getElementById('btnSim').onclick = () => Modals.open('modalSim');
     document.getElementById('modalSim').addEventListener('click', e => {
       const b = e.target.closest('[data-sim]'); if (b) this.run(b.dataset.sim);
       const c = e.target.closest('[data-scn]'); if (c) this.scenario(c.dataset.scn);
     });
   },
-  apply(next, msg, afterMsg) {
+  apply(next, msg, afterFn) {
     Store.data = next;
+    UI.fallbackReady = true;
+    UI.schedule();
     MapView.applyStatuses();
-    UI.afterData();                       // 新しい異常の検知・チャイム・音声案内・履歴をそのまま動かす
+    UI.afterData();
+    if (Search.isOpen()) Search.render();
+    if (Detail.isOpen()) Detail.render();
     document.getElementById('simMsg').textContent = msg;
-    if (afterMsg) afterMsg();
+    if (afterFn) afterFn();
   },
   run(kind) {
-    if (kind === 'refresh') { UI.refresh(true); document.getElementById('simMsg').textContent = '実データを取得しています'; return; }
+    if (kind === 'refresh') { UI.refresh(true); document.getElementById('simMsg').textContent = '実データを再取得しています…'; return; }
     const name = document.getElementById('simLine').value;
     const next = { ...Store.data };
     if (kind === 'resume') delete next[name];
     else next[name] = { status: kind === 'delay' ? 'delay' : 'suspend', detail: this.TEXT[kind](name) };
-    this.apply(next, kind === 'resume' ? `${name}を運転再開にしました` : `${name}に模擬の運行情報を出しました`,
-      kind === 'resume' ? null : () => { Modals.closeAll(); Detail.open(name); });
+    this.apply(next, kind === 'resume' ? `${name}を平常運転に復旧しました` : `${name}に模擬の運行情報を発生させました`,
+      kind === 'resume' ? () => UI.toast(`${name}を平常運転に戻しました`) : () => { Modals.closeAll(); Detail.open(name); });
   },
   scenario(key) {
-    const sc = this.SCENARIOS[key]; if (!sc) return;
-    const next = sc.reset ? {} : { ...Store.data };
-    if (!sc.reset) Object.entries(sc.lines).forEach(([n, st]) => {
-      if (!lineByName(n)) return;
-      next[n] = { status: st, detail: st === 'suspend'
-        ? `（模擬）${n}は、${sc.text}一部区間で運転を見合わせています。振替輸送を実施しています。`
-        : `（模擬）${n}は、${sc.text}列車に遅れが出ています。` };
+    const sc = this.buildScenario(key); if (!sc) return;
+    if (sc.reset) Detour.clear();
+    const count = Object.keys(sc.data).length;
+    const msg = sc.reset ? '全89路線を平常運転へ一括復旧リセットしました' : `シナリオ「${sc.label}」（${count}路線連動）を適用しました`;
+    this.apply(sc.data, msg, () => {
+      Modals.closeAll();
+      UI.toast(msg);
     });
-    this.apply(next, `${sc.label}を表示しました（模擬）`, () => { Modals.closeAll(); });
   }
 };
 
@@ -2741,35 +3210,55 @@ const Jump = {
   }
 };
 
-/* ---------- 運行の読み取り：再開見込み・影響度・深夜ウォッチ ---------- */
+/* ---------- 運行の読み取り：運転再開見込み時刻の自動抽出 ＆ 3段階影響度判定 ＆ 深夜ウォッチ ---------- */
 const Insight = {
-  /* 本文から再開見込みの時刻を探す（「再開」の近くの時刻、または「頃」の付いた時刻） */
-  resume(text) {
-    const t = String(text || ''), idx = t.indexOf('再開');
-    const re = /(\d{1,2})\s*(?:時|:|：)\s*(\d{1,2})?\s*分?/g;
-    let m, best = null, bestD = Infinity;
-    while ((m = re.exec(t))) {
-      const h = +m[1], mi = m[2] !== undefined ? +m[2] : 0;
-      if (h > 23 || mi > 59) continue;
-      const after = t.slice(m.index + m[0].length, m.index + m[0].length + 2);
-      if (idx < 0 && !after.includes('頃')) continue;
-      const d = idx < 0 ? 0 : Math.abs(m.index - idx);
-      if (idx >= 0 && d > 40) continue;
-      if (d < bestD) { bestD = d; best = `${pad(h)}:${pad(mi)}`; }
-    }
-    return best;
+  fmtHm(ampm, hRaw, mRaw) {
+    let h = Number(hRaw), mi = mRaw !== undefined && mRaw !== '' ? Number(mRaw) : 0;
+    if (!Number.isFinite(h) || !Number.isFinite(mi) || mi < 0 || mi > 59) return null;
+    if (ampm === '午後' && h >= 1 && h <= 11) h += 12;
+    if (ampm === '午前' && h === 12) h = 0;
+    if (h < 0 || h > 27) return null;
+    return `${pad(h % 24)}:${pad(mi)}`;
   },
-  /* 影響度：3段階（軽微／注意／深刻・混雑警戒） */
+  /* 本文から運転再開見込み時刻（14時30分頃 / 15:00頃 / 全角数字 / 午後表記）を誤爆なく抽出 */
+  resume(text) {
+    const t = String(text || '').normalize('NFKC');
+    if (!t || /再開(?:見込み|予定|時刻)?は?未定/.test(t)) return null;
+    const p1 = /(?:運転再開|再開見込[み]?|再開予定|再開は|復旧は|復旧見込[み]?)[^。0-9]{0,24}?(午前|午後)?\s*(\d{1,2})\s*(?:時|:|：)\s*(\d{1,2})?\s*分?\s*(?:頃|ごろ|予定|見込|めど|目処)?/.exec(t);
+    if (p1) { const v = this.fmtHm(p1[1], p1[2], p1[3]); if (v) return v; }
+    const p2 = /(午前|午後)?\s*(\d{1,2})\s*(?:時|:|：)\s*(\d{1,2})?\s*分?\s*(?:頃|ごろ|予定|めど|目処)?[^。]{0,18}?(?:運転再開|再開見込|再開予定|再開を見込|復旧見込)/.exec(t);
+    if (p2) { const v = this.fmtHm(p2[1], p2[2], p2[3]); if (v) return v; }
+    const re = /(午前|午後)?\s*(\d{1,2})\s*(?:時|:|：)\s*(\d{1,2})?\s*分?\s*(頃|ごろ)/g;
+    let m;
+    while ((m = re.exec(t))) {
+      const tail = t.slice(m.index + m[0].length, m.index + m[0].length + 14);
+      if (/^[、,\s]*(?:[^\s。]{1,10}で)?(?:発生|確認|現在)/.test(tail)) continue;
+      const v = this.fmtHm(m[1], m[2], m[3]);
+      if (v) return v;
+    }
+    return null;
+  },
+  /* 影響度：原因キーワードと運行状態から3段階（軽微 / 注意 / 深刻・混雑警戒）を自動判定 */
   impact(s) {
-    const t = String(s.detail || '');
-    if (s.status === 'suspend' || /人身事故|大規模|全線|終日|脱線|火災|停電|台風|架線/.test(t)) return { level: 3, ja: '深刻・混雑警戒', cls: 'sev3' };
-    if (s.status === 'delay' || s.status === 'partial' || /信号|車両故障|点検|強風|大雨|混雑|遅れ/.test(t)) return { level: 2, ja: '注意', cls: 'sev2' };
-    return { level: 1, ja: '軽微', cls: 'sev1' };
+    const t = String((s && s.detail) || '').normalize('NFKC');
+    if (!s || s.status === 'normal') return { level: 0, ja: '平常', cls: 'sev1', icon: 'check_circle' };
+    if (s.status === 'suspend' || /人身事故|脱線|火災|停電|き電|饋電|架線|大規模|全線|終日|台風|地震|倒木|土砂|冠水/.test(t)) {
+      return { level: 3, ja: '深刻・混雑警戒', cls: 'sev3', icon: 'crisis_alert' };
+    }
+    if (s.status === 'partial' || /車両故障|故障|信号|踏切|強風|大雨|豪雨|大雪|大幅|直通運転.*中止|振替輸送|急病人.*複数/.test(t)) {
+      return { level: 2, ja: '注意', cls: 'sev2', icon: 'error' };
+    }
+    return { level: 1, ja: '軽微', cls: 'sev1', icon: 'info' };
+  },
+  impactChipHtml(s) {
+    if (!s || s.status === 'normal') return '';
+    const im = this.impact(s);
+    return `<span class="imp-chip ${im.cls}"><span class="material-symbols-outlined">${im.icon}</span>影響度：${im.ja}</span>`;
   },
   chipsHtml(s) {
     if (!s || s.status === 'normal') return '';
-    const r = this.resume(s.detail), im = this.impact(s);
-    return `${r ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${r}頃</span>` : ''}<span class="imp-chip ${im.cls}">影響：${im.ja}</span>`;
+    const r = this.resume(s.detail);
+    return `${r ? `<span class="res-chip"><span class="material-symbols-outlined">schedule</span>再開見込み ${esc(r)}頃</span>` : ''}${this.impactChipHtml(s)}`;
   },
   /* 深夜・終電ウォッチ：22:30〜01:30、または設定でONのとき */
   nightActive() { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m >= 1350 || m < 90; },
@@ -2789,32 +3278,70 @@ const Insight = {
   }
 };
 
-/* ---------- 運行状況の共有（報告テキストの生成・共有シート／コピー） ---------- */
+/* ---------- ワンタップ運行状況共有（報告テキスト自動生成・navigator.share / クリップボードコピー） ---------- */
 const Share = {
   line(name) {
-    const L = lineByName(name), s = Store.of(name), now = new Date();
-    if (s.status === 'normal') return `【鉄道運行情報】${L.ja}は平常どおり運転しています。（${pad(now.getHours())}:${pad(now.getMinutes())}時点）`;
-    const first = String(s.detail || '').split('。')[0].replace(/^（模擬）/, '');
-    const parts = [STATUS[s.status].ja];
-    const r = Insight.resume(s.detail); if (r) parts.push(`再開見込み ${r}頃`);
-    if (/振替輸送/.test(s.detail || '')) parts.push('振替輸送あり');
-    const el = Elapsed.text(name);
-    return `【鉄道運行情報】${first || `${L.ja}は${STATUS[s.status].ja}です`}。（${parts.join(' / ')}）${el ? ' ' + el : ''}`;
+    const L = lineByName(name); if (!L) return '';
+    const s = Store.of(name), now = new Date();
+    if (s.status === 'normal') return `【鉄道運行情報】${L.ja}は、現在平常通り運転しています（${pad(now.getHours())}:${pad(now.getMinutes())}時点）。`;
+    let first = String(s.detail || '').replace(/^（模擬）\s*/, '').split('。')[0].trim();
+    if (!first) first = `${L.ja}は、${STATUS[s.status].ja}となっています`;
+    else if (!first.startsWith(L.ja)) first = `${L.ja}は、${first}`;
+    const meta = [];
+    const r = Insight.resume(s.detail);
+    if (r) meta.push(`再開見込み ${r}頃`);
+    if (/振替輸送/.test(s.detail || '')) meta.push('振替輸送あり');
+    const im = Insight.impact(s);
+    if (!meta.length) meta.push(`影響度：${im.ja}`);
+    return `【鉄道運行情報】${first}（${meta.join(' / ')}）。`;
   },
   route(r) {
-    const bad = r.lines.map(n => ({ n, s: Store.of(n) })).filter(x => x.s.status !== 'normal');
-    if (!bad.length) return `【マイルート：${r.name}】利用路線は平常どおり運転しています。`;
-    return `【マイルート：${r.name}】` + bad.map(x => {
-      const r2 = Insight.resume(x.s.detail);
-      return `${x.n}：${STATUS[x.s.status].ja}${r2 ? `（再開見込み ${r2}頃）` : ''}`;
-    }).join('、');
+    const bad = r.lines.map(n => ({ n, L: lineByName(n), s: Store.of(n) })).filter(x => x.s.status !== 'normal');
+    const now = new Date(), ts = `${pad(now.getHours())}:${pad(now.getMinutes())}時点`;
+    if (!bad.length) return `【鉄道運行情報｜マイルート：${r.name}】利用路線（${r.lines.join('・')}）はすべて平常通り運転しています（${ts}）。`;
+    const items = bad.map(({ n, L, s }) => {
+      const rs = Insight.resume(s.detail);
+      const furikae = /振替輸送/.test(s.detail || '');
+      const alts = L ? (L.alt || []).filter(a => Store.of(a).status === 'normal').slice(0, 2) : [];
+      const tags = [STATUS[s.status].ja];
+      if (rs) tags.push(`再開見込み ${rs}頃`);
+      if (furikae) tags.push('振替輸送あり');
+      if (alts.length) tags.push(`代替候補：${alts.join('・')}`);
+      return `${n}は${Cause.classify(s.detail).ja}の影響で${STATUS[s.status].ja}（${tags.slice(1).join(' / ') || `影響度：${Insight.impact(s).ja}`}）`;
+    });
+    return `【鉄道運行情報｜${r.name}】${items.join('／')}。`;
+  },
+  copyFallback(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+    return ok;
   },
   async send(text) {
+    if (!text) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: '鉄道運行情報', text });
+        UI.toast('運行状況を共有しました');
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // ユーザーによるキャンセル時のみ終了し、それ以外はコピーへフォールバック
+      }
+    }
     try {
-      if (navigator.share) { await navigator.share({ title: '鉄道運行情報', text }); UI.toast('共有しました'); return; }
-    } catch (_) { /* 共有を取り消した場合はコピーに切り替えない */ return; }
-    try { await navigator.clipboard.writeText(text); UI.toast('報告文をコピーしました'); }
-    catch (_) { UI.toast('コピーできませんでした。表示された文を手動で選んでください'); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        UI.toast(`報告文をコピーしました：${text}`);
+        return;
+      }
+    } catch (_) {}
+    if (this.copyFallback(text)) UI.toast(`報告文をコピーしました：${text}`);
+    else UI.toast('コピーできませんでした：' + text);
   }
 };
 
@@ -2823,7 +3350,9 @@ const Phone = {
   mq: null, sheetOpen: false,
   ITEMS: [
     { sec: '表示', items: [
-      { id: 'dual', ja: '2画面LCD', icon: 'view_sidebar', state: () => !!Settings.get('dual'), act: () => document.getElementById('btnDual').click() },
+      { id: 'lcdtheme', ja: '車内LCDテーマ切替', icon: 'tv', state: () => { const o = OPT_LCD_THEME.find(x => x[0] === Settings.get('lcdTheme')); return o ? o[0].toUpperCase() : 'AUTO'; }, act: () => MV.activate('lcdTheme') },
+      { id: 'dual', ja: '2画面LCD（16:9）', icon: 'view_sidebar', state: () => !!Settings.get('dual'), act: () => document.getElementById('btnDual').click() },
+      { id: 'minitags', ja: '路線図の異常ミニラベル', icon: 'label', state: () => !!Settings.get('miniTags'), act: () => Settings.set('miniTags', !Settings.get('miniTags')) },
       { id: 'cycle', ja: '自動切替', icon: 'autorenew', state: () => !!Settings.get('autoCycle'), act: () => document.getElementById('btnCycle').click() },
       { id: 'focus', ja: '異常のみ強調', icon: 'warning', state: () => !!Settings.get('focus'), act: () => document.getElementById('btnFocus').click() },
       { id: 'clock', ja: 'LCD時計', icon: 'schedule', state: () => ClockMode.isOpen(), act: () => document.getElementById('btnClock').click() },
@@ -2859,7 +3388,7 @@ const Phone = {
     document.body.classList.toggle('is-phone', this.mq.matches);
     if (!this.mq.matches) this.closeSheet(false);
     this.sync();
-    if (Engine.canvas) Engine.resize();
+    if (Engine.canvas) Engine.scheduleResize(200);
   },
   setActive(key) {
     document.querySelectorAll('#phoneNav [data-pn]').forEach(b => {
@@ -2899,7 +3428,8 @@ const Phone = {
     document.getElementById('pnList').innerHTML = this.ITEMS.map(sec =>
       `<div class="pn-sec">${esc(sec.sec)}</div>` + sec.items.map(it => {
         const st = it.state ? it.state() : null;
-        return `<button class="pn-row" data-pn-id="${it.id}"><span class="material-symbols-outlined">${it.icon}</span><span class="pn-row-lbl">${esc(it.ja)}</span>${st === null ? '' : `<span class="pn-state${st ? ' on' : ''}">${st ? 'ON' : 'OFF'}</span>`}</button>`;
+        const badge = st === null ? '' : typeof st === 'string' ? `<span class="pn-state on">${esc(st)}</span>` : `<span class="pn-state${st ? ' on' : ''}">${st ? 'ON' : 'OFF'}</span>`;
+        return `<button class="pn-row" data-pn-id="${it.id}"><span class="material-symbols-outlined">${it.icon}</span><span class="pn-row-lbl">${esc(it.ja)}</span>${badge}</button>`;
       }).join('')).join('');
   },
   item(id) {
